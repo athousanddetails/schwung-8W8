@@ -1,0 +1,7 @@
+build/
+build-native/
+dist/
+reference/
+sc/
+.DS_Store
+renders/
