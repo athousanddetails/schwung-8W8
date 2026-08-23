@@ -1,0 +1,21 @@
+{
+    "id": "8w8",
+    "name": "8W8",
+    "abbrev": "8W8",
+    "version": "0.1.0",
+    "description": "TR-808 style drum machine - 15 synthesized voices, no samples. Kick, snare, toms, congas, rim/clave, maracas, clap, cowbell, hats and cymbal. Per-voice and master distortion.",
+    "author": "athousanddetails; voices transcribed from sc808 (Yoshinosuke Horiuchi / Sam Aaron, Sonic Pi)",
+    "dsp": "dsp.so",
+    "api_version": 2,
+    "component_type": "sound_generator",
+    "min_host_version": "0.12.1",
+    "capabilities": {
+        "audio_out": true,
+        "audio_in": false,
+        "midi_in": true,
+        "midi_out": false,
+        "chainable": true,
+        "component_type": "sound_generator",
+        "default_forward_channel": 1
+    }
+}
