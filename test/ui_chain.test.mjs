@@ -71,6 +71,51 @@ JSON.parse(CHAIN_PARAMS); JSON.parse(UI_PAGES);
   check(!bad, "PAD2LANE indices match the DSP's lane order" + (bad ? " — " + bad : ""));
 }
 
+/* ---- the remote panel's parameter keys must all exist -----------------
+ *
+ * web_ui.html names its keys as string literals and as `id + "_suffix"`. A
+ * typo in either is a knob that draws, drags, and writes to a key the DSP has
+ * never heard of — silent, and invisible until somebody notices that control
+ * does nothing. Nothing else checks this, so it is checked here.
+ */
+{
+  const html = fs.readFileSync(path.join(ROOT, "src/web_ui.html"), "utf8");
+  const known = new Set(JSON.parse(CHAIN_PARAMS).map(p => p.key));
+  /* keys the panel uses that are plugin-level, not chain_params rows */
+  const plugin = new Set(["mute_ms"]);
+
+  /* the lane ids the panel builds its templated keys from */
+  const lanesSrc = html.slice(html.indexOf("var LANES = ["), html.indexOf("var LANE_MASK"));
+  const ids = [...lanesSrc.matchAll(/id:\s*"([a-z]+)"/g)].map(m => m[1]);
+  check(ids.length === 15, `panel declares 15 lanes (got ${ids.length})`);
+
+  /* `id + "_suffix"` call sites */
+  const suffixes = [...html.matchAll(/id \+ "(_[a-z_]+)"/g)].map(m => m[1]);
+  const missing = [];
+  for (const id of ids)
+    for (const suf of new Set(suffixes))
+      if (!known.has(id + suf)) missing.push(id + suf);
+
+  /* bare string literals passed to knob()/sel() as the key */
+  for (const m of html.matchAll(/(?:knob|sel)\((?:top|master|voiceRow|parent),\s*"([a-z_0-9]+)"/g))
+    if (!known.has(m[1]) && !plugin.has(m[1])) missing.push(m[1]);
+  /* keys read or written directly through the bridge */
+  for (const m of html.matchAll(/key\("([a-z_0-9]+)"\)/g))
+    if (!known.has(m[1]) && !plugin.has(m[1])) missing.push(m[1]);
+  /* the `extras` tables */
+  for (const m of lanesSrc.matchAll(/\["([a-z_0-9]+)"\s*,\s*"/g))
+    if (!known.has(m[1])) missing.push(m[1]);
+
+  check(missing.length === 0,
+        "every key web_ui.html touches exists in chain_params" +
+        (missing.length ? " — missing: " + [...new Set(missing)].join(", ") : ""));
+
+  /* and the panel must cover every lane the DSP has, in the DSP's order */
+  const order = ["bd","sd","lt","mt","ht","lc","mc","hc","rs","ma","cp","cb","ch","oh","cy"];
+  check(JSON.stringify(ids) === JSON.stringify(order),
+        "panel lane order matches the DSP's enum (mute bits and ui_focus depend on it)");
+}
+
 /* ---- host mock ---- */
 const params = { "synth:chain_params": CHAIN_PARAMS, "synth:ui_pages": UI_PAGES,
                  "synth:mutes": "0" };

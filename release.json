@@ -1,0 +1,7 @@
+{
+  "version": "0.1.0",
+  "download_url": "https://github.com/athousanddetails/schwung-8W8/releases/download/v0.1.0/8w8-module.tar.gz",
+  "name": "8W8",
+  "description": "TR-808 style drum machine - 15 synthesized voices, no samples. Circuit-modelled kick, drive and distortion on every drum and the master.",
+  "repo_url": "https://github.com/athousanddetails/schwung-8W8"
+}

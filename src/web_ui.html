@@ -1,0 +1,332 @@
+<!doctype html>
+<!--
+  8W8 remote panel — served by schwung-manager at /remote-ui when 8W8 is the
+  slot's synth. Talks to the device through the schwungRemote postMessage
+  bridge; every continuous control is a 0-127 pot, mirroring the hardware.
+
+  Laid out after the TR-808 itself: silver panel, black legend, and the
+  instrument row carrying the 808's own colour run — red through orange and
+  amber to cream — which is the single most recognisable thing about the
+  machine and costs nothing to get right.
+
+  No step strip. The DSP's built-in step lanes are driven by Move's own step
+  buttons through the chain patch, and a second editor for them here
+  double-hits anything also programmed on Move. The panel FOLLOWS the device
+  instead: hit a pad and the instrument changes here too, because the
+  on-device editor publishes the page it follows as synth:ui_focus.
+
+  Ported from 6W6's panel with an 808 roster. GPL-3.0.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8W8</title>
+<style>
+  :root {
+    --silver:  #d8d8d4;          /* brushed panel               */
+    --silver2: #c6c6c1;          /* lower panel, a shade darker */
+    --ink:     #111;             /* legend                      */
+    --red:     #d8352a;          /* mute, LEDs                  */
+    --strip:   #161616;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #222; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+         padding: 14px; color: var(--ink); }
+  .machine { max-width: 1240px; margin: 0 auto; background: #3a3a3a;
+             border: 2px solid #000; border-radius: 10px; padding: 8px; }
+  .panel { background: linear-gradient(180deg, #e2e2de 0%, var(--silver) 40%, #d0d0cb 100%);
+           border: 1px solid #8a8a86; border-radius: 4px; padding: 8px 12px; margin-bottom: 6px; }
+  .panel.lower { background: linear-gradient(180deg, #d4d4d0, var(--silver2)); }
+  .row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; justify-content: space-between; }
+  .brand .logo { font-size: 30px; font-weight: 900; letter-spacing: 1px; }
+  .brand .model { font-size: 26px; font-weight: 300; letter-spacing: 1px; }
+  .brand .model b { font-weight: 900; }
+  .legend { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+            text-align: center; white-space: nowrap; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 62px; }
+  .cell.wide { width: 88px; }
+  /* The level strip carries seventeen knobs — accent, fifteen instruments and
+   * volume — so its cells are narrower than the voice page's. At the default
+   * width they would otherwise wrap and drop Volume onto a line of its own. */
+  #levels .cell { width: 50px; }
+  #levels .cell.wide { width: 72px; }
+  #levels .knob { width: 34px; height: 34px; }
+  #levels .knob .ptr { height: 12px; }
+  .val { font-size: 9px; color: #333; height: 10px; }
+  .knob { position: relative; width: 38px; height: 38px; border-radius: 50%;
+          background: radial-gradient(circle at 50% 45%, #f4f4f2 0 34%, #bbbbb8 35% 48%, #1a1a1a 49% 100%);
+          border: 1px solid #000; cursor: ns-resize; touch-action: none; }
+  .knob.big { width: 56px; height: 56px; }
+  .knob .ptr { position: absolute; left: 50%; top: 50%; width: 2px; height: 14px;
+               background: #000; transform-origin: 50% 0%; }
+  .knob.big .ptr { height: 21px; }
+  .ticks { position: absolute; inset: -6px; border-radius: 50%;
+           background: repeating-conic-gradient(from -135deg, #333 0 1deg, transparent 1deg 27deg);
+           -webkit-mask: radial-gradient(circle, transparent 57%, #000 58%);
+           mask: radial-gradient(circle, transparent 57%, #000 58%);
+           pointer-events: none; }
+  select { width: 66px; height: 22px; border: 1px solid #000; border-radius: 3px;
+           background: #ebebe8; font-weight: 700; font-size: 10px; }
+  .sep { width: 1px; align-self: stretch; background: #8a8a86; margin: 0 4px; }
+  .grow { flex: 1; }
+
+  /* The instrument row, in the 808's own colours. On the hardware this run is
+   * the sixteen step buttons; here it is the fifteen instruments plus the
+   * mute, which is the same number of things in the same order and reads
+   * instantly as an 808. */
+  .inst { display: flex; gap: 3px; flex-wrap: wrap; }
+  .inst button { font: 700 9px/1 Helvetica, Arial; letter-spacing: .5px; padding: 7px 6px;
+                 border: 1px solid #000; border-radius: 2px; cursor: pointer;
+                 min-width: 42px; color: #111; box-shadow: inset 0 -2px 0 rgba(0,0,0,.18); }
+  .inst button.on { outline: 2px solid #111; outline-offset: 1px; }
+  .inst button .n { display: block; font-size: 7px; font-weight: 400; opacity: .65; }
+  .mute { font: 700 10px/1 Helvetica, Arial; padding: 8px 10px; border: 1px solid #000;
+          border-radius: 3px; background: #ebebe8; cursor: pointer; letter-spacing: 1px; }
+  .mute.on { background: var(--red); color: #fff; }
+
+  .strip { background: var(--strip); border: 2px solid #000; border-radius: 4px;
+           padding: 10px 12px 8px; color: #eee; }
+  .strip .hdr { display: flex; justify-content: space-between; align-items: center;
+                font-size: 9px; letter-spacing: 1.5px; margin-bottom: 8px; color: #ddd; }
+  .foot { font-size: 9px; color: #bbb; text-align: right; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="machine">
+
+  <div class="panel">
+    <div class="brand"><div class="logo">8W8</div><div class="model">Rhythm Composer</div></div>
+    <div class="row" id="levels" style="margin-top:6px"></div>
+  </div>
+
+  <div class="panel lower">
+    <div class="row" style="align-items:center; margin-bottom:8px">
+      <div class="legend">Instrument</div>
+      <div class="inst" id="inst"></div>
+      <div class="grow"></div>
+      <button class="mute" id="mute">MUTE</button>
+      <div class="sep"></div>
+      <div class="model" style="font-size:18px"><b>TR</b>-808 <span style="font-size:11px; font-weight:400">Computer Controlled</span></div>
+    </div>
+    <div class="row" id="voice"></div>
+    <div class="row" id="master" style="margin-top:10px; padding-top:8px; border-top:1px solid #8a8a86"></div>
+  </div>
+
+  <div class="strip">
+    <div class="hdr"><span id="lane-name">BASS DRUM</span><span>FOLLOWS THE PAD YOU HIT ON MOVE</span><span></span></div>
+    <div class="foot">by athousanddetails &middot; voices transcribed from sc808 (MIT) &middot; kick after Werner, Abel &amp; Smith &middot; drag knobs vertically, double-click to reset</div>
+  </div>
+</div>
+
+<script src="/static/schwung-remote-api.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* Degrade instead of dying if the bridge script is missing (headless
+   * screenshot, or schwung-manager not serving /static): every control still
+   * draws, nothing is sent anywhere. */
+  if (!window.schwungRemote) {
+    var noop = function () { return { then: function () {} }; };
+    window.schwungRemote = { getParam: noop, setParam: function () {},
+                             onParamChange: function () {} };
+  }
+
+  var DIST   = ["Diode", "Clip", "Fold", "Crush"];
+  var MDIST  = ["Off", "Diode", "Clip", "Fold", "Crush"];
+  var CHOKE  = ["Off", "CH>OH", "Mutual"];
+  var RSMODE = ["Rim", "Clave"];
+  var BDENG  = ["Circuit", "sc808"];
+
+  /* Lanes, in the DSP's order — which is also the pad order and the mute-bit
+   * order. `col` is the 808's button colour run. */
+  var LANES = [
+    { id: "bd", name: "BASS DRUM",  col: "#c9463a",
+      extras: [["bd_attack","Attack"],["bd_tone","Tone"],["bd_engine","Engine",BDENG]] },
+    { id: "sd", name: "SNARE DRUM", col: "#cf5138",
+      extras: [["sd_snappy","Snappy"],["sd_tone","Tone"]] },
+    { id: "lt", name: "LOW TOM",    col: "#d55c36", extras: [] },
+    { id: "mt", name: "MID TOM",    col: "#db6734", extras: [] },
+    { id: "ht", name: "HI TOM",     col: "#e07432", extras: [] },
+    { id: "lc", name: "LOW CONGA",  col: "#e48130", extras: [] },
+    { id: "mc", name: "MID CONGA",  col: "#e88f2f", extras: [] },
+    { id: "hc", name: "HI CONGA",   col: "#ec9d2e", extras: [] },
+    { id: "rs", name: "RIM / CLAVE",col: "#efab30",
+      extras: [["rs_mode","Mode",RSMODE]] },
+    { id: "ma", name: "MARACAS",    col: "#f2b93a",
+      extras: [["ma_attack","Attack"]] },
+    { id: "cp", name: "HAND CLAP",  col: "#f4c650",
+      extras: [["cp_spread","Spread"],["cp_room","Room"]] },
+    { id: "cb", name: "COWBELL",    col: "#f2d174", extras: [] },
+    { id: "ch", name: "CLOSED HAT", col: "#eddb9e",
+      extras: [["hh_choke","Choke",CHOKE]] },
+    { id: "oh", name: "OPEN HAT",   col: "#e9e2c2", extras: [] },
+    { id: "cy", name: "CYMBAL",     col: "#e6e6de", extras: [["cy_tone","Tone"]] }
+  ];
+  /* Fifteen lanes: the mute mask needs fifteen bits. A byte here would
+   * silently drop the top four instruments from every mute. */
+  var LANE_MASK = 0x7FFF;
+  var MASTER_LANE = 15;
+
+  var state = {}, widgets = {}, mutesMask = 0, lane = 0;
+  function key(k) { return "synth:" + k; }
+  function addWidget(k, fn) { (widgets[k] = widgets[k] || []).push(fn); }
+  function send(k, v) {
+    state[k] = v; schwungRemote.setParam(key(k), String(v));
+    (widgets[k] || []).forEach(function (fn) { fn(v); });
+  }
+  function apply(k, raw) {
+    if (k === "ui_focus") {
+      var ln = parseInt(raw, 10);          /* 0-14 lane, 15 = master */
+      if (ln >= 0 && ln < LANES.length && ln !== lane) selectLane(ln);
+      return;
+    }
+    var v = parseInt(raw, 10); if (isNaN(v)) return;
+    if (k === "mutes") { mutesMask = v; renderMute(); return; }
+    if (widgets[k]) { state[k] = v; widgets[k].forEach(function (fn) { fn(v); }); }
+  }
+
+  /* ---- widgets ---- */
+  function knob(parent, k, label, big) {
+    var cell = document.createElement("div"); cell.className = "cell" + (big ? " wide" : "");
+    var lg = document.createElement("div"); lg.className = "legend"; lg.textContent = label;
+    var kn = document.createElement("div"); kn.className = "knob" + (big ? " big" : "");
+    var tk = document.createElement("div"); tk.className = "ticks";
+    var ptr = document.createElement("div"); ptr.className = "ptr";
+    kn.appendChild(tk); kn.appendChild(ptr);
+    var val = document.createElement("div"); val.className = "val";
+    function render(v) {
+      ptr.style.transform = "translate(-50%,0) rotate(" + (-135 + v / 127 * 270 + 180) + "deg)";
+      val.textContent = v;
+    }
+    addWidget(k, render);
+    var y0 = null, v0 = 0;
+    function move(e) {
+      if (y0 === null) return;
+      var y = e.touches ? e.touches[0].clientY : e.clientY;
+      var v = Math.max(0, Math.min(127, Math.round(v0 + (y0 - y) * 0.7)));
+      if (v !== state[k]) send(k, v);
+      e.preventDefault();
+    }
+    function up() { y0 = null;
+      window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchmove", move); window.removeEventListener("touchend", up); }
+    function down(e) {
+      y0 = e.touches ? e.touches[0].clientY : e.clientY; v0 = state[k] | 0;
+      window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+      window.addEventListener("touchmove", move, { passive: false });
+      window.addEventListener("touchend", up);
+      e.preventDefault();
+    }
+    kn.addEventListener("mousedown", down);
+    kn.addEventListener("touchstart", down, { passive: false });
+    /* reset = the DSP's own default, not a guessed 64 — 8W8's defaults are
+     * sc808's declared arguments and are nowhere near pot centre */
+    kn.addEventListener("dblclick", function () {
+      schwungRemote.setParam(key(k), "default");
+      setTimeout(function () {
+        schwungRemote.getParam(key(k)).then(function (v) { apply(k, v); });
+      }, 120);
+    });
+    cell.appendChild(lg); cell.appendChild(kn); cell.appendChild(val);
+    parent.appendChild(cell); render(state[k] | 0);
+  }
+  function sel(parent, k, label, opts) {
+    var cell = document.createElement("div"); cell.className = "cell";
+    var lg = document.createElement("div"); lg.className = "legend"; lg.textContent = label;
+    var s = document.createElement("select");
+    opts.forEach(function (o, i) {
+      var op = document.createElement("option"); op.value = i; op.textContent = o;
+      s.appendChild(op);
+    });
+    s.addEventListener("change", function () { send(k, s.value | 0); });
+    addWidget(k, function (v) { s.value = Math.min(v, opts.length - 1); });
+    cell.appendChild(lg); cell.appendChild(s); parent.appendChild(cell);
+    s.value = state[k] | 0;
+  }
+
+  /* ---- top strip: accent + one level knob per voice + volume ---- */
+  var top = document.getElementById("levels");
+  knob(top, "accent", "Accent");
+  var sepA = document.createElement("div"); sepA.className = "sep"; top.appendChild(sepA);
+  LANES.forEach(function (L) { knob(top, L.id + "_level", L.id.toUpperCase()); });
+  var sepV = document.createElement("div"); sepV.className = "sep"; top.appendChild(sepV);
+  knob(top, "volume", "Volume", true);
+
+  /* ---- instrument selector ---- */
+  var inst = document.getElementById("inst"), instBtns = [];
+  LANES.forEach(function (L, i) {
+    var b = document.createElement("button");
+    b.style.background = L.col;
+    b.innerHTML = '<span class="n">' + (i + 1) + '</span>' + L.id.toUpperCase();
+    b.title = L.name;
+    b.addEventListener("click", function () { selectLane(i); });
+    inst.appendChild(b); instBtns.push(b);
+  });
+  var muteBtn = document.getElementById("mute");
+  muteBtn.addEventListener("click", function () {
+    mutesMask = (mutesMask ^ (1 << lane)) & LANE_MASK;
+    schwungRemote.setParam(key("mutes"), String(mutesMask)); renderMute();
+  });
+  function renderMute() {
+    muteBtn.className = "mute" + ((mutesMask >> lane) & 1 ? " on" : "");
+  }
+
+  /* ---- the selected voice's controls ---- */
+  var voiceRow = document.getElementById("voice");
+  function buildVoice() {
+    voiceRow.innerHTML = "";
+    var L = LANES[lane], id = L.id;
+    knob(voiceRow, id + "_tune", "Tune");
+    knob(voiceRow, id + "_decay", "Decay");
+    L.extras.forEach(function (x) {
+      if (x[2]) sel(voiceRow, x[0], x[1], x[2]); else knob(voiceRow, x[0], x[1]);
+    });
+    var sp = document.createElement("div"); sp.className = "sep"; voiceRow.appendChild(sp);
+    knob(voiceRow, id + "_drive", "Drive");
+    sel(voiceRow, id + "_dist_type", "Distortion", DIST);
+  }
+
+  /* ---- master ---- */
+  var master = document.getElementById("master");
+  sel(master, "master_dist", "Master Dist", MDIST);
+  knob(master, "master_drive", "Master Drive");
+  var sp2 = document.createElement("div"); sp2.className = "sep"; master.appendChild(sp2);
+  sel(master, "hh_choke", "Hat Choke", CHOKE);
+  sel(master, "note_map", "Note Map", ["Rack 36", "GM"]);
+
+  function selectLane(i) {
+    lane = i;
+    instBtns.forEach(function (b, j) { b.className = j === i ? "on" : ""; });
+    document.getElementById("lane-name").textContent = LANES[i].name;
+    buildVoice(); renderMute();
+    seed();
+  }
+
+  /* ---- bridge ---- */
+  schwungRemote.onParamChange(function (params) {
+    Object.keys(params).forEach(function (full) {
+      if (full.indexOf("synth:") === 0) apply(full.substring(6), params[full]);
+    });
+  });
+  function seed() {
+    Object.keys(widgets).concat(["mutes", "ui_focus"]).forEach(function (k) {
+      schwungRemote.getParam(key(k)).then(function (v) {
+        if (v !== undefined && v !== null && v !== "") apply(k, v);
+      });
+    });
+  }
+  /* Follow the device: the on-device editor writes synth:ui_focus (lane
+   * index) on every pad it follows; the manager pushes writes and also
+   * re-reads it on its periodic refresh. Handled in apply() so seed, refresh
+   * and live stream take the same path. Lane 15 is Master, which has no
+   * instrument button — apply() ignores it and the panel stays put. */
+
+  selectLane(0);
+  setTimeout(seed, 400); setTimeout(seed, 1500);
+})();
+</script>
+</body>
+</html>
