@@ -109,7 +109,13 @@ PAGES = [
         # instead put the kick at midicps(34+34) = 415 Hz.
         TUNE("bd"),
         PV("bd_decay",  "Decay",   0.1,  8.0, EXP,  2.0),
-        PV("bd_attack", "Attack",  0.0,  1.0, LIN,  0.11),
+        # The one pot whose default is NOT sc808's argument, and deliberately.
+        # To the circuit engine this is the attack-time frequency and Q jump,
+        # which on the hardware is not a control at all — it simply happens,
+        # every hit. Since Circuit is the default engine, the default pot is
+        # what the circuit does. The sc808 engine reads the same pot as its
+        # `click` pre-level, whose own default would be pot 14.
+        P("bd_attack", "Attack", 0.0, 1.0, LIN, 100),
         PV("bd_tone",   "Tone",    0.0,  6.0, LIN,  2.0),
         # Which kick. "Circuit" is the bridged-T model from Werner et al.'s
         # analysis of the real 808 — a resonator in an op-amp feedback loop,

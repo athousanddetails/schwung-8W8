@@ -81,20 +81,21 @@ static const double kVoicing[SC808_NUM_VOICES] = {
 
 /*
  * The loudest thing a real pattern does, and what the kit's absolute level is
- * set from: a downbeat with kick, snare, clap and a closed hat landing
- * together on an accent.
+ * set from: a busy accented hit — kick, snare, clap, open hat, cowbell and
+ * rim together.
  *
- * Target -3 dBFS, not -1. A single simultaneous hit is not the whole story —
- * a real pattern also has tails from the previous bar under it, and fitting
- * this scenario to -1 dBFS left src/tools/render.cpp's two-bar pattern
- * clipping at +0.7. The extra 2 dB is that overlap.
+ * Fitted against the simpler four-voice downbeat first, which was a mistake
+ * twice over: it left render.cpp's two-bar pattern clipping at +0.7 dBFS
+ * (a real pattern also carries the previous bar's tails), and once the kick
+ * engine changed it left this busier case at +1.0. Fit the worst realistic
+ * case, not the representative one.
  *
  * "All fifteen at once" is easy to measure and irrelevant — no pattern does
  * it — and solo-voice peaks say nothing about a mix. Fitting the balance
  * without also fitting this is how you end up with a kit whose every lane is
  * beautifully in proportion and which clips on the first bar.
  */
-#define HEADROOM_TARGET 0.708
+#define HEADROOM_TARGET 0.794
 
 struct Measure { double peak, impact_rms, drive_in_peak; };
 
@@ -179,9 +180,9 @@ int main(void)
      * multiplies every suggested trim by this, so balance and absolute level
      * converge together instead of fighting each other. */
     {
-        static const int downbeat[8] =
-            { SC808_BD, SC808_SD, SC808_CP, SC808_CH, -1 };
-        const double p = scenario_peak(downbeat);
+        static const int busy[8] =
+            { SC808_BD, SC808_SD, SC808_CP, SC808_OH, SC808_CB, SC808_RS, -1 };
+        const double p = scenario_peak(busy);
         printf("headroom_scale %.6f\n",
                p > 1e-9 ? HEADROOM_TARGET / p : 1.0);
     }

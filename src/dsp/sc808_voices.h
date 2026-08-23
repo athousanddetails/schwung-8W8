@@ -186,10 +186,12 @@ public:
 
         const float mixed = (sig + sub + punch) * 2.5f;
         /* amp = 2 * amp in the SynthDef, folded in here. */
-        /* kBypassGain: the PEAK reduction the limiter was doing, as a fixed
-         * gain, so both paths leave the voice at the same peak level and one
-         * per-lane trim serves either. */
-        static const float kBypassGain = 1.0f / 7.945f;
+        /* The peak reduction the limiter was doing (7.945 -> 1.0), as a
+         * fixed gain, trimmed so an unaccented hit at the default pots peaks
+         * at 1.0 — the same place CircuitBassDrum lands. The two kick engines
+         * share one per-lane trim and have to agree on what a kick comes out
+         * at, or switching engines shifts the level by 11 dB. */
+        static const float kBypassGain = 1.0f / 7.945f / 1.462f;
         const float y = useLimiter_ ? lim_.process(mixed, 0.5f) * 2.0f
                                     : mixed * 2.0f * kBypassGain;
 

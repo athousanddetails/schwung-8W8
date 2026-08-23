@@ -282,9 +282,14 @@ public:
         {
             coefAge_ = 16;
             const double sigh = 1.0 + kSighDepth * (sighEnv_ < 1.0 ? sighEnv_ : 1.0);
-            /* Attack: Reff drops, so f0 rises (by an octave at full) and Q
-             * rises with it — both go as 1/sqrt(Reff). */
-            const double lift = 1.0 + attackAmount_ * attackEnv_;
+            /* Attack: Reff drops, so f0 rises and Q rises with it — both go
+             * as 1/sqrt(Reff). The paper puts the shift at "more than an
+             * octave", so full deflection is 3x, not 2x: a 2x ceiling
+             * measures as barely half an octave once the first half-period is
+             * averaged, because the shift has already begun decaying inside
+             * it. At 3x the first half-period lands an octave up, which is
+             * what the circuit does. */
+            const double lift = 1.0 + 2.0 * attackAmount_ * attackEnv_;
             setCoefficients(f0_ * sigh * lift, kBD_Q_INTRINSIC * lift);
         }
 
@@ -325,10 +330,17 @@ private:
     static constexpr double kDcCoef    = 0.0009;    /* ~6 Hz high-pass */
     /* The resonator runs in volts; this brings a 14 V accent to about full
      * scale. Set once, here, rather than smeared through the signal path. */
-    /* The level a nominal 8 V hit reaches inside the loop, measured. Used to
-     * normalise the sigh, and to bring the output to full scale. */
+    /* The level a nominal hit reaches inside the loop, measured. Used to
+     * normalise the sigh so its depth is a property of the circuit rather
+     * than of the gain staging. */
     static constexpr double kNominalPeak = 1.35;
-    static constexpr double kOutScale    = 0.62;
+    /*
+     * Set so an UNACCENTED hit at the default pots peaks at 1.0 — the same
+     * place the sc808 kick lands. The two engines share one per-lane trim, so
+     * if they do not agree on what "a kick" comes out at, switching engines
+     * changes the level by 11 dB and the kit balance is wrong for one of them.
+     */
+    static constexpr double kOutScale    = 1.522;
 
     /* Op-amp saturation in the feedback path.
      *
