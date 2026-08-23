@@ -99,12 +99,27 @@ protected:
  * faster envelope, highpassed at 350 Hz — the click you hear is the top of
  * that sweep before it drops out of the passband.
  *
- * THE LIMITER MATTERS. sc808 ends with Limiter.ar(sig, 0.5), and SC's Limiter
- * is a lookahead design that delays by two buffers — 20 ms at its default. In
- * SuperCollider each drum is its own synth so nobody notices; in a drum
- * machine a kick that arrives 20 ms after the snare is unusable. The limiter
- * is reproduced exactly (it is doing real gain work, not just clipping) and
- * the engine compensates for its latency, so the kick lands on the beat.
+ * THE LIMITER. sc808 ends with Limiter.ar(sig, 0.5), and SC's Limiter is a
+ * lookahead design: it delays by two buffers, 20 ms at its default, and it is
+ * doing about 23 dB of gain reduction on the way through.
+ *
+ * In SuperCollider each drum is its own synth and nobody notices either. In a
+ * drum machine both are unacceptable — a kick 20 ms behind the snare is not a
+ * kick, and squashing the first 100 ms flattens exactly the attack and decay
+ * that make one.
+ *
+ * So the limiter is REPRODUCED (the null test needs it, and it is what sc808
+ * sounds like) but the engine switches it off with setLimiter(false). With it
+ * off the voice emits the raw sum and the engine's own per-voice Drive stage
+ * catches the peaks — which is the stage that exists for exactly that, and
+ * unlike the limiter it is under a knob.
+ *
+ * Bypassing it needs a fixed gain in its place, or the voice comes out 18 dB
+ * hot and clips: measured on the default kick, the limiter is holding a peak
+ * of 7.945 down to 1.0 while only pulling the RMS from 0.80 to 0.31. That
+ * spread is the point — it is squashing an 8:1 transient, and that transient
+ * is the beater. Replacing 18 dB of dynamic gain reduction with 18 dB of
+ * static gain hands the transient back.
  */
 class BassDrum : public VoiceBase {
 public:
@@ -114,6 +129,11 @@ public:
         punchHp_.set(350.0, sr_);
         lim_.set(0.01f, sr_);
     }
+
+    /* sc808's lookahead limiter: on for the null test, off in the engine.
+     * See the note above — it costs 20 ms of latency and 23 dB of the
+     * dynamics, and it is not what a drum machine wants. */
+    void setLimiter(const bool _on) { useLimiter_ = _on; }
 
     /* freqHz: the note. click: the 1.45 ms pre-level. decay: seconds.
      * punch: sc808's fixed 2.0, exposed here as Tone. */
@@ -166,20 +186,26 @@ public:
 
         const float mixed = (sig + sub + punch) * 2.5f;
         /* amp = 2 * amp in the SynthDef, folded in here. */
-        const float y = lim_.process(mixed, 0.5f) * 2.0f;
+        /* kBypassGain: the PEAK reduction the limiter was doing, as a fixed
+         * gain, so both paths leave the voice at the same peak level and one
+         * per-lane trim serves either. */
+        static const float kBypassGain = 1.0f / 7.945f;
+        const float y = useLimiter_ ? lim_.process(mixed, 0.5f) * 2.0f
+                                    : mixed * 2.0f * kBypassGain;
 
-        /* Gate on the ENVELOPE, not the output: the limiter's two-buffer
-         * pipeline still holds 20 ms of audio after the envelope ends, and
-         * gating on y would truncate the tail that is still in flight. */
+        /* Gate on the ENVELOPE, not the output: with the limiter in, its
+         * two-buffer pipeline still holds 20 ms of audio after the envelope
+         * ends, and gating on y would truncate the tail still in flight. */
         if(env_.done() && env < 1e-6f) gate(y);
         return y;
     }
 
-    long latency() const { return lim_.latency(); }
+    long latency() const { return useLimiter_ ? lim_.latency() : 0; }
 
 private:
     double sr_ = 44100.0;
     float  punch_ = 2.0f;
+    bool   useLimiter_ = true;
     Env    env_, trienv_, fenv_, pfenv_;
     SinOsc sin_, psin_;
     LFTri  tri_;

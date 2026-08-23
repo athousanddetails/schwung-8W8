@@ -104,16 +104,30 @@ PAGES = [
         # note 34, click 0.11, decay 2 s. `punch` is fixed at 2 in the
         # SynthDef and exposed here as Tone — it is the level of the second,
         # faster sine through the 350 Hz highpass, i.e. the beater.
-        PV("bd_tune",   "Tune",   22.0, 46.0, LIN, 34.0),
+        # A SEMITONE OFFSET, like every other Tune pot — the engine adds it
+        # to the lane's base note. Declaring it as an absolute MIDI note
+        # instead put the kick at midicps(34+34) = 415 Hz.
+        TUNE("bd"),
         PV("bd_decay",  "Decay",   0.1,  8.0, EXP,  2.0),
         PV("bd_attack", "Attack",  0.0,  1.0, LIN,  0.11),
         PV("bd_tone",   "Tone",    0.0,  6.0, LIN,  2.0),
+        # Which kick. "Circuit" is the bridged-T model from Werner et al.'s
+        # analysis of the real 808 — a resonator in an op-amp feedback loop,
+        # where Decay is LOOP GAIN and the pitch sighs because the circuit
+        # makes it. "sc808" is the transcription the null test verifies: a
+        # sine on a pitch envelope, which is a fine kick drum and is not an
+        # 808's. Circuit is the default because the kick is the voice this
+        # whole project is judged on.
+        #
+        # Decay, Attack and Tone mean different things to the two engines and
+        # each maps the same pot POSITION its own way — see sc808_engine.cpp.
+        E("bd_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("bd"), DTYPE("bd"), LEVEL("bd"),
     ]),
     ("sd", "Snare", [
         # note 65, detune -11, mix 0.7, lpf 121, decay 4.2 s.
         # Snappy is sc808's `mix`: 0 is all shell, 1 is all wires.
-        PV("sd_tune",   "Tune",   53.0, 77.0, LIN, 65.0),
+        TUNE("sd"),   # semitone offset, see bd_tune
         PV("sd_decay",  "Decay",   0.1,  8.0, EXP,  4.2),
         PV("sd_snappy", "Snappy",  0.0,  1.0, LIN,  0.7),
         PV("sd_tone",   "Tone",  109.0,133.0, LIN,121.0),   # noise lowpass, MIDI
@@ -351,7 +365,8 @@ static const char sc808_ui_pages_json[] =
 SHORT = {"Tune": "TUNE", "Decay": "DECAY", "Attack": "ATTK", "Tone": "TONE",
          "Drive": "DRIVE", "Distortion": "DIST", "Level": "LEVEL",
          "Snappy": "SNAPY", "Mode": "MODE", "Spread": "SPRD", "Room": "ROOM",
-         "Choke": "CHOKE", "Master Dist": "MDIST", "Master Drive": "MDRV",
+         "Choke": "CHOKE", "Engine": "ENGIN",
+         "Master Dist": "MDIST", "Master Drive": "MDRV",
          "Volume": "VOL", "Accent": "ACNT", "Note Map": "NMAP"}
 MOVY_NAME = {"bd": "Kick", "sd": "Snare", "lt": "Lo Tom", "mt": "Mid Tom",
              "ht": "Hi Tom", "lc": "Lo Cnga", "mc": "Md Cnga", "hc": "Hi Cnga",

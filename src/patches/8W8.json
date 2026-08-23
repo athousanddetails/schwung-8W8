@@ -1,0 +1,12 @@
+{
+    "name": "8W8",
+    "version": 1,
+    "chain": {
+        "input": "pads",
+        "synth": { "module": "8w8", "config": {} },
+        "audio_fx": []
+    },
+    "capture": {
+        "groups": ["steps"]
+    }
+}

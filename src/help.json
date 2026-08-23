@@ -1,0 +1,122 @@
+{
+  "title": "8W8",
+  "children": [
+    {
+      "title": "Overview",
+      "lines": [
+        "TR-808 style drum",
+        "machine. 15 voices,",
+        "all synthesized,",
+        "no samples. Kick,",
+        "snare, toms, congas,",
+        "rim/clave, maracas,",
+        "clap, cowbell, hats",
+        "and cymbal."
+      ]
+    },
+    {
+      "title": "Playing",
+      "lines": [
+        "Pads (left 4x4):",
+        " r1: BD SD LT MT",
+        " r2: HT LC MC HC",
+        " r3: RS MA CP CB",
+        " r4: CH OH CY Mst",
+        "",
+        "Shift+Pad: select",
+        " without sounding.",
+        "Mute+Pad: mute that",
+        " drum ([M] in bar)."
+      ]
+    },
+    {
+      "title": "Editing",
+      "lines": [
+        "Knobs 1-8 edit the",
+        "page on screen.",
+        "Jog: next page.",
+        "Shift+Jog: jump",
+        " section.",
+        "Jog click: section",
+        " list.",
+        "Shift: show values",
+        " and fine mode.",
+        "Mute+knob: reset",
+        " that pot."
+      ]
+    },
+    {
+      "title": "Voices",
+      "lines": [
+        "Every drum has Tune,",
+        "Decay, Drive, a",
+        "Distortion type and",
+        "Level. Defaults are",
+        "the sc808 sound, not",
+        "pot centre.",
+        "",
+        "Rim / Clave share a",
+        "lane with a Mode",
+        "switch, like the",
+        "808's own RS/CL."
+      ]
+    },
+    {
+      "title": "Choke",
+      "lines": [
+        "The 808 shares one",
+        "metal source between",
+        "the hats, so closed",
+        "cuts open. Here it",
+        "is a switch:",
+        " Off / CH>OH /",
+        " Mutual.",
+        "On the Closed Hat",
+        "page and on Master."
+      ]
+    },
+    {
+      "title": "Distortion",
+      "lines": [
+        "Per drum and across",
+        "the kit: Diode,",
+        "Clip, Fold, Crush.",
+        "Same four as 9W9",
+        "and 6W6, so the",
+        "knob means the same",
+        "thing on all three.",
+        "",
+        "Master Dist has an",
+        "Off position."
+      ]
+    },
+    {
+      "title": "Sequencing",
+      "lines": [
+        "Use Move's own",
+        "sequencer: a drum",
+        "track with a kit,",
+        "muted (HiJack),",
+        "track MIDI OUT on",
+        "the slot's channel.",
+        "",
+        "Notes 36-50, one",
+        "lane per drum, or",
+        "General MIDI -",
+        "switch on Master."
+      ]
+    },
+    {
+      "title": "Accent",
+      "lines": [
+        "Velocity 100 and up",
+        "gets the Accent",
+        "multiplier, on the",
+        "Master page.",
+        "Default is 2x, the",
+        "same as 9W9 and",
+        "6W6."
+      ]
+    }
+  ]
+}
