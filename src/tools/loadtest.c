@@ -47,8 +47,15 @@ static void ok(const int cond, const char *what, const char *detail)
 /* ---- a minimal host ---------------------------------------------------- */
 
 static void host_log(const char *msg) { printf("  [dsp] %s\n", msg); }
-static int  host_clock(void) { return MOVE_CLOCK_STATUS_STOPPED; }
-static float host_bpm(void)  { return 120.0f; }
+
+/* A transport the test can drive. The step sequencer is clocked from
+ * get_beat_position(), so without these two the lanes never fire and the
+ * whole feature goes untested — which it did until this was added. */
+static int    g_clock = MOVE_CLOCK_STATUS_STOPPED;
+static double g_beat  = -1.0;
+static int    host_clock(void) { return g_clock; }
+static double host_beat(void)  { return g_beat; }
+static float  host_bpm(void)   { return 120.0f; }
 
 static host_api_v1_t g_host;
 
@@ -73,6 +80,42 @@ static int render_peak(plugin_api_v2_t *api, void *inst, const int blocks)
         }
     }
     return peak;
+}
+
+/* Capture a lane's output so two hits can be compared sample for sample. */
+#define CAP_FRAMES (FRAMES * 20)
+static int16_t g_cap[2][CAP_FRAMES];
+static void capture(plugin_api_v2_t *api, void *inst, const int which)
+{
+    for(int b = 0; b < 20; ++b)
+    {
+        api->render_block(inst, g_out, FRAMES);
+        for(int i = 0; i < FRAMES; ++i) g_cap[which][b * FRAMES + i] = g_out[i * 2];
+    }
+}
+/*
+ * How different two captured hits are, as a fraction of their own level.
+ *
+ * NOT an equality test, and the first version of this was, which was wrong.
+ * In Retrig mode the OSCILLATORS restart, but 8W8's voices are persistent and
+ * their filters still hold the previous hit's tail — so two hits differ by
+ * about -86 dB rather than exactly zero. SuperCollider gets exact equality
+ * only because every note there is a brand new synth with brand new filters.
+ *
+ * The two cases are four orders of magnitude apart, so any threshold between
+ * them is decisive: Retrig lands near 0.0001, Free near 1.4 (which is what
+ * two uncorrelated signals of equal level give).
+ */
+static double captures_diff(void)
+{
+    double d = 0.0, r = 0.0;
+    for(int i = 0; i < CAP_FRAMES; ++i)
+    {
+        const double a = g_cap[0][i], b = g_cap[1][i];
+        d += (a - b) * (a - b);
+        r += a * a;
+    }
+    return r > 0.0 ? sqrt(d / r) : 0.0;
 }
 
 static void note_on(plugin_api_v2_t *api, void *inst, const int note, const int vel)
@@ -127,6 +170,7 @@ int main(int argc, char **argv)
     g_host.log             = host_log;
     g_host.get_clock_status= host_clock;
     g_host.get_bpm         = host_bpm;
+    g_host.get_beat_position = host_beat;
 
     plugin_api_v2_t *api = init(&g_host);
     ok(api != NULL && api->api_version == MOVE_PLUGIN_API_VERSION_2,
@@ -319,7 +363,130 @@ int main(int argc, char **argv)
            || atoi(buf) >= 0, "and leaves the rest alone", buf);
     }
 
-    /* ---- 10. nothing pathological in the output ---- */
+    /* ---- 10. the General MIDI note map ---- */
+    printf("\nGM note map\n");
+    {
+        quiesce(api, inst);
+        api->set_param(inst, "note_map", "1");
+        /* A note that means nothing in the drum-rack map (36..50) but is the
+         * GM cowbell — proves the map actually switched rather than the pad
+         * map catching it. */
+        note_on(api, inst, 56, 100);
+        const int gm = render_peak(api, inst, 60);
+        ok(gm > 0, "GM note 56 (cowbell) sounds when note_map is GM", NULL);
+
+        quiesce(api, inst);
+        api->set_param(inst, "note_map", "0");
+        note_on(api, inst, 56, 100);
+        ok(render_peak(api, inst, 60) == 0,
+           "and is silent again on the drum-rack map", NULL);
+        api->set_param(inst, "note_map", "default");
+    }
+
+    /* ---- 11. the step sequencer ---- */
+    printf("\nstep sequencer\n");
+    {
+        quiesce(api, inst);
+        api->set_param(inst, "seq_bd", "1");      /* step 0 only */
+        g_clock = MOVE_CLOCK_STATUS_RUNNING;
+
+        /* Beat 0 lands on step 0 and should fire the kick. */
+        g_beat = 0.0;
+        const int fired = render_peak(api, inst, 60);
+        ok(fired > 0, "a programmed step fires its lane when the transport runs",
+           NULL);
+
+        /* Step 1 is empty: nothing new should start. */
+        quiesce(api, inst);
+        g_beat = 0.25;                             /* step 1 */
+        ok(render_peak(api, inst, 20) == 0, "an empty step fires nothing", NULL);
+
+        /* Transport stopped: the lane re-arms and stays quiet. */
+        quiesce(api, inst);
+        g_clock = MOVE_CLOCK_STATUS_STOPPED;
+        g_beat = -1.0;
+        api->set_param(inst, "seq_bd", "65535");   /* every step */
+        ok(render_peak(api, inst, 40) == 0,
+           "with no transport the sequencer stays silent", NULL);
+
+        char buf[32];
+        api->get_param(inst, "seq_bd", buf, sizeof(buf));
+        ok(atoi(buf) == 65535, "a sequencer lane reads back", buf);
+        api->set_param(inst, "seq_bd", "0");
+    }
+
+    /* ---- 12. the two-in-one lanes and the kick's two engines ---- */
+    printf("\nmodes\n");
+    {
+        /* Rim and Clave share a lane; both must sound, and differently. */
+        quiesce(api, inst);
+        api->set_param(inst, "rs_mode", "0");
+        note_on(api, inst, 36 + SC808_RS, 100);
+        const int rim = render_peak(api, inst, 60);
+        quiesce(api, inst);
+        api->set_param(inst, "rs_mode", "1");
+        note_on(api, inst, 36 + SC808_RS, 100);
+        const int clave = render_peak(api, inst, 60);
+        ok(rim > 0 && clave > 0, "both Rim and Clave sound on the shared lane", NULL);
+        ok(rim != clave, "and they are not the same sound", NULL);
+        api->set_param(inst, "rs_mode", "default");
+
+        /* Both kick engines must sound, and land at a comparable level —
+         * they share one per-lane trim, so if they disagree about what a
+         * kick comes out at, switching engines shifts the kit balance. */
+        quiesce(api, inst);
+        api->set_param(inst, "bd_engine", "0");        /* circuit */
+        note_on(api, inst, 36, 100);
+        const int circ = render_peak(api, inst, 90);
+        quiesce(api, inst);
+        api->set_param(inst, "bd_engine", "1");        /* sc808 */
+        note_on(api, inst, 36, 100);
+        const int sc = render_peak(api, inst, 90);
+        char d[64];
+        snprintf(d, sizeof(d), "circuit %d, sc808 %d", circ, sc);
+        ok(circ > 0 && sc > 0, "both kick engines sound", d);
+        ok(sc < circ * 3 && circ < sc * 3,
+           "and they are within 10 dB of each other", d);
+        api->set_param(inst, "bd_engine", "default");
+    }
+
+    /* ---- 13. free-running metal oscillators ----
+     *
+     * On the hardware the hats' and cymbal's six Schmitt-trigger oscillators
+     * never stop; the envelopes gate them, so every hit catches the bank at a
+     * different phase and no two are the same. sc808 restarts them per note
+     * because in SuperCollider every note is a new synth.
+     *
+     * The test is exact: in Retrig the two hits must be BIT-IDENTICAL, and in
+     * Free they must not be. A half-working free-run — one that advances the
+     * bank only while the lane is audible — passes a "sounds different" check
+     * and fails this one, because evenly spaced hits would land back on the
+     * same phase every time. */
+    printf("\nfree-running metal\n");
+    {
+        api->set_param(inst, "metal_run", "1");        /* Retrig, i.e. sc808 */
+        quiesce(api, inst);
+        note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 0);
+        note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 1);
+        {
+            const double diff = captures_diff();
+            char d[64]; snprintf(d, sizeof(d), "relative difference %.5f", diff);
+            ok(diff < 0.01, "Retrig: consecutive hats are the same hit", d);
+        }
+
+        api->set_param(inst, "metal_run", "0");        /* Free, i.e. hardware */
+        quiesce(api, inst);
+        note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 0);
+        note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 1);
+        {
+            const double diff = captures_diff();
+            char d[64]; snprintf(d, sizeof(d), "relative difference %.5f", diff);
+            ok(diff > 0.20, "Free: consecutive hats are different hits, as on an 808", d);
+        }
+        api->set_param(inst, "metal_run", "default");
+    }
+
+    /* ---- 14. nothing pathological in the output ---- */
     printf("\noutput sanity\n");
     {
         quiesce(api, inst);

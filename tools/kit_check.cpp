@@ -97,6 +97,40 @@ static const double kVoicing[SC808_NUM_VOICES] = {
  */
 #define HEADROOM_TARGET 0.794
 
+/*
+ * Where each lane's energy should sit, in Hz.
+ *
+ * This table exists because of a bug that reached the user's ears. bd_tune
+ * was declared as an absolute MIDI note while the engine treats every Tune
+ * pot as a semitone OFFSET, so the kick rendered at midicps(34+34) = 415 Hz
+ * and the snare shell at 9.4 kHz. Everything still built, every test passed,
+ * every pad sounded — the loadtest only asks whether a lane makes a noise —
+ * and the kit was simply wrong.
+ *
+ * These bands are deliberately WIDE. The point is not to pin a voice's
+ * timbre; it is to catch a drum that has moved to the wrong end of the
+ * spectrum, which is the failure that actually happened and the one no other
+ * check in this project would notice.
+ */
+struct Band { double lo, hi; const char *what; };
+static const Band kBand[SC808_NUM_VOICES] = {
+    {   35.0,    90.0, "kick fundamental"          },
+    {  140.0,  3000.0, "snare shell plus wires"    },
+    {   60.0,   200.0, "low tom"                   },
+    {   70.0,   260.0, "mid tom"                   },
+    {  100.0,   400.0, "hi tom"                    },
+    {   90.0,   340.0, "low conga"                 },
+    {  120.0,   450.0, "mid conga"                 },
+    {  150.0,   600.0, "hi conga"                  },
+    {  300.0,  4000.0, "rim shot"                  },
+    { 3000.0, 16000.0, "maracas"                   },
+    {  300.0,  3000.0, "hand clap"                 },
+    {  400.0,  3000.0, "cowbell"                   },
+    { 4000.0, 16000.0, "closed hat"                },
+    { 3000.0, 16000.0, "open hat"                  },
+    { 2000.0, 12000.0, "cymbal"                    },
+};
+
 struct Measure { double peak, impact_rms, drive_in_peak; };
 
 static Measure render_one(int voice)
@@ -147,6 +181,35 @@ static double scenario_peak(const int *voices)
     return peak;
 }
 
+/*
+ * Spectral centroid of a lane's first 200 ms, by a coarse filterbank rather
+ * than an FFT — this file has no FFT and does not need one for a check whose
+ * bands are an octave wide. One-pole bandpass energy per 1/3-octave bin.
+ */
+static double centroid(const int n)
+{
+    double num = 0.0, den = 0.0;
+    const int win = (int)(SR * 0.2) < n ? (int)(SR * 0.2) : n;
+    for(double f = 30.0; f < 18000.0; f *= 1.2599)      /* 1/3 octave */
+    {
+        /* two-pole resonator, Q ~ 4 */
+        const double w = 2.0 * M_PI * f / SR;
+        const double r = 1.0 - w / 8.0;
+        const double a1 = 2.0 * r * cos(w), a2 = -r * r;
+        double y1 = 0.0, y2 = 0.0, e = 0.0;
+        for(int i = 0; i < win; ++i)
+        {
+            const double y = (double)g_buf[i] + a1 * y1 + a2 * y2;
+            y2 = y1; y1 = y;
+            e += y * y;
+        }
+        e *= (1.0 - r) * (1.0 - r);      /* normalise the resonator's gain */
+        num += e * f;
+        den += e;
+    }
+    return den > 0.0 ? num / den : 0.0;
+}
+
 int main(void)
 {
     const float *trim = sc808_debug_trim();
@@ -172,9 +235,37 @@ int main(void)
         printf("%-4s %7.3f  %10.5f  %7.2f  %6.1f %6.2f  %8.3f  %10.3f\n",
                sc808_voice_id(v), m[v].peak, m[v].impact_rms, rel,
                kVoicing[v], err, trim[v], want);
+        /* A line the fitter can read without parsing the table. The table is
+         * for people and its columns move; this does not. */
+        printf("trim_suggest %s %.6f\n", sc808_voice_id(v), want);
         if(v != REF_VOICE && fabs(err) > worst) worst = fabs(err);
     }
     printf("worst lane off its target by %.2f dB\n", worst);
+
+    /* ---- every voice in a plausible band ---- */
+    printf("\nspectral placement\n");
+    {
+        int wrong = 0;
+        for(int v = 0; v < SC808_NUM_VOICES; ++v)
+        {
+            sc808_engine_t *e = sc808_create((float)SR);
+            sc808_set_param(e, "volume", "127");
+            sc808_set_param(e, "master_dist", "0");
+            sc808_trigger(e, v, 80);
+            sc808_render(e, g_buf, FRAMES);
+            sc808_destroy(e);
+            const double c = centroid(FRAMES);
+            const int ok = c >= kBand[v].lo && c <= kBand[v].hi;
+            if(!ok) ++wrong;
+            printf("  %-4s %s centroid %8.1f Hz   expected %6.0f-%6.0f  (%s)\n",
+                   sc808_voice_id(v), ok ? "ok  " : "FAIL", c,
+                   kBand[v].lo, kBand[v].hi, kBand[v].what);
+        }
+        printf(wrong ? "  *** %d lane(s) in the wrong part of the spectrum ***\n"
+                     : "  all %d lanes land where they should\n",
+               wrong ? wrong : SC808_NUM_VOICES);
+        if(wrong) return 1;
+    }
 
     /* The single scale that would put the downbeat at its target. The fitter
      * multiplies every suggested trim by this, so balance and absolute level

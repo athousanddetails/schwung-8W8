@@ -964,7 +964,16 @@
               "GM"
             ]
           },
-          null,
+          {
+            "key": "metal_run",
+            "short": "METAL",
+            "full": "Metal",
+            "type": "enum",
+            "options": [
+              "Free",
+              "Retrig"
+            ]
+          },
           null
         ]
       ]

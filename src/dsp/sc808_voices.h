@@ -51,9 +51,17 @@ static const double kMetalFreq[6] = {
 
 class MetalBank {
 public:
-    /* SC starts every LFPulse at phase 0 in a fresh synth, so a trigger
-     * restarts the bank. That phase alignment is what gives the hats their
-     * consistent attack transient. */
+    /*
+     * SC starts every LFPulse at phase 0 in a fresh synth, so a trigger
+     * restarts the bank — and that is why sc808's hats are identical hit to
+     * hit.
+     *
+     * The hardware does not do this. The HD14584's six oscillators free-run
+     * continuously and the envelopes gate them, so every 808 hat catches the
+     * bank at a different phase and no two are quite the same. Engine A keeps
+     * the retrigger, because that is what the null test verifies; the engine
+     * turns it off (see setFreeRun) because it is what an 808 does.
+     */
     void retrigger() { for(int i = 0; i < 6; ++i) osc_[i].reset(0.0); }
 
     /* Unipolar sum of the six, scaled. `ratio` tunes the whole bank. */
@@ -619,6 +627,22 @@ class ClosedHat : public VoiceBase {
 public:
     void init(const double _sr) { sr_ = _sr; }
 
+    /*
+     * Free-run: leave the oscillator bank running between hits instead of
+     * restarting it on every trigger.
+     *
+     * Costs one call to idle() per sample on a silent lane — six naive pulse
+     * oscillators, which is nothing — and buys the thing that actually makes
+     * 808 hats sound like a machine rather than a sample: each hit catches
+     * the bank wherever it happens to be. Off by default so a voice
+     * constructed on its own still matches SuperCollider.
+     */
+    void setFreeRun(const bool _on) { freeRun_ = _on; }
+
+    /* Advance the bank without rendering the voice. The engine calls this on
+     * every sample of a lane that is not sounding. */
+    void idle() { if(freeRun_) bank_.process(ratio_, sr_, 1.0f); }
+
     void trigger(const double _ratio, const float _decay,
                  const double _hpfHz, const double _lpfHz)
     {
@@ -629,7 +653,7 @@ public:
         lowBp_.setBandPass(8900.0 * _ratio, 0.8, sr_);
         lowHp_.setHiPass(9000.0 * _ratio, 0.3, sr_);
         peak_.setPeakEQ(9700.0 * _ratio, 0.8, 0.7, sr_);
-        bank_.retrigger();
+        if(!freeRun_) bank_.retrigger();
         arm();
     }
 
@@ -646,6 +670,7 @@ public:
 
 private:
     double sr_ = 44100.0, ratio_ = 1.0;
+    bool   freeRun_ = false;
     MetalBank bank_;
     Env    env_;
     BPF    hiBp_;
@@ -665,6 +690,22 @@ class OpenHat : public VoiceBase {
 public:
     void init(const double _sr) { sr_ = _sr; }
 
+    /*
+     * Free-run: leave the oscillator bank running between hits instead of
+     * restarting it on every trigger.
+     *
+     * Costs one call to idle() per sample on a silent lane — six naive pulse
+     * oscillators, which is nothing — and buys the thing that actually makes
+     * 808 hats sound like a machine rather than a sample: each hit catches
+     * the bank wherever it happens to be. Off by default so a voice
+     * constructed on its own still matches SuperCollider.
+     */
+    void setFreeRun(const bool _on) { freeRun_ = _on; }
+
+    /* Advance the bank without rendering the voice. The engine calls this on
+     * every sample of a lane that is not sounding. */
+    void idle() { if(freeRun_) bank_.process(ratio_, sr_, 0.6f); }
+
     void trigger(const double _ratio, const float _decay,
                  const double _hpfHz, const double _lpfHz)
     {
@@ -680,7 +721,7 @@ public:
         hp4_.set(8100.0 * _ratio, 0.7, sr_);
         hs_.setHiShelf(9400.0 * _ratio, 1.0, 5.0, sr_);
         lp_.set(_lpfHz, sr_);
-        bank_.retrigger();
+        if(!freeRun_) bank_.retrigger();
         arm();
     }
 
@@ -704,6 +745,7 @@ public:
 
 private:
     double sr_ = 44100.0, ratio_ = 1.0;
+    bool   freeRun_ = false;
     MetalBank bank_;
     Env    env1_, env2_;
     Biquad ls_, peak_, hs_;
@@ -734,6 +776,22 @@ private:
 class Cymbal : public VoiceBase {
 public:
     void init(const double _sr) { sr_ = _sr; }
+
+    /*
+     * Free-run: leave the oscillator bank running between hits instead of
+     * restarting it on every trigger.
+     *
+     * Costs one call to idle() per sample on a silent lane — six naive pulse
+     * oscillators, which is nothing — and buys the thing that actually makes
+     * 808 hats sound like a machine rather than a sample: each hit catches
+     * the bank wherever it happens to be. Off by default so a voice
+     * constructed on its own still matches SuperCollider.
+     */
+    void setFreeRun(const bool _on) { freeRun_ = _on; }
+
+    /* Advance the bank without rendering the voice. The engine calls this on
+     * every sample of a lane that is not sounding. */
+    void idle() { if(freeRun_) bank_.process(ratio_, sr_, 0.6f); }
 
     void trigger(const double _ratio, const float _decay, const float _tone)
     {
@@ -768,7 +826,7 @@ public:
         c_hp4_.set(10500.0 * r, 0.8, sr_);
 
         out_lp_.set(4000.0 * r, sr_);
-        bank_.retrigger();
+        if(!freeRun_) bank_.retrigger();
         arm();
     }
 
@@ -807,6 +865,7 @@ public:
 private:
     double sr_ = 44100.0, ratio_ = 1.0;
     float  tone_ = 0.002f;
+    bool   freeRun_ = false;
     MetalBank bank_;
     Env    env1_, env2_, env2b_, env3_;
     Biquad a_ls_, a_pk_, a_hp_, a_ls2_;

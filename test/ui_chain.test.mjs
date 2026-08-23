@@ -16,10 +16,30 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-const SHARED = process.argv[2] ||
-  "/Users/gustavolima/Developer/schwung-overtake/src/shared";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 let fails = 0;
+
+/*
+ * Schwung's shared param_pages library — the real one, not a stub. Tested
+ * against the real thing on purpose: a mock would happily accept a page
+ * hierarchy the device rejects.
+ *
+ * Found by argument, then $SCHWUNG_SHARED, then by looking next to this
+ * checkout — which is where it lives on both the Mac and the build host, and
+ * hardcoding one of those two paths is why this used to fail on the other.
+ */
+function findShared() {
+  if (process.argv[2]) return process.argv[2];
+  if (process.env.SCHWUNG_SHARED) return process.env.SCHWUNG_SHARED;
+  const parent = path.dirname(ROOT);
+  for (const d of fs.readdirSync(parent, { withFileTypes: true })) {
+    if (!d.isDirectory()) continue;
+    const p = path.join(parent, d.name, "src/shared");
+    if (fs.existsSync(path.join(p, "param_pages/page_controller.mjs"))) return p;
+  }
+  return null;
+}
+const SHARED = findShared();
 const check = (c, m) => { console.log((c ? "ok  : " : "FAIL: ") + m); if (!c) fails++; };
 
 /* the DSP's two payloads, straight from the generated header */
@@ -135,7 +155,20 @@ Object.assign(globalThis, {
   draw_line: () => {}, fill_circle: () => {}, draw_circle: () => {}, draw_arc: () => {},
 });
 
-/* ---- load ui_chain.js with its device imports pointed at the real library ---- */
+/* ---- load ui_chain.js with its device imports pointed at the real library ----
+ *
+ * The static cross-checks above are worth running on their own, so a missing
+ * library skips the live half rather than failing the file — but it says so
+ * loudly, because silently skipping half a test suite is worse than not
+ * having it.
+ */
+if (!SHARED) {
+  console.log("\nSKIP: Schwung's shared param_pages library not found.");
+  console.log("      Pass its path, set $SCHWUNG_SHARED, or check out schwung");
+  console.log("      next to this repo. The static checks above still ran.");
+  console.log(fails ? `\nFAILED (${fails})` : "\nSTATIC CHECKS PASS (live editor skipped)");
+  process.exit(fails ? 1 : 0);
+}
 const src = fs.readFileSync(path.join(ROOT, "src/ui_chain.js"), "utf8")
   .replace(/\/data\/UserData\/schwung\/shared\//g, pathToFileURL(SHARED + "/").href);
 const tmp = path.join(ROOT, "build-native", "ui_chain.test.mjs");

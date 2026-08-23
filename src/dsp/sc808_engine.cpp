@@ -88,21 +88,21 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 const float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.0850f,   /* bd — the reference: everything else is set against the kick */
-    0.1018f,   /* sd */
-    0.0730f,   /* lt */
-    0.0750f,   /* mt */
-    0.0778f,   /* ht */
-    0.0650f,   /* lc */
-    0.0650f,   /* mc */
-    0.0650f,   /* hc */
-    0.1157f,   /* rs — a click with a crest factor of 11 */
-    0.0460f,   /* ma */
-    0.4401f,   /* cp — the quietest voice in sc808 by a long way */
-    0.1017f,   /* cb */
-    0.0060f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.1357f,   /* oh */
-    0.1197f,   /* cy */
+    0.0849f,   /* bd — the reference: everything else is set against the kick */
+    0.1027f,   /* sd */
+    0.0731f,   /* lt */
+    0.0751f,   /* mt */
+    0.0786f,   /* ht */
+    0.0648f,   /* lc */
+    0.0651f,   /* mc */
+    0.0651f,   /* hc */
+    0.1162f,   /* rs — a click with a crest factor of 11 */
+    0.0461f,   /* ma */
+    0.4418f,   /* cp — the quietest voice in sc808 by a long way */
+    0.1022f,   /* cb */
+    0.0059f,   /* ch — raw peak near 17 before the drive stage catches it */
+    0.1368f,   /* oh */
+    0.1203f,   /* cy */
 };
 
 /* Per-voice pot/enum slots, resolved once at create time so the audio path
@@ -160,7 +160,7 @@ struct sc808_engine {
     int bd_attack, bd_tone, sd_snappy, sd_tone;
     int ma_attack, cp_spread, cp_room, cy_tone;
     /* Globals. */
-    int e_master_dist, e_choke, e_note_map, e_rs_mode, e_bd_engine;
+    int e_master_dist, e_choke, e_note_map, e_rs_mode, e_bd_engine, e_metal_run;
     int p_master_drive, p_volume, p_accent;
 
     unsigned mutes;
@@ -177,6 +177,17 @@ struct sc808_engine {
     OpenHat   oh;
     Cymbal    cy;
 };
+
+/* Push the metal_run enum down into the three voices that care. Called at
+ * create and whenever the enum is written, so idle() below never acts on a
+ * stale flag. */
+static void apply_metal_run(sc808_engine_t *e)
+{
+    const bool freeRun = e->env[e->e_metal_run] == 0;
+    e->ch.setFreeRun(freeRun);
+    e->oh.setFreeRun(freeRun);
+    e->cy.setFreeRun(freeRun);
+}
 
 const char *sc808_voice_id(int voice)
 {
@@ -228,6 +239,7 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->e_note_map     = find_enum("note_map");
     e->e_rs_mode      = find_enum("rs_mode");
     e->e_bd_engine    = find_enum("bd_engine");
+    e->e_metal_run    = find_enum("metal_run");
 
     const double sr = e->sample_rate;
     e->bd.init(sr);
@@ -240,6 +252,7 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->lc.init(sr); e->mc.init(sr); e->hc.init(sr);
     e->rs.init(sr); e->ma.init(sr); e->cp.init(sr); e->cb.init(sr);
     e->ch.init(sr); e->oh.init(sr); e->cy.init(sr);
+    apply_metal_run(e);
     return e;
 }
 
@@ -453,9 +466,23 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
         SC808_LANE(SC808_MA, ma);
         SC808_LANE(SC808_CP, cp);
         SC808_LANE(SC808_CB, cb);
-        SC808_LANE(SC808_CH, ch);
-        SC808_LANE(SC808_OH, oh);
-        SC808_LANE(SC808_CY, cy);
+        /*
+         * The metal lanes, with their oscillator banks free-running.
+         *
+         * A lane that is not sounding still has to advance its bank, or
+         * "free-running" only means "free-running while you can hear it" and
+         * every hit lands on the same phase after all — which is the whole
+         * thing this is here to avoid. idle() is six naive pulse oscillators
+         * and no filters, so a silent lane costs almost nothing.
+         */
+#define SC808_METAL(vid, obj) \
+        do { if(e->rt[vid].choke_gain > 0.0f && e->obj.active()) \
+                 mix += voice_sample(e, vid, e->obj.process()); \
+             else e->obj.idle(); } while(0)
+        SC808_METAL(SC808_CH, ch);
+        SC808_METAL(SC808_OH, oh);
+        SC808_METAL(SC808_CY, cy);
+#undef SC808_METAL
 
         /* Master stage. Option 0 is Off, so the kit can be left alone. */
         if(mdist > 0) mix = sc808_shape(mix, mdrive, mdist - 1);
@@ -491,6 +518,7 @@ int sc808_set_param(sc808_engine_t *e, const char *key, const char *val)
         if(v < 0) v = 0;
         if(v >= g_sc808_enums[es].count) v = g_sc808_enums[es].count - 1;
         e->env[es] = v;
+        if(es == e->e_metal_run) apply_metal_run(e);
         return 1;
     }
     return 0;
@@ -563,6 +591,7 @@ void sc808_deserialize(sc808_engine_t *e, const char *json)
         if(v >= g_sc808_enums[i].count) v = g_sc808_enums[i].count - 1;
         e->env[i] = v;
     }
+    apply_metal_run(e);
 
     const char *mp = strstr(json, "\"mutes\"");
     if(mp) { mp = strchr(mp, ':'); if(mp) e->mutes = (unsigned)strtoul(mp + 1, NULL, 10)

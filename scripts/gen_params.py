@@ -218,6 +218,14 @@ GLOBALS = [
     P("accent", "Accent", 1.0, 4.0, LIN, 42),               # 2.0x on accents
     E("hh_choke", "Choke", ["Off", "CH>OH", "Mutual"], 1),
     E("note_map", "Note Map", ["Rack 36", "GM"]),            # RAC/36 in the box
+    # How the hats' and cymbal's six oscillators behave between hits.
+    #
+    # "Free" is the hardware: the HD14584's oscillators never stop, the
+    # envelopes gate them, and every hit catches the bank at a different
+    # phase — which is why no two 808 hats are quite the same. "Retrig" is
+    # sc808, which restarts them every note because in SuperCollider every
+    # note is a new synth, and which is what the null test verifies.
+    E("metal_run", "Metal", ["Free", "Retrig"]),             # FRE/E, RET/RIG
 ]
 
 # ---------------------------------------------------------------------------
@@ -297,6 +305,31 @@ cp.append({"key": "mutes", "name": "Mutes", "type": "int",
 cpj = json.dumps(cp, separators=(",", ":"))
 uhj = json.dumps({"levels": levels}, separators=(",", ":"))
 
+# ---- the host's parameter channel ------------------------------------------
+#
+# module.json is capped at 8 KB by Schwung's loader, which is why these two
+# payloads are served from the DSP instead. The DSP's ceiling is different and
+# much higher: shadow_constants.h sets
+#
+#     #define SHADOW_PARAM_VALUE_LEN 65536  /* 64KB for large ui_hierarchy and state */
+#
+# and get_param() in sc808_plugin.cpp REFUSES to truncate — it returns -1
+# rather than hand back half a JSON document. So overrunning this does not
+# corrupt anything; it makes the entire parameter surface vanish, and the
+# editor comes up with nothing on it. That is a bad failure to discover on a
+# device, so it is caught here instead.
+#
+# The guard is at half the ceiling. 8W8 uses about 8 KB with 94 parameters
+# over 16 pages, so there is room for roughly another hundred before this is
+# a real constraint.
+HOST_PARAM_MAX = 65536
+for name, payload in (("chain_params", cpj), ("ui_pages", uhj)):
+    if len(payload) > HOST_PARAM_MAX // 2:
+        raise SystemExit(
+            f"{name} is {len(payload)} B — over half the host's "
+            f"{HOST_PARAM_MAX} B parameter buffer (SHADOW_PARAM_VALUE_LEN). "
+            f"get_param refuses to truncate, so the editor would come up empty.")
+
 
 def cstr(s):
     q, b = chr(34), chr(92)
@@ -371,7 +404,7 @@ static const char sc808_ui_pages_json[] =
 SHORT = {"Tune": "TUNE", "Decay": "DECAY", "Attack": "ATTK", "Tone": "TONE",
          "Drive": "DRIVE", "Distortion": "DIST", "Level": "LEVEL",
          "Snappy": "SNAPY", "Mode": "MODE", "Spread": "SPRD", "Room": "ROOM",
-         "Choke": "CHOKE", "Engine": "ENGIN",
+         "Choke": "CHOKE", "Engine": "ENGIN", "Metal": "METAL",
          "Master Dist": "MDIST", "Master Drive": "MDRV",
          "Volume": "VOL", "Accent": "ACNT", "Note Map": "NMAP"}
 MOVY_NAME = {"bd": "Kick", "sd": "Snare", "lt": "Lo Tom", "mt": "Mid Tom",
@@ -401,6 +434,7 @@ movy = {"id": "8w8", "name": "8W8",
         "banks": banks}
 (root_dir / "src/movy_config.json").write_text(json.dumps(movy, indent=2) + "\n")
 
-print(f"chain_params {len(cpj)}B  ui_pages {len(uhj)}B  movy banks={len(banks)}  "
+print(f"chain_params {len(cpj)}B  ui_pages {len(uhj)}B  "
+      f"(host buffer {HOST_PARAM_MAX}B)  movy banks={len(banks)}  "
       f"pages={len(levels)}  pots={len(pots)}  enums={len(enums)}  "
       f"params={len(cp)}")
