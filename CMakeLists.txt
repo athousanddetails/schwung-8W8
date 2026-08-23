@@ -50,6 +50,13 @@ target_include_directories(sc808_render PRIVATE src src/dsp src/host)
 target_link_libraries(sc808_render PRIVATE m)
 target_link_options(sc808_render PRIVATE -static-libstdc++ -static-libgcc)
 
+# The circuit kick, held to the paper's claims. Native only: it is a test, and
+# it is the only verification that voice has — there is nothing to null it
+# against. See tools/bd_check.cpp.
+add_executable(sc808_bd_check tools/bd_check.cpp)
+target_include_directories(sc808_bd_check PRIVATE src src/dsp)
+target_link_libraries(sc808_bd_check PRIVATE m)
+
 # Kit balance: fits the per-lane trims. Native only — it is a design tool.
 add_executable(sc808_kit_check tools/kit_check.cpp src/dsp/sc808_engine.cpp)
 target_include_directories(sc808_kit_check PRIVATE src src/dsp src/host)

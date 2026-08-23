@@ -184,7 +184,30 @@ public:
                  const float _attack, const float _accentV)
     {
         f0_ = _freqHz > 20.0 ? (_freqHz < 400.0 ? _freqHz : 400.0) : 20.0;
-        forward_ = bd_forward_gain(bd_reff_for(f0_));
+
+        /*
+         * Forward gain, NORMALISED against the nominal tuning.
+         *
+         * The physical gain is 1 + R167/(2 Reff) and Reff goes as 1/f0^2, so
+         * tuning up an octave multiplies it by about five. That is what the
+         * circuit does and it is not what a Tune knob should do: across 8W8's
+         * +/-12 semitones the raw gain runs from 3 to 62, a 26 dB swing, and
+         * at the top the loop drives itself into the safety limiter and the
+         * voice resets on every hit.
+         *
+         * On the hardware this is not a performance control at all — Reff is
+         * set by fixed resistors and, on a modded 808, a trimmer somebody
+         * adjusts once. The level is then made up downstream and never
+         * thought about again. So the pitch and the Q still move with Reff,
+         * exactly as the circuit says, and only the overall level is held
+         * still. It is the one place this file trades the circuit's behaviour
+         * for a usable knob, and it is the whole trade.
+         */
+        static const double kNominalForward =
+            1.0 + kBD_R167 / (2.0 * 45032.0);      /* Reff at 49.5 Hz */
+        const double raw = bd_forward_gain(bd_reff_for(f0_));
+        forward_ = raw;
+        tuneTrim_ = kNominalForward / (raw > 1e-9 ? raw : 1e-9);
 
         /*
          * Decay is loop gain. The feedback buffer's audio-band gain is
@@ -313,7 +336,7 @@ public:
         double out = toneZ_ - dcZ_;
 
         if(!(out > -50.0 && out < 50.0)) { reset(); return 0.0f; }
-        out *= kOutScale;
+        out *= kOutScale * tuneTrim_;
 
         if(out > 3.2e-5 || out < -3.2e-5) quiet_ = 0;
         else if(++quiet_ > 400) active_ = false;
@@ -372,7 +395,7 @@ private:
     double sr_ = 44100.0;
     double f0_ = kBD_F0_NOMINAL;
     double loopGain_ = 0.9;
-    double forward_ = 12.1;
+    double forward_ = 12.1, tuneTrim_ = 1.0;
     double attackAmount_ = 1.0, attackEnv_ = 0.0, attackCoef_ = 0.0;
     double accentV_ = 8.0;
 

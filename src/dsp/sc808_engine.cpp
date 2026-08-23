@@ -88,21 +88,21 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 const float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.0636f,   /* bd — the reference: everything else is set against the kick */
-    0.1036f,   /* sd */
-    0.0736f,   /* lt */
-    0.0755f,   /* mt */
-    0.0797f,   /* ht */
-    0.0658f,   /* lc */
-    0.0656f,   /* mc */
-    0.0656f,   /* hc */
-    0.1175f,   /* rs — a click with a crest factor of 11 */
-    0.0469f,   /* ma */
-    0.4460f,   /* cp — the quietest voice in sc808 by a long way */
-    0.1036f,   /* cb */
+    0.0850f,   /* bd — the reference: everything else is set against the kick */
+    0.1018f,   /* sd */
+    0.0730f,   /* lt */
+    0.0750f,   /* mt */
+    0.0778f,   /* ht */
+    0.0650f,   /* lc */
+    0.0650f,   /* mc */
+    0.0650f,   /* hc */
+    0.1157f,   /* rs — a click with a crest factor of 11 */
+    0.0460f,   /* ma */
+    0.4401f,   /* cp — the quietest voice in sc808 by a long way */
+    0.1017f,   /* cb */
     0.0060f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.1384f,   /* oh */
-    0.1215f,   /* cy */
+    0.1357f,   /* oh */
+    0.1197f,   /* cy */
 };
 
 /* Per-voice pot/enum slots, resolved once at create time so the audio path
