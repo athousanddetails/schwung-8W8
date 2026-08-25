@@ -11,6 +11,7 @@
 
 #include "sc808_voices.h"
 #include "sc808_bd_circuit.h"
+#include "sc808_sd_circuit.h"
 #include "sc808_engine.h"
 #include "sc808_params.h"
 #include "sc808_shape.h"
@@ -88,21 +89,21 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 const float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.0849f,   /* bd — the reference: everything else is set against the kick */
-    0.1027f,   /* sd */
-    0.0731f,   /* lt */
-    0.0751f,   /* mt */
-    0.0786f,   /* ht */
-    0.0648f,   /* lc */
-    0.0651f,   /* mc */
-    0.0651f,   /* hc */
-    0.1162f,   /* rs — a click with a crest factor of 11 */
-    0.0461f,   /* ma */
-    0.4418f,   /* cp — the quietest voice in sc808 by a long way */
-    0.1022f,   /* cb */
-    0.0059f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.1368f,   /* oh */
-    0.1203f,   /* cy */
+    0.2213f,   /* bd — the reference: everything else is set against the kick */
+    0.1881f,   /* sd */
+    0.1892f,   /* lt */
+    0.1941f,   /* mt */
+    0.2033f,   /* ht */
+    0.1674f,   /* lc */
+    0.1681f,   /* mc */
+    0.1681f,   /* hc */
+    0.3087f,   /* rs — a click with a crest factor of 11 */
+    0.1190f,   /* ma */
+    1.1529f,   /* cp — the quietest voice in sc808 by a long way */
+    0.2655f,   /* cb */
+    0.0153f,   /* ch — raw peak near 17 before the drive stage catches it */
+    0.3537f,   /* oh */
+    0.3109f,   /* cy */
 };
 
 /* Per-voice pot/enum slots, resolved once at create time so the audio path
@@ -160,14 +161,15 @@ struct sc808_engine {
     int bd_attack, bd_tone, sd_snappy, sd_tone;
     int ma_attack, cp_spread, cp_room, cy_tone;
     /* Globals. */
-    int e_master_dist, e_choke, e_note_map, e_rs_mode, e_bd_engine, e_metal_run;
+    int e_master_dist, e_choke, e_note_map, e_rs_mode, e_bd_engine, e_metal_run, e_sd_engine;
     int p_master_drive, p_volume, p_accent;
 
     unsigned mutes;
 
     BassDrum        bd;    /* the sc808 transcription */
     CircuitBassDrum bdc;   /* the bridged-T circuit   */
-    Snare     sd;
+    Snare           sd;    /* the sc808 transcription */
+    CircuitSnare    sdc;   /* two bridged-T shells    */
     Tom       lt, mt, ht, lc, mc, hc;
     RimClave  rs;
     Maracas   ma;
@@ -240,6 +242,7 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->e_rs_mode      = find_enum("rs_mode");
     e->e_bd_engine    = find_enum("bd_engine");
     e->e_metal_run    = find_enum("metal_run");
+    e->e_sd_engine    = find_enum("sd_engine");
 
     const double sr = e->sample_rate;
     e->bd.init(sr);
@@ -248,6 +251,7 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->bd.setLimiter(false);
     e->bdc.init(sr);
     e->sd.init(sr);
+    e->sdc.init(sr);
     e->lt.init(sr); e->mt.init(sr); e->ht.init(sr);
     e->lc.init(sr); e->mc.init(sr); e->hc.init(sr);
     e->rs.init(sr); e->ma.init(sr); e->cp.init(sr); e->cb.init(sr);
@@ -353,14 +357,32 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         }
         break;
     case SC808_SD:
-        /* detune -11 semitones on the second shell oscillator; the noise
-         * highpass stays at sc808's 93 while Tone moves the lowpass. */
-        e->sd.trigger(lane_hz(e, voice, tune),
-                      lane_hz(e, voice, tune - 11.0f),
-                      decay, e->potv[e->sd_snappy],
-                      (double)midicps(93.0f),
-                      (double)midicps(e->potv[e->sd_tone]),
-                      0.999f);
+        if(e->env[e->e_sd_engine] == 0)
+        {
+            /* The circuit snare. Its shared pots mean different things here,
+             * so they are read as raw POT POSITIONS: Tone is the balance
+             * between two bridged-T shells rather than a filter corner, and
+             * Snappy is a divider on the trigger rather than a mix. Tune is
+             * a ratio on both shells' component-derived frequencies. */
+            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            e->sdc.trigger(powf(2.0f, tune / 12.0f),
+                           (float)e->pot[e->slot[voice].decay] / 127.0f,
+                           (float)e->pot[e->sd_tone]   / 127.0f,
+                           (float)e->pot[e->sd_snappy] / 127.0f,
+                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+            e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
+        }
+        else
+        {
+            /* detune -11 semitones on the second shell oscillator; the noise
+             * highpass stays at sc808's 93 while Tone moves the lowpass. */
+            e->sd.trigger(lane_hz(e, voice, tune),
+                          lane_hz(e, voice, tune - 11.0f),
+                          decay, e->potv[e->sd_snappy],
+                          (double)midicps(93.0f),
+                          (double)midicps(e->potv[e->sd_tone]),
+                          0.999f);
+        }
         break;
     case SC808_LT: e->lt.trigger(kTomLo,    lane_hz(e, voice, tune), decay); break;
     case SC808_MT: e->mt.trigger(kTomMid,   lane_hz(e, voice, tune), decay); break;
@@ -455,7 +477,13 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
             else
             { if(e->bd.active())  mix += voice_sample(e, SC808_BD, e->bd.process()); }
         }
-        SC808_LANE(SC808_SD, sd);
+        if(e->rt[SC808_SD].choke_gain > 0.0f)
+        {
+            if(e->env[e->e_sd_engine] == 0)
+            { if(e->sdc.active()) mix += voice_sample(e, SC808_SD, e->sdc.process()); }
+            else
+            { if(e->sd.active())  mix += voice_sample(e, SC808_SD, e->sd.process()); }
+        }
         SC808_LANE(SC808_LT, lt);
         SC808_LANE(SC808_MT, mt);
         SC808_LANE(SC808_HT, ht);

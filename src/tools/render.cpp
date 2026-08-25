@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include "sc808_engine.h"
+#include "demo_pattern.h"
 
 static const double SR = 44100.0;
 
@@ -74,53 +75,16 @@ int main(int argc, char **argv)
     }
 
     /*
-     * Two bars at 120 BPM. Not a showcase — a plain 808 pattern, because what
-     * this render is for is hearing whether the kit sits together, and a
-     * pattern that avoids the awkward combinations would not answer that.
-     * Accents are velocity 127; everything else is 90, below the accent
-     * threshold.
+     * The pattern, from demo_pattern.h — the same one tools/kit_check fits
+     * the kit's absolute level to, which is the point of it being shared.
      */
     {
-        const double bpm = 120.0;
-        const double step = 60.0 / bpm / 4.0;              /* a 16th */
-        const int    steps = 32;
-        const int    frames = (int)(SR * (step * steps + 3.0));
-
-        /* step -> voice, velocity. 16 steps per bar. */
-        struct Hit { int step, voice, vel; };
-        static const Hit hits[] = {
-            /* bar 1 */
-            { 0, SC808_BD, 127}, { 4, SC808_SD, 110}, { 6, SC808_BD,  90},
-            { 8, SC808_BD, 100}, {12, SC808_SD, 110}, {14, SC808_CP, 110},
-            { 0, SC808_CH,  90}, { 2, SC808_CH,  80}, { 4, SC808_CH,  90},
-            { 6, SC808_CH,  80}, { 8, SC808_CH,  90}, {10, SC808_CH,  80},
-            {12, SC808_CH,  90}, {14, SC808_OH, 100},
-            { 3, SC808_RS,  90}, {11, SC808_CB,  90},
-            /* bar 2 */
-            {16, SC808_BD, 127}, {20, SC808_SD, 110}, {22, SC808_BD,  90},
-            {24, SC808_BD, 100}, {28, SC808_SD, 110}, {30, SC808_CP, 110},
-            {16, SC808_CH,  90}, {18, SC808_CH,  80}, {20, SC808_CH,  90},
-            {22, SC808_CH,  80}, {24, SC808_CH,  90}, {26, SC808_CH,  80},
-            {28, SC808_CY, 100},
-            {25, SC808_LT,  95}, {26, SC808_MT,  95}, {27, SC808_HT,  95},
-            {29, SC808_LC,  90}, {30, SC808_MC,  90}, {31, SC808_HC,  90},
-            {19, SC808_MA,  85}, {23, SC808_MA,  85},
-        };
-
         sc808_engine_t *e = sc808_create((float)SR);
-        int done = 0;
-        for(int s = 0; s < steps; ++s)
-        {
-            for(size_t k = 0; k < sizeof(hits) / sizeof(hits[0]); ++k)
-                if(hits[k].step == s) sc808_trigger(e, hits[k].voice, hits[k].vel);
-
-            const int n = (int)(SR * step);
-            if(done + n > frames) break;
-            sc808_render(e, g_buf + done, n);
-            done += n;
-        }
-        if(done < frames) { sc808_render(e, g_buf + done, frames - done); done = frames; }
+        const int done = sc808_render_demo(e, g_buf,
+                                           (int)(sizeof(g_buf) / sizeof(g_buf[0])),
+                                           SR, 3.0);
         sc808_destroy(e);
+        if(done == 0) { fprintf(stderr, "pattern buffer too small\n"); return 1; }
 
         double peak = 0.0;
         for(int i = 0; i < done; ++i)

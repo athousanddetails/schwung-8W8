@@ -121,6 +121,16 @@
             "max": 127
           },
           {
+            "key": "sd_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
+          },
+          {
             "key": "sd_drive",
             "short": "DRIVE",
             "full": "Drive",
@@ -147,8 +157,7 @@
             "type": "int",
             "min": 0,
             "max": 127
-          },
-          null
+          }
         ]
       ]
     },

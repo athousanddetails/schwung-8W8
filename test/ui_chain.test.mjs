@@ -105,7 +105,9 @@ JSON.parse(CHAIN_PARAMS); JSON.parse(UI_PAGES);
   const plugin = new Set(["mute_ms"]);
 
   /* the lane ids the panel builds its templated keys from */
-  const lanesSrc = html.slice(html.indexOf("var LANES = ["), html.indexOf("var LANE_MASK"));
+  /* Stop at PANEL, not at LANE_MASK: PANEL is a bare list of lane ids and the
+   * extras regex below would read its entries as parameter keys. */
+  const lanesSrc = html.slice(html.indexOf("var LANES = ["), html.indexOf("var PANEL"));
   const ids = [...lanesSrc.matchAll(/id:\s*"([a-z]+)"/g)].map(m => m[1]);
   check(ids.length === 15, `panel declares 15 lanes (got ${ids.length})`);
 
@@ -130,10 +132,22 @@ JSON.parse(CHAIN_PARAMS); JSON.parse(UI_PAGES);
         "every key web_ui.html touches exists in chain_params" +
         (missing.length ? " — missing: " + [...new Set(missing)].join(", ") : ""));
 
-  /* and the panel must cover every lane the DSP has, in the DSP's order */
+  /* LANES must be in the DSP's order, because its INDEX is the mute bit and
+   * the ui_focus value. */
   const order = ["bd","sd","lt","mt","ht","lc","mc","hc","rs","ma","cp","cb","ch","oh","cy"];
   check(JSON.stringify(ids) === JSON.stringify(order),
-        "panel lane order matches the DSP's enum (mute bits and ui_focus depend on it)");
+        "panel LANES is in the DSP's enum order (mute bits and ui_focus depend on it)");
+
+  /* PANEL is the DRAW order — a real 808 runs ... COW BELL, CYMBAL, OPEN
+   * HIHAT, CLOSED HIHAT, where the pads and the DSP end CH, OH, CY. It has to
+   * be a permutation of the same set: an id that is missing silently drops an
+   * instrument off the panel, and one that is misspelled draws nothing. */
+  const panelSrc = html.slice(html.indexOf("var PANEL"), html.indexOf("function panelLanes"));
+  const panel = [...panelSrc.matchAll(/"([a-z]{2})"/g)].map(m => m[1]);
+  check(panel.length === order.length &&
+        [...panel].sort().join() === [...order].sort().join(),
+        "PANEL draws every lane exactly once" +
+        (panel.length ? " (" + panel.join(" ") + ")" : ""));
 }
 
 /* ---- host mock ---- */

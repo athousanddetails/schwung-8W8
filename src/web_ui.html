@@ -4,18 +4,29 @@
   slot's synth. Talks to the device through the schwungRemote postMessage
   bridge; every continuous control is a 0-127 pot, mirroring the hardware.
 
-  Laid out after the TR-808 itself: silver panel, black legend, and the
-  instrument row carrying the 808's own colour run — red through orange and
-  amber to cream — which is the single most recognisable thing about the
-  machine and costs nothing to get right.
+  LAID OUT AFTER THE REAL TR-808, not after 6W6's panel with different
+  colours. The 808 does not have a page selector and a row of controls for
+  whatever is selected — it puts every instrument on the panel at once, as a
+  COLUMN: its LEVEL knob at the top, its own two or three knobs under that,
+  and a name plate at the bottom. Where one channel serves two instruments the
+  plate is doubled, the alternate in tan above the main one in cream —
+  CLAVES over RIM SHOT, LOW CONGA over LOW TOM. Nothing is hidden and nothing
+  needs selecting.
 
-  No step strip. The DSP's built-in step lanes are driven by Move's own step
-  buttons through the chain patch, and a second editor for them here
-  double-hits anything also programmed on Move. The panel FOLLOWS the device
-  instead: hit a pad and the instrument changes here too, because the
-  on-device editor publishes the page it follows as synth:ui_focus.
+  Two departures, both deliberate:
 
-  Ported from 6W6's panel with an 808 roster. GPL-3.0.
+  - No step sequencer. 8W8's step lanes are driven by Move's own step buttons
+    through the chain patch, and a second editor here would double-hit
+    anything also programmed on Move. The 808's most recognisable feature is
+    that bottom row of red-orange-amber-cream buttons, so it stays — as the
+    MUTE row, one button per instrument, which is the thing a player actually
+    reaches for mid-pattern.
+
+  - 8W8 adds Drive, a Distortion type and a couple of engine switches that no
+    808 ever had. Those go in the lower dark panel, in the same columns, so
+    the upper panel stays the instrument surface the hardware has.
+
+  GPL-3.0.
 -->
 <html>
 <head>
@@ -24,99 +35,140 @@
 <title>8W8</title>
 <style>
   :root {
-    --silver:  #d8d8d4;          /* brushed panel               */
-    --silver2: #c6c6c1;          /* lower panel, a shade darker */
-    --ink:     #111;             /* legend                      */
-    --red:     #d8352a;          /* mute, LEDs                  */
-    --strip:   #161616;
+    /* Sampled off a TR-808: the case is a dark blue-charcoal, not black, and
+     * the panel is a warm mid grey rather than the silver a 606 or 909 has. */
+    --case:    #23262e;
+    --case-hi: #343843;
+    --panel:   #8e8c85;
+    --panel-2: #7e7c76;
+    --deck:    #4a4c52;          /* the lower, darker section          */
+    --legend:  #edeae2;          /* small caps printed on the panel    */
+    --plate:   #e9e3d2;          /* instrument name plate, cream       */
+    --plate-2: #c98a3f;          /* the alternate instrument, tan      */
+    --orange:  #e8763a;          /* "Rhythm Composer TR-808"           */
+    --led:     #e2402c;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #222; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-         padding: 14px; color: var(--ink); }
-  .machine { max-width: 1240px; margin: 0 auto; background: #3a3a3a;
-             border: 2px solid #000; border-radius: 10px; padding: 8px; }
-  .panel { background: linear-gradient(180deg, #e2e2de 0%, var(--silver) 40%, #d0d0cb 100%);
-           border: 1px solid #8a8a86; border-radius: 4px; padding: 8px 12px; margin-bottom: 6px; }
-  .panel.lower { background: linear-gradient(180deg, #d4d4d0, var(--silver2)); }
-  .row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
-  .brand { display: flex; align-items: baseline; justify-content: space-between; }
-  .brand .logo { font-size: 30px; font-weight: 900; letter-spacing: 1px; }
-  .brand .model { font-size: 26px; font-weight: 300; letter-spacing: 1px; }
-  .brand .model b { font-weight: 900; }
-  .legend { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
-            text-align: center; white-space: nowrap; }
-  .cell { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 62px; }
-  .cell.wide { width: 88px; }
-  /* The level strip carries seventeen knobs — accent, fifteen instruments and
-   * volume — so its cells are narrower than the voice page's. At the default
-   * width they would otherwise wrap and drop Volume onto a line of its own. */
-  #levels .cell { width: 50px; }
-  #levels .cell.wide { width: 72px; }
-  #levels .knob { width: 34px; height: 34px; }
-  #levels .knob .ptr { height: 12px; }
-  .val { font-size: 9px; color: #333; height: 10px; }
-  .knob { position: relative; width: 38px; height: 38px; border-radius: 50%;
-          background: radial-gradient(circle at 50% 45%, #f4f4f2 0 34%, #bbbbb8 35% 48%, #1a1a1a 49% 100%);
-          border: 1px solid #000; cursor: ns-resize; touch-action: none; }
-  .knob.big { width: 56px; height: 56px; }
-  .knob .ptr { position: absolute; left: 50%; top: 50%; width: 2px; height: 14px;
-               background: #000; transform-origin: 50% 0%; }
-  .knob.big .ptr { height: 21px; }
-  .ticks { position: absolute; inset: -6px; border-radius: 50%;
-           background: repeating-conic-gradient(from -135deg, #333 0 1deg, transparent 1deg 27deg);
-           -webkit-mask: radial-gradient(circle, transparent 57%, #000 58%);
-           mask: radial-gradient(circle, transparent 57%, #000 58%);
-           pointer-events: none; }
-  select { width: 66px; height: 22px; border: 1px solid #000; border-radius: 3px;
-           background: #ebebe8; font-weight: 700; font-size: 10px; }
-  .sep { width: 1px; align-self: stretch; background: #8a8a86; margin: 0 4px; }
-  .grow { flex: 1; }
+  body { background: #14161a; padding: 16px;
+         font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+         color: var(--legend); }
 
-  /* The instrument row, in the 808's own colours. On the hardware this run is
-   * the sixteen step buttons; here it is the fifteen instruments plus the
-   * mute, which is the same number of things in the same order and reads
-   * instantly as an 808. */
-  .inst { display: flex; gap: 3px; flex-wrap: wrap; }
-  .inst button { font: 700 9px/1 Helvetica, Arial; letter-spacing: .5px; padding: 7px 6px;
-                 border: 1px solid #000; border-radius: 2px; cursor: pointer;
-                 min-width: 42px; color: #111; box-shadow: inset 0 -2px 0 rgba(0,0,0,.18); }
-  .inst button.on { outline: 2px solid #111; outline-offset: 1px; }
-  .inst button .n { display: block; font-size: 7px; font-weight: 400; opacity: .65; }
-  .mute { font: 700 10px/1 Helvetica, Arial; padding: 8px 10px; border: 1px solid #000;
-          border-radius: 3px; background: #ebebe8; cursor: pointer; letter-spacing: 1px; }
-  .mute.on { background: var(--red); color: #fff; }
+  .machine { max-width: 1220px; margin: 0 auto; background: var(--case);
+             border: 1px solid #0c0e12; border-radius: 8px; padding: 12px;
+             box-shadow: 0 2px 0 var(--case-hi) inset, 0 12px 40px #0008; }
 
-  .strip { background: var(--strip); border: 2px solid #000; border-radius: 4px;
-           padding: 10px 12px 8px; color: #eee; }
-  .strip .hdr { display: flex; justify-content: space-between; align-items: center;
-                font-size: 9px; letter-spacing: 1.5px; margin-bottom: 8px; color: #ddd; }
-  .foot { font-size: 9px; color: #bbb; text-align: right; margin-top: 6px; }
+  .panel { background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+           border: 1px solid #5c5a55; border-radius: 3px; padding: 10px 12px 8px; }
+
+  /* ---- the brand strip ---- */
+  .brand { display: flex; align-items: flex-end; justify-content: space-between;
+           margin-bottom: 8px; }
+  .brand .logo { font-size: 30px; font-weight: 800; letter-spacing: 2px;
+                 color: #fff; text-shadow: 0 1px 0 #0006; }
+  .brand .model { color: var(--orange); font-size: 21px; font-weight: 500;
+                  letter-spacing: .5px; text-align: right; line-height: 1.05; }
+  .brand .model small { display: block; font-size: 10px; letter-spacing: 2px;
+                        color: #d9d5cc; font-weight: 400; }
+
+  /* ---- instrument columns ---- */
+  .rack { display: flex; align-items: stretch; gap: 3px; }
+  .col { display: flex; flex-direction: column; align-items: center;
+         width: 66px; padding-top: 2px; }
+  .col.narrow { width: 58px; }
+  .col.sel .plate { outline: 2px solid var(--led); outline-offset: 1px; }
+  .divider { width: 1px; background: #5f5d58; margin: 0 5px; align-self: stretch; }
+  .spacer { flex: 1; }
+
+  .lbl { font-size: 7.5px; letter-spacing: 1.4px; text-transform: uppercase;
+         white-space: nowrap; margin-bottom: 2px; opacity: .92; }
+  .knobwrap { display: flex; flex-direction: column; align-items: center;
+              margin-bottom: 6px; }
+  /* Every slot is the same height by construction, filled or empty, so the
+   * rows line up exactly. Guessing the empty one's height instead left it a
+   * pixel short, and a column with two empty slots landed its DECAY knob 2 px
+   * above its neighbours' — which is invisible in a screenshot and obvious on
+   * a real panel. 54 = 9 label + 32 knob + 10 readout + 3 gaps.
+   *
+   * Scoped to #rack on purpose: the lower deck has selects rather than knobs
+   * and nothing there needs to line up with anything above it, so forcing the
+   * same height on it just spreads it out. */
+  #rack .knobwrap { height: 54px; }
+  /* The one exception, and it is safe: MASTER VOLUME is a big knob, and it
+   * sits in the top row of a column whose remaining slots are all empty, so
+   * nothing has to line up beneath it. */
+  #rack .knobwrap.tall { height: 68px; }
+
+  /* Black cap, white pointer, thin bright ring — the 808's knob. */
+  .knob { position: relative; width: 32px; height: 32px; border-radius: 50%;
+          background: radial-gradient(circle at 50% 38%, #4a4a4a 0 42%, #1b1b1b 43% 100%);
+          border: 1px solid #0a0a0a; cursor: ns-resize; touch-action: none;
+          box-shadow: 0 1px 2px #0007, 0 0 0 2px #a9a7a0; }
+  .knob.big { width: 46px; height: 46px; }
+  .knob .ptr { position: absolute; left: 50%; top: 50%; width: 2px; height: 13px;
+               background: #f2f0ea; transform-origin: 50% 0%; border-radius: 1px; }
+  .knob.big .ptr { height: 19px; }
+  .val { font-size: 8px; color: #2b2a27; height: 10px; margin-top: 1px; }
+
+  /* The name plates at the foot of each column. */
+  .plates { margin-top: auto; width: 100%; }
+  .plate { display: block; background: var(--plate); color: #1b1b1b;
+           font-size: 7.5px; font-weight: 700; letter-spacing: .6px;
+           text-transform: uppercase; text-align: center; padding: 3px 1px;
+           border-radius: 2px; border: 1px solid #00000030; white-space: nowrap; }
+  .plate.alt { background: var(--plate-2); color: #17130c; margin-bottom: 2px; }
+
+  /* ---- the lower deck ---- */
+  .deck { background: linear-gradient(180deg, #53555c, var(--deck));
+          border: 1px solid #1b1d22; border-radius: 3px;
+          margin-top: 8px; padding: 8px 12px 10px; }
+  .deck .hdr { display: flex; justify-content: space-between; align-items: baseline;
+               font-size: 8px; letter-spacing: 2px; color: #cfccc4; margin-bottom: 6px; }
+  .deck select { width: 58px; height: 19px; border: 1px solid #111; border-radius: 2px;
+                 background: #d9d6cd; color: #17171a; font-weight: 700; font-size: 9px; }
+  .deck .lbl { color: #d6d3cb; }
+
+  /* The button row. On the hardware these are the sixteen steps, in four
+   * groups of four running red to cream; here they mute. */
+  .steps { display: flex; gap: 4px; margin-top: 10px; align-items: flex-end; }
+  .step { width: 56px; border: 1px solid #16181c; border-radius: 2px;
+          padding: 5px 2px 4px; cursor: pointer; text-align: center;
+          font: 700 8px/1.1 Helvetica, Arial; color: #1a1a1a;
+          box-shadow: 0 2px 0 #00000055; }
+  .step .n { display: block; font-size: 7px; font-weight: 400; opacity: .55;
+             margin-bottom: 2px; }
+  .step.muted { filter: brightness(.42) saturate(.5); color: #ffffffcc; }
+  .step .led { display: block; width: 6px; height: 6px; border-radius: 50%;
+               margin: 3px auto 0; background: #5a1a14; }
+  .step.sel .led { background: var(--led); box-shadow: 0 0 5px var(--led); }
+
+  .foot { font-size: 8px; color: #7e828c; text-align: right; margin-top: 8px;
+          letter-spacing: .4px; }
 </style>
 </head>
 <body>
 <div class="machine">
 
   <div class="panel">
-    <div class="brand"><div class="logo">8W8</div><div class="model">Rhythm Composer</div></div>
-    <div class="row" id="levels" style="margin-top:6px"></div>
-  </div>
-
-  <div class="panel lower">
-    <div class="row" style="align-items:center; margin-bottom:8px">
-      <div class="legend">Instrument</div>
-      <div class="inst" id="inst"></div>
-      <div class="grow"></div>
-      <button class="mute" id="mute">MUTE</button>
-      <div class="sep"></div>
-      <div class="model" style="font-size:18px"><b>TR</b>-808 <span style="font-size:11px; font-weight:400">Computer Controlled</span></div>
+    <div class="brand">
+      <div class="logo">8W8</div>
+      <div class="model">Rhythm Composer&nbsp; TR-808
+        <small>Computer Controlled</small></div>
     </div>
-    <div class="row" id="voice"></div>
-    <div class="row" id="master" style="margin-top:10px; padding-top:8px; border-top:1px solid #8a8a86"></div>
+    <div class="rack" id="rack"></div>
   </div>
 
-  <div class="strip">
-    <div class="hdr"><span id="lane-name">BASS DRUM</span><span>FOLLOWS THE PAD YOU HIT ON MOVE</span><span></span></div>
-    <div class="foot">by athousanddetails &middot; voices transcribed from sc808 (MIT) &middot; kick after Werner, Abel &amp; Smith &middot; drag knobs vertically, double-click to reset</div>
+  <div class="deck">
+    <div class="hdr">
+      <span>DRIVE &amp; DISTORTION &mdash; 8W8's own, no 808 had these</span>
+      <span id="lane-name">BASS DRUM</span>
+    </div>
+    <div class="rack" id="fx"></div>
+    <div class="steps" id="steps"></div>
+    <div class="foot">
+      by athousanddetails &middot; voices transcribed from sc808 (MIT) &middot;
+      kick and snare after Werner, Abel &amp; Smith &middot;
+      drag knobs vertically, double-click to reset &middot; buttons mute
+    </div>
   </div>
 </div>
 
@@ -138,37 +190,93 @@
   var MDIST  = ["Off", "Diode", "Clip", "Fold", "Crush"];
   var CHOKE  = ["Off", "CH>OH", "Mutual"];
   var RSMODE = ["Rim", "Clave"];
-  var BDENG  = ["Circuit", "sc808"];
+  var ENGINE = ["Circuit", "sc808"];
+  var METAL  = ["Free", "Retrig"];
 
-  /* Lanes, in the DSP's order — which is also the pad order and the mute-bit
-   * order. `col` is the 808's button colour run. */
+  /*
+   * The instrument columns, in the DSP's lane order — which is also the pad
+   * order and the mute-bit order.
+   *
+   *   knobs  FIXED SLOTS, not a list: [Tune, extra, extra, Decay]. On the
+   *          real panel the knobs line up in ROWS across the whole rack —
+   *          every LEVEL at one height, every TUNING at the next, every DECAY
+   *          at the bottom — because that is what makes a wall of knobs
+   *          readable. A per-column list packs them upwards instead and the
+   *          rack stops looking like an 808 immediately. null leaves the slot
+   *          empty and the row alignment intact.
+   *   alt    the tan plate above the cream one, where the 808 runs two
+   *          instruments off one channel.
+   *   fx     what goes in the lower deck under this column, beyond the
+   *          Drive knob and Distortion select every lane gets.
+   *   col    the button colour for this instrument's mute. The 808's step
+   *          row runs red, orange, amber, cream in fours, so these follow
+   *          PANEL's order rather than this array's — the gradient has to
+   *          look continuous left to right on the panel.
+   */
   var LANES = [
-    { id: "bd", name: "BASS DRUM",  col: "#c9463a",
-      extras: [["bd_attack","Attack"],["bd_tone","Tone"],["bd_engine","Engine",BDENG]] },
-    { id: "sd", name: "SNARE DRUM", col: "#cf5138",
-      extras: [["sd_snappy","Snappy"],["sd_tone","Tone"]] },
-    { id: "lt", name: "LOW TOM",    col: "#d55c36", extras: [] },
-    { id: "mt", name: "MID TOM",    col: "#db6734", extras: [] },
-    { id: "ht", name: "HI TOM",     col: "#e07432", extras: [] },
-    { id: "lc", name: "LOW CONGA",  col: "#e48130", extras: [] },
-    { id: "mc", name: "MID CONGA",  col: "#e88f2f", extras: [] },
-    { id: "hc", name: "HI CONGA",   col: "#ec9d2e", extras: [] },
-    { id: "rs", name: "RIM / CLAVE",col: "#efab30",
-      extras: [["rs_mode","Mode",RSMODE]] },
-    { id: "ma", name: "MARACAS",    col: "#f2b93a",
-      extras: [["ma_attack","Attack"]] },
-    { id: "cp", name: "HAND CLAP",  col: "#f4c650",
-      extras: [["cp_spread","Spread"],["cp_room","Room"]] },
-    { id: "cb", name: "COWBELL",    col: "#f2d174", extras: [] },
-    { id: "ch", name: "CLOSED HAT", col: "#eddb9e",
-      extras: [["hh_choke","Choke",CHOKE]] },
-    { id: "oh", name: "OPEN HAT",   col: "#e9e2c2", extras: [] },
-    { id: "cy", name: "CYMBAL",     col: "#e6e6de", extras: [["cy_tone","Tone"]] }
+    { id:"bd", name:"BASS DRUM",  col:"#d2452f",
+      knobs:[["bd_tune","Tune"],["bd_attack","Attack"],["bd_tone","Tone"],["bd_decay","Decay"]],
+      fx:[["bd_engine","Engine",ENGINE]] },
+    { id:"sd", name:"SNARE DRUM", col:"#d8532e",
+      knobs:[["sd_tune","Tune"],["sd_snappy","Snappy"],["sd_tone","Tone"],["sd_decay","Decay"]],
+      fx:[["sd_engine","Engine",ENGINE]] },
+    { id:"lt", name:"LOW TOM",    col:"#dd5f2e",
+      knobs:[["lt_tune","Tuning"],null,null,["lt_decay","Decay"]] },
+    { id:"mt", name:"MID TOM",    col:"#e26b2e",
+      knobs:[["mt_tune","Tuning"],null,null,["mt_decay","Decay"]] },
+    { id:"ht", name:"HI TOM",     col:"#e6772e",
+      knobs:[["ht_tune","Tuning"],null,null,["ht_decay","Decay"]] },
+    { id:"lc", name:"LOW CONGA",  col:"#e9832f", altOf:"LOW TOM",
+      knobs:[["lc_tune","Tuning"],null,null,["lc_decay","Decay"]] },
+    { id:"mc", name:"MID CONGA",  col:"#ec8f31", altOf:"MID TOM",
+      knobs:[["mc_tune","Tuning"],null,null,["mc_decay","Decay"]] },
+    { id:"hc", name:"HI CONGA",   col:"#ee9b34", altOf:"HI TOM",
+      knobs:[["hc_tune","Tuning"],null,null,["hc_decay","Decay"]] },
+    { id:"rs", name:"RIM SHOT",   col:"#f0a838", alt:"CLAVES",
+      knobs:[["rs_tune","Tuning"],null,null,["rs_decay","Decay"]],
+      fx:[["rs_mode","Mode",RSMODE]] },
+    { id:"ma", name:"MARACAS",    col:"#f2b53f",
+      knobs:[["ma_tune","Tuning"],["ma_attack","Attack"],null,["ma_decay","Decay"]] },
+    { id:"cp", name:"HAND CLAP",  col:"#f4c24b",
+      knobs:[["cp_tune","Tuning"],["cp_spread","Spread"],["cp_room","Room"],["cp_decay","Decay"]] },
+    { id:"cb", name:"COW BELL",   col:"#f0cf66",
+      knobs:[["cb_tune","Tuning"],null,null,["cb_decay","Decay"]] },
+    { id:"ch", name:"CLOSED HIHAT", col:"#eae7d8",
+      knobs:[["ch_tune","Tuning"],null,null,["ch_decay","Decay"]],
+      fx:[["hh_choke","Choke",CHOKE]] },
+    { id:"oh", name:"OPEN HIHAT", col:"#e8e3c4",
+      knobs:[["oh_tune","Tuning"],null,null,["oh_decay","Decay"]] },
+    { id:"cy", name:"CYMBAL",     col:"#ecdc94",
+      knobs:[["cy_tune","Tuning"],["cy_tone","Tone"],null,["cy_decay","Decay"]] }
   ];
-  /* Fifteen lanes: the mute mask needs fifteen bits. A byte here would
-   * silently drop the top four instruments from every mute. */
+
+  /*
+   * The order the panel DRAWS them in, which is not the order the DSP keeps
+   * them in.
+   *
+   * A real 808 runs ... COW BELL, CYMBAL, OPEN HIHAT, CLOSED HIHAT along the
+   * panel. 8W8's lane enum ends CH, OH, CY, because that is the pad order and
+   * the pads read bottom-left to top-right. LANES above stays in the DSP's
+   * order — its INDEX is the mute bit and the ui_focus value — and this is
+   * the only place the visual order lives.
+   *
+   * Reordering LANES itself to match the panel is the obvious shortcut and it
+   * is a real bug: the cymbal's mute button would have muted the closed hat,
+   * silently. test/ui_chain.test.mjs checks LANES against the DSP enum for
+   * exactly this reason, and caught it.
+   */
+  var PANEL = ["bd","sd","lt","mt","ht","lc","mc","hc",
+               "rs","ma","cp","cb","cy","oh","ch"];
+  function panelLanes() {
+    return PANEL.map(function (id) {
+      for (var i = 0; i < LANES.length; i++)
+        if (LANES[i].id === id) return { L: LANES[i], index: i };
+      return null;
+    }).filter(Boolean);
+  }
+  /* Fifteen lanes: the mute mask needs fifteen bits. A byte would silently
+   * drop the top four instruments from every mute. */
   var LANE_MASK = 0x7FFF;
-  var MASTER_LANE = 15;
 
   var state = {}, widgets = {}, mutesMask = 0, lane = 0;
   function key(k) { return "synth:" + k; }
@@ -179,23 +287,22 @@
   }
   function apply(k, raw) {
     if (k === "ui_focus") {
-      var ln = parseInt(raw, 10);          /* 0-14 lane, 15 = master */
+      var ln = parseInt(raw, 10);            /* 0-14 lane, 15 = master */
       if (ln >= 0 && ln < LANES.length && ln !== lane) selectLane(ln);
       return;
     }
     var v = parseInt(raw, 10); if (isNaN(v)) return;
-    if (k === "mutes") { mutesMask = v; renderMute(); return; }
+    if (k === "mutes") { mutesMask = v; renderMutes(); return; }
     if (widgets[k]) { state[k] = v; widgets[k].forEach(function (fn) { fn(v); }); }
   }
 
   /* ---- widgets ---- */
   function knob(parent, k, label, big) {
-    var cell = document.createElement("div"); cell.className = "cell" + (big ? " wide" : "");
-    var lg = document.createElement("div"); lg.className = "legend"; lg.textContent = label;
+    var wrap = document.createElement("div"); wrap.className = "knobwrap";
+    var lg = document.createElement("div"); lg.className = "lbl"; lg.textContent = label;
     var kn = document.createElement("div"); kn.className = "knob" + (big ? " big" : "");
-    var tk = document.createElement("div"); tk.className = "ticks";
     var ptr = document.createElement("div"); ptr.className = "ptr";
-    kn.appendChild(tk); kn.appendChild(ptr);
+    kn.appendChild(ptr);
     var val = document.createElement("div"); val.className = "val";
     function render(v) {
       ptr.style.transform = "translate(-50%,0) rotate(" + (-135 + v / 127 * 270 + 180) + "deg)";
@@ -222,20 +329,21 @@
     }
     kn.addEventListener("mousedown", down);
     kn.addEventListener("touchstart", down, { passive: false });
-    /* reset = the DSP's own default, not a guessed 64 — 8W8's defaults are
-     * sc808's declared arguments and are nowhere near pot centre */
+    /* reset = the DSP's own default. 8W8's defaults are sc808's declared
+     * arguments and are nowhere near pot centre, so it has to ask. */
     kn.addEventListener("dblclick", function () {
       schwungRemote.setParam(key(k), "default");
       setTimeout(function () {
         schwungRemote.getParam(key(k)).then(function (v) { apply(k, v); });
       }, 120);
     });
-    cell.appendChild(lg); cell.appendChild(kn); cell.appendChild(val);
-    parent.appendChild(cell); render(state[k] | 0);
+    wrap.appendChild(lg); wrap.appendChild(kn); wrap.appendChild(val);
+    parent.appendChild(wrap); render(state[k] | 0);
   }
+
   function sel(parent, k, label, opts) {
-    var cell = document.createElement("div"); cell.className = "cell";
-    var lg = document.createElement("div"); lg.className = "legend"; lg.textContent = label;
+    var wrap = document.createElement("div"); wrap.className = "knobwrap";
+    var lg = document.createElement("div"); lg.className = "lbl"; lg.textContent = label;
     var s = document.createElement("select");
     opts.forEach(function (o, i) {
       var op = document.createElement("option"); op.value = i; op.textContent = o;
@@ -243,66 +351,142 @@
     });
     s.addEventListener("change", function () { send(k, s.value | 0); });
     addWidget(k, function (v) { s.value = Math.min(v, opts.length - 1); });
-    cell.appendChild(lg); cell.appendChild(s); parent.appendChild(cell);
+    wrap.appendChild(lg); wrap.appendChild(s); parent.appendChild(wrap);
     s.value = state[k] | 0;
   }
 
-  /* ---- top strip: accent + one level knob per voice + volume ---- */
-  var top = document.getElementById("levels");
-  knob(top, "accent", "Accent");
-  var sepA = document.createElement("div"); sepA.className = "sep"; top.appendChild(sepA);
-  LANES.forEach(function (L) { knob(top, L.id + "_level", L.id.toUpperCase()); });
-  var sepV = document.createElement("div"); sepV.className = "sep"; top.appendChild(sepV);
-  knob(top, "volume", "Volume", true);
-
-  /* ---- instrument selector ---- */
-  var inst = document.getElementById("inst"), instBtns = [];
-  LANES.forEach(function (L, i) {
-    var b = document.createElement("button");
-    b.style.background = L.col;
-    b.innerHTML = '<span class="n">' + (i + 1) + '</span>' + L.id.toUpperCase();
-    b.title = L.name;
-    b.addEventListener("click", function () { selectLane(i); });
-    inst.appendChild(b); instBtns.push(b);
-  });
-  var muteBtn = document.getElementById("mute");
-  muteBtn.addEventListener("click", function () {
-    mutesMask = (mutesMask ^ (1 << lane)) & LANE_MASK;
-    schwungRemote.setParam(key("mutes"), String(mutesMask)); renderMute();
-  });
-  function renderMute() {
-    muteBtn.className = "mute" + ((mutesMask >> lane) & 1 ? " on" : "");
+  function column(parent, cls) {
+    var c = document.createElement("div");
+    c.className = "col" + (cls ? " " + cls : "");
+    parent.appendChild(c); return c;
+  }
+  function divider(parent) {
+    var d = document.createElement("div"); d.className = "divider";
+    parent.appendChild(d);
+  }
+  function plates(col, lane) {
+    var box = document.createElement("div"); box.className = "plates";
+    if (lane.alt) {
+      var a = document.createElement("span"); a.className = "plate alt";
+      a.textContent = lane.alt; box.appendChild(a);
+    } else if (lane.altOf) {
+      /* This lane IS the alternate of another channel on the hardware, so it
+       * wears the tan plate rather than the cream one. */
+      var t = document.createElement("span"); t.className = "plate alt";
+      t.textContent = lane.name; box.appendChild(t);
+      col.appendChild(box); return;
+    }
+    var p = document.createElement("span"); p.className = "plate";
+    p.textContent = lane.name; box.appendChild(p);
+    col.appendChild(box);
   }
 
-  /* ---- the selected voice's controls ---- */
-  var voiceRow = document.getElementById("voice");
-  function buildVoice() {
-    voiceRow.innerHTML = "";
-    var L = LANES[lane], id = L.id;
-    knob(voiceRow, id + "_tune", "Tune");
-    knob(voiceRow, id + "_decay", "Decay");
-    L.extras.forEach(function (x) {
-      if (x[2]) sel(voiceRow, x[0], x[1], x[2]); else knob(voiceRow, x[0], x[1]);
+  /* ---- upper panel: ACCENT, the instrument columns, MASTER VOLUME ---- */
+  var rack = document.getElementById("rack");
+  var cols = [];
+  {
+    var ac = column(rack, "narrow");
+    knob(ac, "accent", "Level");
+    for (var g = 0; g < 4; g++) {
+      var gg = document.createElement("div"); gg.className = "knobwrap gap";
+      ac.appendChild(gg);
+    }
+    var acBox = document.createElement("div"); acBox.className = "plates";
+    var acP = document.createElement("span"); acP.className = "plate";
+    acP.textContent = "ACCENT"; acBox.appendChild(acP); ac.appendChild(acBox);
+    divider(rack);
+  }
+  panelLanes().forEach(function (e) {
+    var L = e.L;
+    var c = column(rack);
+    c.dataset.lane = e.index;
+    knob(c, L.id + "_level", "Level");
+    L.knobs.forEach(function (kk) {
+      if (kk) knob(c, kk[0], kk[1]);
+      else {                              /* keep the row alignment */
+        var gap = document.createElement("div");
+        gap.className = "knobwrap gap"; c.appendChild(gap);
+      }
     });
-    var sp = document.createElement("div"); sp.className = "sep"; voiceRow.appendChild(sp);
-    knob(voiceRow, id + "_drive", "Drive");
-    sel(voiceRow, id + "_dist_type", "Distortion", DIST);
+    plates(c, L);
+    cols[e.index] = c;                 /* indexed by LANE, not by position */
+  });
+  {
+    divider(rack);
+    var mv = column(rack, "narrow");
+    knob(mv, "volume", "Master", true);
+    mv.querySelector(".knobwrap").classList.add("tall");
+    for (var g2 = 0; g2 < 4; g2++) {
+      var gg2 = document.createElement("div"); gg2.className = "knobwrap gap";
+      mv.appendChild(gg2);
+    }
+    var mvBox = document.createElement("div"); mvBox.className = "plates";
+    var mvP = document.createElement("span"); mvP.className = "plate";
+    mvP.textContent = "VOLUME"; mvBox.appendChild(mvP); mv.appendChild(mvBox);
   }
 
-  /* ---- master ---- */
-  var master = document.getElementById("master");
-  sel(master, "master_dist", "Master Dist", MDIST);
-  knob(master, "master_drive", "Master Drive");
-  var sp2 = document.createElement("div"); sp2.className = "sep"; master.appendChild(sp2);
-  sel(master, "hh_choke", "Hat Choke", CHOKE);
-  sel(master, "note_map", "Note Map", ["Rack 36", "GM"]);
+  /* ---- lower deck: the controls no 808 had, in the same columns ---- */
+  var fx = document.getElementById("fx");
+  {
+    var pad = column(fx, "narrow"); pad.style.visibility = "hidden";
+    divider(fx);
+  }
+  panelLanes().forEach(function (e) {
+    var L = e.L;
+    var c = column(fx);
+    knob(c, L.id + "_drive", "Drive");
+    sel(c, L.id + "_dist_type", "Dist", DIST);
+    if (L.fx) L.fx.forEach(function (x) { sel(c, x[0], x[1], x[2]); });
+  });
+  {
+    divider(fx);
+    var m = column(fx, "narrow");
+    knob(m, "master_drive", "Master");
+    sel(m, "master_dist", "Dist", MDIST);
+    sel(m, "note_map", "Notes", ["Rack 36", "GM"]);
+    sel(m, "metal_run", "Metal", METAL);
+  }
 
+  /* ---- the button row: the 808's steps, muting instead of stepping ---- */
+  var steps = document.getElementById("steps");
+  var stepBtns = [];
+  panelLanes().forEach(function (e, pos) {
+    var L = e.L, idx = e.index;        /* idx is the LANE, pos is where it sits */
+    var b = document.createElement("div");
+    b.className = "step"; b.style.background = L.col;
+    b.innerHTML = '<span class="n">' + (pos + 1) + '</span>' + L.id.toUpperCase() +
+                  '<span class="led"></span>';
+    b.title = L.name + " — click to mute";
+    b.addEventListener("click", function () {
+      mutesMask = (mutesMask ^ (1 << idx)) & LANE_MASK;
+      schwungRemote.setParam(key("mutes"), String(mutesMask));
+      renderMutes();
+    });
+    steps.appendChild(b); stepBtns[idx] = b;
+  });
+  function renderMutes() {
+    stepBtns.forEach(function (b, idx) {
+      if (!b) return;
+      b.className = "step" + (((mutesMask >> idx) & 1) ? " muted" : "") +
+                    (idx === lane ? " sel" : "");
+    });
+  }
+
+  /*
+   * Follow the device. The on-device editor writes synth:ui_focus (the lane
+   * index) on every pad it follows, and the manager pushes writes and re-reads
+   * it on its refresh. Nothing needs selecting on this panel — every
+   * instrument is already on it — so following just moves the highlight and
+   * the deck's header, which is what tells you which drum you last hit.
+   * Lane 15 is Master and has no column; apply() ignores it.
+   */
   function selectLane(i) {
     lane = i;
-    instBtns.forEach(function (b, j) { b.className = j === i ? "on" : ""; });
+    cols.forEach(function (c, j) {
+      if (c) c.className = "col" + (j === i ? " sel" : "");
+    });
     document.getElementById("lane-name").textContent = LANES[i].name;
-    buildVoice(); renderMute();
-    seed();
+    renderMutes();
   }
 
   /* ---- bridge ---- */
@@ -318,13 +502,9 @@
       });
     });
   }
-  /* Follow the device: the on-device editor writes synth:ui_focus (lane
-   * index) on every pad it follows; the manager pushes writes and also
-   * re-reads it on its periodic refresh. Handled in apply() so seed, refresh
-   * and live stream take the same path. Lane 15 is Master, which has no
-   * instrument button — apply() ignores it and the panel stays put. */
 
   selectLane(0);
+  seed();
   setTimeout(seed, 400); setTimeout(seed, 1500);
 })();
 </script>

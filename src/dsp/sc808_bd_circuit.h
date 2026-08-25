@@ -60,6 +60,8 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "sc808_circuit_common.h"
+
 namespace sc808 {
 
 /*
@@ -133,26 +135,17 @@ public:
     {
         sr_ = _sampleRate >= 8000.0 ? _sampleRate : 44100.0;
 
-        /*
-         * Pulse shaper: a first-order high shelf, 0.045 at DC rising to unity,
-         * cornering at (R162+R163)/(R162 R163 C40) = 2.36 kHz. Applied to a
-         * 1 ms gate this leaves two spikes, one per edge — which is what the
-         * paper's Figure 3 shows and what actually kicks the network. The
-         * body of the pulse contributes almost nothing.
-         */
-        const double dc     = kBD_R162 / (kBD_R162 + kBD_R163);
-        const double corner = (kBD_R162 + kBD_R163)
-                            / (kBD_R162 * kBD_R163 * kBD_C40);
-        shelfA_  = exp(-corner / sr_);
-        shelfDC_ = dc;
+        /* Pulse shaper with the bass drum's own component values. See
+         * sc808_circuit_common.h for what it does and why. */
+        shaper_.init(sr_, kBD_R162, kBD_R163, kBD_C40);
 
         reset();
     }
 
     void reset()
     {
-        z1_ = z2_ = 0.0;
-        shelfState_ = 0.0;
+        bt_.reset();
+        shaper_.reset();
         fb_ = 0.0;
         gateSamples_ = 0;
         attackEnv_ = 0.0;
@@ -261,21 +254,7 @@ public:
         double gate = 0.0;
         if(gateSamples_ > 0) { gate = accentV_; --gateSamples_; }
 
-        /* First-order high shelf: unity at HF, shelfDC_ at DC. */
-        shelfState_ = gate + shelfA_ * (shelfState_ - gate);
-        double vplus = (gate - shelfState_) + shelfDC_ * shelfState_;
-
-        /*
-         * The pulse shaper's diode. Positive edges pass; negative ones are
-         * held at about one diode drop. This asymmetry is why the rising and
-         * falling edges of the trigger do not cancel, and it is the whole of
-         * the difference between "the network is kicked" and "the network is
-         * kicked and then un-kicked".
-         *      V+ >= 0 : V+
-         *      V+ <  0 : 0.71 (e^V+ - 1)
-         */
-        if(vplus < 0.0)
-            vplus = 0.71 * (exp(vplus > -20.0 ? vplus : -20.0) - 1.0);
+        const double vplus = shaper_.process(gate);
 
         /* ---- the attack shift, and the pitch sigh ---- */
         attackEnv_ *= attackCoef_;
@@ -322,10 +301,7 @@ public:
          * otherwise a delay-free loop. */
         const double x = vplus * forward_ + loopGain_ * opampClip(fb_);
 
-        /* Constant-peak-gain two-pole bandpass, transposed direct form II. */
-        const double y = b0_ * x + z1_;
-        z1_ = -a1_ * y + z2_;              /* b1 is zero for a bandpass */
-        z2_ = -b0_ * x - a2_ * y;
+        const double y = bt_.process(x);
         fb_ = y;
 
         /* ---- output stage ---- */
@@ -365,32 +341,8 @@ private:
      */
     static constexpr double kOutScale    = 1.522;
 
-    /* Op-amp saturation in the feedback path.
-     *
-     * Not a detail: with the decay pot up the loop gain approaches unity and
-     * a linear loop would run away. On the hardware the µPC4558 simply cannot
-     * swing past its rails, so the note grows until the clip stops it and
-     * then decays — which is why an 808 kick with a long decay has that
-     * slightly compressed, sat-on quality rather than an ever-growing one.
-     */
-    static inline double opampClip(const double _v)
-    {
-        const double lim = 12.0;
-        return lim * tanh(_v / lim);
-    }
-
     void setCoefficients(const double _f0, const double _q)
-    {
-        const double f = _f0 < 20.0 ? 20.0 : (_f0 > sr_ * 0.4 ? sr_ * 0.4 : _f0);
-        const double q = _q < 0.3 ? 0.3 : (_q > 60.0 ? 60.0 : _q);
-        const double w0 = 2.0 * 3.14159265358979323846 * f / sr_;
-        const double alpha = sin(w0) / (2.0 * q);
-        const double a0 = 1.0 + alpha;
-        b0_ =  alpha / a0;                 /* constant PEAK gain: unity at f0,
-                                            * so loopGain_ is the loop gain */
-        a1_ = -2.0 * cos(w0) / a0;
-        a2_ = (1.0 - alpha) / a0;
-    }
+    { bt_.set(_f0, _q, sr_); }
 
     double sr_ = 44100.0;
     double f0_ = kBD_F0_NOMINAL;
@@ -399,10 +351,10 @@ private:
     double attackAmount_ = 1.0, attackEnv_ = 0.0, attackCoef_ = 0.0;
     double accentV_ = 8.0;
 
-    double b0_ = 0.0, a1_ = 0.0, a2_ = 0.0;
-    double z1_ = 0.0, z2_ = 0.0, fb_ = 0.0;
+    BridgedT    bt_;
+    PulseShaper shaper_;
+    double fb_ = 0.0;
 
-    double shelfA_ = 0.0, shelfDC_ = 0.045, shelfState_ = 0.0;
     double toneA_ = 0.0, toneZ_ = 0.0, dcZ_ = 0.0;
     double sighEnv_ = 0.0;
 

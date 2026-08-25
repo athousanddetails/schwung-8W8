@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include "sc808_engine.h"
+#include "../src/tools/demo_pattern.h"
 
 extern "C" const float *sc808_debug_trim(void);
 
@@ -44,6 +45,13 @@ static const int    FRAMES  = (int)(44100 * 3);
 static const int    WINDOW  = (int)(44100 * 0.020);   /* 20 ms */
 
 static float g_buf[FRAMES];
+
+/* The demo pattern is two bars plus a tail — about 7 s, more than the 3 s
+ * single-voice buffer above. sc808_render_demo returns 0 rather than
+ * overrunning, which is safe and silent: an undersized buffer here made the
+ * pattern measure as -240 dBFS and the level fit quietly do nothing at all. */
+#define PATTERN_FRAMES ((int)(44100 * 10))
+static float g_pattern[PATTERN_FRAMES];
 
 /* The lane every other lane is balanced against. A drum machine is built
  * around its kick; everything else is set relative to it. */
@@ -80,22 +88,29 @@ static const double kVoicing[SC808_NUM_VOICES] = {
 };
 
 /*
- * The loudest thing a real pattern does, and what the kit's absolute level is
- * set from: a busy accented hit — kick, snare, clap, open hat, cowbell and
- * rim together.
+ * What the kit's absolute level is fitted to: the two-bar demo pattern from
+ * demo_pattern.h, targeted at -1 dBFS.
  *
- * Fitted against the simpler four-voice downbeat first, which was a mistake
- * twice over: it left render.cpp's two-bar pattern clipping at +0.7 dBFS
- * (a real pattern also carries the previous bar's tails), and once the kick
- * engine changed it left this busier case at +1.0. Fit the worst realistic
- * case, not the representative one.
+ * Two cheaper proxies were tried first and both were wrong. A four-voice
+ * downbeat left the pattern CLIPPING at +0.7 dBFS, because a real pattern
+ * also carries the previous bar's tails underneath it. A six-voice accented
+ * hit went the other way and left the pattern 8.6 dB quieter than it needed
+ * to be, because no pattern ever fires six accented voices on one sixteenth.
+ *
+ * The scenarios below are still measured and printed, and one of them will
+ * be over full scale: `busy` fires six accented voices on a single sixteenth
+ * and sits about 6 dB above the pattern, so fitting the pattern to -1 dBFS
+ * means that hit clips. That is a deliberate trade and the same one 6W6
+ * makes — it fits a dense pattern to -1.1 dBFS. Fitting `busy` under the
+ * ceiling instead costs 7 dB on everything anyone actually plays, to protect
+ * a hit that is rare and that the Volume pot already answers.
  *
  * "All fifteen at once" is easy to measure and irrelevant — no pattern does
  * it — and solo-voice peaks say nothing about a mix. Fitting the balance
  * without also fitting this is how you end up with a kit whose every lane is
  * beautifully in proportion and which clips on the first bar.
  */
-#define HEADROOM_TARGET 0.794
+#define HEADROOM_TARGET 0.891
 
 /*
  * Where each lane's energy should sit, in Hz.
@@ -271,9 +286,19 @@ int main(void)
      * multiplies every suggested trim by this, so balance and absolute level
      * converge together instead of fighting each other. */
     {
-        static const int busy[8] =
-            { SC808_BD, SC808_SD, SC808_CP, SC808_OH, SC808_CB, SC808_RS, -1 };
-        const double p = scenario_peak(busy);
+        sc808_engine_t *pe = sc808_create((float)SR);
+        const int done = sc808_render_demo(pe, g_pattern, PATTERN_FRAMES, SR, 2.0);
+        sc808_destroy(pe);
+        if(done == 0)
+        {
+            printf("*** pattern did not render — buffer too small ***\n");
+            return 1;
+        }
+        double p = 0.0;
+        for(int i = 0; i < done; ++i)
+        { const double a = fabs((double)g_pattern[i]); if(a > p) p = a; }
+        printf("pattern peak %.3f (%+.1f dBFS)\n", p,
+               20.0 * log10(p > 0 ? p : 1e-12));
         printf("headroom_scale %.6f\n",
                p > 1e-9 ? HEADROOM_TARGET / p : 1.0);
     }

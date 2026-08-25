@@ -137,6 +137,12 @@ PAGES = [
         PV("sd_decay",  "Decay",   0.1,  8.0, EXP,  4.2),
         PV("sd_snappy", "Snappy",  0.0,  1.0, LIN,  0.7),
         PV("sd_tone",   "Tone",  109.0,133.0, LIN,121.0),   # noise lowpass, MIDI
+        # Which snare. "Circ" is two bridged-T networks at 173 and 336 Hz,
+        # derived from the service notes' component values, with a swing-type
+        # VCA on the noise — so Tone balances two ringing shells rather than
+        # moving a filter, and Snappy divides the trigger into the noise
+        # envelope rather than mixing a level. "sc808" is the transcription.
+        E("sd_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("sd"), DTYPE("sd"), LEVEL("sd"),
     ]),
     ("lt", "Low Tom",   [TUNE("lt"), PV("lt_decay", "Decay", 1.0, 40.0, EXP, 20.0),
