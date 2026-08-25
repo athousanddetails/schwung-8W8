@@ -11,7 +11,9 @@
 
 #include "sc808_voices.h"
 #include "sc808_bd_circuit.h"
+#include "sc808_cp_circuit.h"
 #include "sc808_sd_circuit.h"
+#include "sc808_tom_circuit.h"
 #include "sc808_engine.h"
 #include "sc808_params.h"
 #include "sc808_shape.h"
@@ -26,9 +28,9 @@ static const float kChokeSeconds = 0.002f;
 
 namespace {
 
-const char *kVoiceIds[SC808_NUM_VOICES] = {
+constexpr const char *kVoiceIds[SC808_NUM_VOICES] = {
     "bd", "sd", "lt", "mt", "ht", "lc", "mc", "hc",
-    "rs", "ma", "cp", "cb", "ch", "oh", "cy"
+    "rs", "cl", "ma", "cp", "cb", "ch", "oh", "cy"
 };
 
 /*
@@ -57,6 +59,9 @@ const float kBaseNote[SC808_NUM_VOICES] = {
     57.0f,   /* mc */
     62.0f,   /* hc — see above */
     92.0f,   /* rs */
+    99.0f,   /* cl — sc808's own note for the claves; when rim and clave
+              *      shared a lane this was the rim's note plus 7 semitones,
+              *      which is the same pitch by a longer road */
    113.0f,   /* ma — the highpass corner, this voice has no oscillator */
     71.0f,   /* cp — the highpass corner */
      0.0f, 0.0f, 0.0f, 0.0f    /* cb, ch, oh, cy: ratio-tuned */
@@ -68,7 +73,7 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * Left alone the voices arrive at wildly different levels, because each
  * SynthDef was written to be played on its own with its own `amp`: the closed
  * hat peaks near 17 while the hand clap peaks at 0.38, a spread of 33 dB.
- * Fifteen of those summed is not a drum machine, it is a fault.
+ * Sixteen of those summed is not a drum machine, it is a fault.
  *
  * These trims put the kit in proportion at pot centre, so Level 64 means
  * "the balanced 808", not "unity gain". They set TWO things at once and
@@ -88,23 +93,51 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * prints what to paste back here. Two earlier metrics are documented in that
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
-const float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.2213f,   /* bd — the reference: everything else is set against the kick */
-    0.1881f,   /* sd */
-    0.1892f,   /* lt */
-    0.1941f,   /* mt */
-    0.2033f,   /* ht */
-    0.1674f,   /* lc */
-    0.1681f,   /* mc */
-    0.1681f,   /* hc */
-    0.3087f,   /* rs — a click with a crest factor of 11 */
-    0.1190f,   /* ma */
-    1.1529f,   /* cp — the quietest voice in sc808 by a long way */
-    0.2655f,   /* cb */
-    0.0153f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.3537f,   /* oh */
-    0.3109f,   /* cy */
+constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
+    0.1725f,   /* bd — the reference: everything else is set against the kick */
+    0.1465f,   /* sd */
+    0.6596f,   /* lt */
+    0.6917f,   /* mt */
+    0.5326f,   /* ht */
+    0.2928f,   /* lc */
+    0.2371f,   /* mc */
+    0.1954f,   /* hc */
+    0.2385f,   /* rs — a click with a crest factor of 11 */
+    0.2080f,   /* cl */
+    0.0932f,   /* ma */
+    2.0872f,   /* cp — the quietest voice in sc808 by a long way */
+    0.2073f,   /* cb */
+    0.0120f,   /* ch — raw peak near 17 before the drive stage catches it */
+    0.2767f,   /* oh */
+    0.2432f,   /* cy */
 };
+
+/*
+ * A short initialiser list on a sized array does not warn — C zero-fills the
+ * tail — and a zero trim is a SILENT LANE. Adding the claves as a sixteenth
+ * voice did exactly this: the table kept fifteen entries, the cymbal read
+ * 0.0f, and it vanished. tools/kit_check caught it as a -inf, which is what
+ * that check is for, but a compile error is cheaper than a render.
+ */
+constexpr bool trim_table_filled(const int i = 0)
+{
+    return i >= SC808_NUM_VOICES
+         ? true
+         : (kVoiceTrim[i] > 0.0f && trim_table_filled(i + 1));
+}
+static_assert(trim_table_filled(),
+              "kVoiceTrim has a zero entry: a short initialiser list "
+              "zero-fills the tail, and a zero trim silences that lane");
+
+/* Same trap, same table shape. */
+constexpr bool voice_ids_filled(const int i = 0)
+{
+    return i >= SC808_NUM_VOICES
+         ? true
+         : (kVoiceIds[i] != nullptr && kVoiceIds[i][0] != '\0'
+            && voice_ids_filled(i + 1));
+}
+static_assert(voice_ids_filled(), "kVoiceIds is short of SC808_NUM_VOICES");
 
 /* Per-voice pot/enum slots, resolved once at create time so the audio path
  * never searches by string. */
@@ -161,7 +194,9 @@ struct sc808_engine {
     int bd_attack, bd_tone, sd_snappy, sd_tone;
     int ma_attack, cp_spread, cp_room, cy_tone;
     /* Globals. */
-    int e_master_dist, e_choke, e_note_map, e_rs_mode, e_bd_engine, e_metal_run, e_sd_engine;
+    int e_master_dist, e_choke, e_note_map, e_bd_engine, e_metal_run, e_sd_engine;
+    int e_cp_engine;
+    int e_tom_engine[6];   /* lt mt ht lc mc hc, in lane order */
     int p_master_drive, p_volume, p_accent;
 
     unsigned mutes;
@@ -170,8 +205,13 @@ struct sc808_engine {
     CircuitBassDrum bdc;   /* the bridged-T circuit   */
     Snare           sd;    /* the sc808 transcription */
     CircuitSnare    sdc;   /* two bridged-T shells    */
+    ClapCircuit     cpc;   /* burst, tail, 874 Hz MFB */
+    /* Six copies of one channel, three struck as toms and three as
+     * congas — which is what the switch on the real board does. */
+    TomCircuit      ltc, mtc, htc, lcc, mcc, hcc;
     Tom       lt, mt, ht, lc, mc, hc;
     RimClave  rs;
+    RimClave  cl;          /* the same circuit, mode fixed to Clave */
     Maracas   ma;
     Clap      cp;
     Cowbell   cb;
@@ -198,6 +238,23 @@ const char *sc808_voice_id(int voice)
 
 sc808_engine_t *sc808_create(float sample_rate)
 {
+    /*
+     * calloc, and that has a consequence worth knowing before you add a voice.
+     *
+     * NO CONSTRUCTOR RUNS. Every member of every voice object in here is
+     * zero bytes, and C++ default member initialisers — `double dc_ = 0.045;`
+     * and friends — are silently skipped. A class that relies on one to be
+     * usable before its own init() is called will be quietly wrong rather
+     * than obviously broken.
+     *
+     * It cost a day once already: the tom/conga channel called reset() on its
+     * PulseShaper instead of init(), so the shaper kept the zeroed dc_ and
+     * returned exactly zero for every input. The toms still sounded, because
+     * their noise head drives the resonator on its own, and only the congas
+     * went silent — which pointed the search at the congas, which were fine.
+     *
+     * So: every voice's init() must set everything it needs, explicitly.
+     */
     sc808_engine_t *e = (sc808_engine_t *)calloc(1, sizeof(sc808_engine_t));
     if(!e) return NULL;
     e->sample_rate = sample_rate > 0.0f ? sample_rate : 44100.0f;
@@ -239,10 +296,19 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->e_master_dist  = find_enum("master_dist");
     e->e_choke        = find_enum("hh_choke");
     e->e_note_map     = find_enum("note_map");
-    e->e_rs_mode      = find_enum("rs_mode");
     e->e_bd_engine    = find_enum("bd_engine");
     e->e_metal_run    = find_enum("metal_run");
     e->e_sd_engine    = find_enum("sd_engine");
+    e->e_cp_engine    = find_enum("cp_engine");
+    {
+        static const char *tomIds[6] = { "lt", "mt", "ht", "lc", "mc", "hc" };
+        for(int i = 0; i < 6; ++i)
+        {
+            char k[32];
+            snprintf(k, sizeof k, "%s_engine", tomIds[i]);
+            e->e_tom_engine[i] = find_enum(k);
+        }
+    }
 
     const double sr = e->sample_rate;
     e->bd.init(sr);
@@ -252,9 +318,12 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->bdc.init(sr);
     e->sd.init(sr);
     e->sdc.init(sr);
+    e->cpc.init(sr);
+    e->ltc.init(sr, 0); e->mtc.init(sr, 0); e->htc.init(sr, 0);
+    e->lcc.init(sr, 1); e->mcc.init(sr, 1); e->hcc.init(sr, 1);
     e->lt.init(sr); e->mt.init(sr); e->ht.init(sr);
     e->lc.init(sr); e->mc.init(sr); e->hc.init(sr);
-    e->rs.init(sr); e->ma.init(sr); e->cp.init(sr); e->cb.init(sr);
+    e->rs.init(sr); e->cl.init(sr); e->ma.init(sr); e->cp.init(sr); e->cb.init(sr);
     e->ch.init(sr); e->oh.init(sr); e->cy.init(sr);
     apply_metal_run(e);
     return e;
@@ -293,7 +362,7 @@ static void choke_voice(sc808_engine_t *e, int v)
 }
 
 /* Semitone offset -> Hz, around the lane's base note. */
-static inline double lane_hz(sc808_engine_t *e, int v, float offset)
+static inline double lane_hz(int v, float offset)
 {
     return (double)midicps(kBaseNote[v] + offset);
 }
@@ -341,7 +410,7 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
              * not a louder one.
              */
             const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
-            e->bdc.trigger(lane_hz(e, voice, tune),
+            e->bdc.trigger(lane_hz(voice, tune),
                            (float)e->pot[e->slot[voice].decay] / 127.0f,
                            (float)e->pot[e->bd_tone]   / 127.0f,
                            (float)e->pot[e->bd_attack] / 127.0f,
@@ -352,7 +421,7 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         }
         else
         {
-            e->bd.trigger(lane_hz(e, voice, tune), e->potv[e->bd_attack],
+            e->bd.trigger(lane_hz(voice, tune), e->potv[e->bd_attack],
                           decay, e->potv[e->bd_tone]);
         }
         break;
@@ -376,37 +445,83 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         {
             /* detune -11 semitones on the second shell oscillator; the noise
              * highpass stays at sc808's 93 while Tone moves the lowpass. */
-            e->sd.trigger(lane_hz(e, voice, tune),
-                          lane_hz(e, voice, tune - 11.0f),
+            e->sd.trigger(lane_hz(voice, tune),
+                          lane_hz(voice, tune - 11.0f),
                           decay, e->potv[e->sd_snappy],
                           (double)midicps(93.0f),
                           (double)midicps(e->potv[e->sd_tone]),
                           0.999f);
         }
         break;
-    case SC808_LT: e->lt.trigger(kTomLo,    lane_hz(e, voice, tune), decay); break;
-    case SC808_MT: e->mt.trigger(kTomMid,   lane_hz(e, voice, tune), decay); break;
-    case SC808_HT: e->ht.trigger(kTomHi,    lane_hz(e, voice, tune), decay); break;
-    case SC808_LC: e->lc.trigger(kCongaLo,  lane_hz(e, voice, tune), decay); break;
-    case SC808_MC: e->mc.trigger(kCongaMid, lane_hz(e, voice, tune), decay); break;
-    case SC808_HC: e->hc.trigger(kCongaHi,  lane_hz(e, voice, tune), decay); break;
+    /*
+     * The six tom / conga lanes, each with two engines.
+     *
+     * On the circuit side Decay is LOOP GAIN, so it is read as a raw pot
+     * position exactly as the kick and snare read theirs, and accent is a
+     * TRIGGER VOLTAGE rather than a gain — the strike is what changes, so the
+     * lane must not also be multiplied by the accent afterwards.
+     */
+    case SC808_LT: case SC808_MT: case SC808_HT:
+    case SC808_LC: case SC808_MC: case SC808_HC:
+    {
+        const int i = voice - SC808_LT;
+        if(e->env[e->e_tom_engine[i]] == 0)
+        {
+            TomCircuit *const tc[6] = { &e->ltc, &e->mtc, &e->htc,
+                                        &e->lcc, &e->mcc, &e->hcc };
+            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            tc[i]->trigger(lane_hz(voice, tune),
+                           (float)e->pot[e->slot[voice].decay] / 127.0f,
+                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+            e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
+        }
+        else
+        {
+            static const TomSpec *const spec[6] = { &kTomLo,   &kTomMid,  &kTomHi,
+                                                    &kCongaLo, &kCongaMid, &kCongaHi };
+            Tom *const t[6] = { &e->lt, &e->mt, &e->ht, &e->lc, &e->mc, &e->hc };
+            t[i]->trigger(*spec[i], lane_hz(voice, tune), decay);
+        }
+        break;
+    }
     case SC808_RS:
         /* The rim shot's band filters follow Tune. sc808 pins them at 63 and
          * 118, which is fine when the note never moves and sounds broken once
          * it does — a rim shot tuned down an octave through a fixed 311 Hz
          * highpass is all click and no body. */
-        e->rs.trigger(e->env[e->e_rs_mode], lane_hz(e, voice, tune), decay,
+        e->rs.trigger(0, lane_hz(voice, tune), decay,
                       (double)midicps(63.0f + tune),
                       (double)midicps(118.0f + tune));
         break;
+    case SC808_CL:
+        /* Mode 1. The claves are one sine and one envelope, so the filter
+         * arguments go unread — they are passed for the shared signature. */
+        e->cl.trigger(1, lane_hz(voice, tune), decay, 0.0, 0.0);
+        break;
     case SC808_MA:
-        e->ma.trigger(lane_hz(e, voice, tune), e->potv[e->ma_attack], decay);
+        e->ma.trigger(lane_hz(voice, tune), e->potv[e->ma_attack], decay);
         break;
     case SC808_CP:
-        /* hpf note 71, bandpass note 84; Tune moves both together. */
-        e->cp.trigger(lane_hz(e, voice, tune),
-                      (double)midicps(84.0f + tune),
-                      0.5f, decay, e->potv[e->cp_spread], e->potv[e->cp_room]);
+        if(e->env[e->e_cp_engine] == 0)
+        {
+            /*
+             * The circuit clap. Every pot keeps its meaning here, which is
+             * the point of it — in sc808 Decay set an envelope nobody could
+             * hear and Spread set the gap before a single second burst. Here
+             * Decay is the tail's time constant, Spread is the spacing of the
+             * three-pulse burst, and Tune is a RATIO on the 874 Hz bandpass
+             * rather than a note, because this voice has no note.
+             */
+            e->cpc.trigger(powf(2.0f, tune / 12.0f), decay,
+                           e->potv[e->cp_spread], e->potv[e->cp_room]);
+        }
+        else
+        {
+            /* hpf note 71, bandpass note 84; Tune moves both together. */
+            e->cp.trigger(lane_hz(voice, tune),
+                          (double)midicps(84.0f + tune),
+                          0.5f, decay, e->potv[e->cp_spread], e->potv[e->cp_room]);
+        }
         break;
     case SC808_CB:
         e->cb.trigger((double)tune, decay,
@@ -461,6 +576,15 @@ static inline float voice_sample(sc808_engine *e, int v, float raw)
     do { if(e->rt[vid].choke_gain > 0.0f && e->obj.active()) \
              mix += voice_sample(e, vid, e->obj.process()); } while(0)
 
+/* Same, for a lane with two engines behind a switch. */
+#define SC808_TOM_LANE(vid, idx, circ, sc) \
+    do { if(e->rt[vid].choke_gain > 0.0f) { \
+             if(e->env[e->e_tom_engine[idx]] == 0) { \
+                 if(e->circ.active()) mix += voice_sample(e, vid, e->circ.process()); \
+             } else if(e->sc.active()) { \
+                 mix += voice_sample(e, vid, e->sc.process()); \
+             } } } while(0)
+
 void sc808_render(sc808_engine_t *e, float *out, int frames)
 {
     const int   mdist  = e->env[e->e_master_dist];
@@ -484,15 +608,22 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
             else
             { if(e->sd.active())  mix += voice_sample(e, SC808_SD, e->sd.process()); }
         }
-        SC808_LANE(SC808_LT, lt);
-        SC808_LANE(SC808_MT, mt);
-        SC808_LANE(SC808_HT, ht);
-        SC808_LANE(SC808_LC, lc);
-        SC808_LANE(SC808_MC, mc);
-        SC808_LANE(SC808_HC, hc);
+        SC808_TOM_LANE(SC808_LT, 0, ltc, lt);
+        SC808_TOM_LANE(SC808_MT, 1, mtc, mt);
+        SC808_TOM_LANE(SC808_HT, 2, htc, ht);
+        SC808_TOM_LANE(SC808_LC, 3, lcc, lc);
+        SC808_TOM_LANE(SC808_MC, 4, mcc, mc);
+        SC808_TOM_LANE(SC808_HC, 5, hcc, hc);
         SC808_LANE(SC808_RS, rs);
+        SC808_LANE(SC808_CL, cl);
         SC808_LANE(SC808_MA, ma);
-        SC808_LANE(SC808_CP, cp);
+        if(e->rt[SC808_CP].choke_gain > 0.0f)
+        {
+            if(e->env[e->e_cp_engine] == 0)
+            { if(e->cpc.active()) mix += voice_sample(e, SC808_CP, e->cpc.process()); }
+            else
+            { if(e->cp.active())  mix += voice_sample(e, SC808_CP, e->cp.process()); }
+        }
         SC808_LANE(SC808_CB, cb);
         /*
          * The metal lanes, with their oscillator banks free-running.

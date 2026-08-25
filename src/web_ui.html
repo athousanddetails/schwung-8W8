@@ -12,8 +12,8 @@
       fences the instrument section off from ACCENT and from the master
     - the name plates use Roland's own lettering: the first two letters of
       each word large, the rest small — ACcent, BAss DRum, CLsd HIhat
-    - where one channel serves two instruments the alternate sits ABOVE in an
-      orange plate: CLaves over RIm SHot
+    - the instruments the 808 runs as a channel's ALTERNATE wear an orange
+      plate rather than a cream one: the congas, the claves, the maracas
     - "Rhythm Composer TR-808 / Computer Controlled" is bottom right in
       orange with MASTER VOLUME beyond it in the corner, not up in a header
     - the knobs line up in ROWS across the whole rack, which is what makes a
@@ -27,9 +27,10 @@
     that bottom row of red-orange-amber-cream buttons, so it stays — as the
     MUTE row, which is what a player actually reaches for mid-pattern.
 
-  - 8W8 adds Drive, a Distortion type and a couple of engine switches that no
-    808 ever had. Those go in the lower deck, in the same columns, so the
-    upper panel stays the instrument surface the hardware has.
+  - 8W8 adds Drive, a Distortion type and, on the eleven lanes that have two
+    engines, an Engine switch — none of which any 808 ever had. Those go in
+    the lower deck, in the same columns, so the upper panel stays the
+    instrument surface the hardware has.
 
   GPL-3.0.
 -->
@@ -217,7 +218,6 @@
   var DIST   = ["Diode", "Clip", "Fold", "Crush"];
   var MDIST  = ["Off", "Diode", "Clip", "Fold", "Crush"];
   var CHOKE  = ["Off", "CH>OH", "Mutual"];
-  var RSMODE = ["Rim", "Clave"];
   var ENGINE = ["Circuit", "sc808"];
   var METAL  = ["Free", "Retrig"];
 
@@ -245,24 +245,32 @@
       knobs:[["sd_tune","Tune"],["sd_snappy","Snappy"],["sd_tone","Tone"],["sd_decay","Decay"]],
       fx:[["sd_engine","Engine",ENGINE]] },
     { id:"lt", name:"LOW TOM",    col:"#dd5f2e",
-      knobs:[["lt_tune","Tuning"],null,null,["lt_decay","Decay"]] },
+      knobs:[["lt_tune","Tuning"],null,null,["lt_decay","Decay"]],
+      fx:[["lt_engine","Engine",ENGINE]] },
     { id:"mt", name:"MID TOM",    col:"#e26b2e",
-      knobs:[["mt_tune","Tuning"],null,null,["mt_decay","Decay"]] },
+      knobs:[["mt_tune","Tuning"],null,null,["mt_decay","Decay"]],
+      fx:[["mt_engine","Engine",ENGINE]] },
     { id:"ht", name:"HI TOM",     col:"#e6772e",
-      knobs:[["ht_tune","Tuning"],null,null,["ht_decay","Decay"]] },
+      knobs:[["ht_tune","Tuning"],null,null,["ht_decay","Decay"]],
+      fx:[["ht_engine","Engine",ENGINE]] },
     { id:"lc", name:"LOW CONGA",  col:"#e9832f", isAlt:true,
-      knobs:[["lc_tune","Tuning"],null,null,["lc_decay","Decay"]] },
+      knobs:[["lc_tune","Tuning"],null,null,["lc_decay","Decay"]],
+      fx:[["lc_engine","Engine",ENGINE]] },
     { id:"mc", name:"MID CONGA",  col:"#ec8f31", isAlt:true,
-      knobs:[["mc_tune","Tuning"],null,null,["mc_decay","Decay"]] },
+      knobs:[["mc_tune","Tuning"],null,null,["mc_decay","Decay"]],
+      fx:[["mc_engine","Engine",ENGINE]] },
     { id:"hc", name:"HI CONGA",   col:"#ee9b34", isAlt:true,
-      knobs:[["hc_tune","Tuning"],null,null,["hc_decay","Decay"]] },
-    { id:"rs", name:"RIM SHOT",   col:"#f0a838", alt:"CLAVES",
-      knobs:[["rs_tune","Tuning"],null,null,["rs_decay","Decay"]],
-      fx:[["rs_mode","Mode",RSMODE]] },
+      knobs:[["hc_tune","Tuning"],null,null,["hc_decay","Decay"]],
+      fx:[["hc_engine","Engine",ENGINE]] },
+    { id:"rs", name:"RIM SHOT",   col:"#f0a838",
+      knobs:[["rs_tune","Tuning"],null,null,["rs_decay","Decay"]] },
+    { id:"cl", name:"CLAVES",     col:"#f1ae3b", isAlt:true,
+      knobs:[["cl_tune","Tuning"],null,null,["cl_decay","Decay"]] },
     { id:"ma", name:"MARACAS",    col:"#f2b53f", isAlt:true,
       knobs:[["ma_tune","Tuning"],["ma_attack","Attack"],null,["ma_decay","Decay"]] },
     { id:"cp", name:"HAND CLAP",  col:"#f4c24b",
-      knobs:[["cp_tune","Tuning"],["cp_spread","Spread"],["cp_room","Room"],["cp_decay","Decay"]] },
+      knobs:[["cp_tune","Tuning"],["cp_spread","Spread"],["cp_room","Room"],["cp_decay","Decay"]],
+      fx:[["cp_engine","Engine",ENGINE]] },
     { id:"cb", name:"COW BELL",   col:"#f0cf66",
       knobs:[["cb_tune","Tuning"],null,null,["cb_decay","Decay"]] },
     { id:"ch", name:"CLSD HIHAT", col:"#eae7d8",
@@ -286,7 +294,7 @@
    * against the DSP enum for exactly that reason, and caught it.
    */
   var PANEL = ["bd","sd","lt","mt","ht","lc","mc","hc",
-               "rs","ma","cp","cb","cy","oh","ch"];
+               "rs","cl","ma","cp","cb","cy","oh","ch"];
   function panelLanes() {
     return PANEL.map(function (id) {
       for (var i = 0; i < LANES.length; i++)
@@ -295,9 +303,9 @@
     }).filter(Boolean);
   }
 
-  /* Fifteen lanes: the mute mask needs fifteen bits. A byte would silently
-   * drop the top four instruments from every mute. */
-  var LANE_MASK = 0x7FFF;
+  /* Sixteen lanes: the mute mask needs sixteen bits. A byte would silently
+   * drop the whole top row from every mute. */
+  var LANE_MASK = 0xFFFF;
 
   var state = {}, widgets = {}, mutesMask = 0, lane = 0;
   function key(k) { return "synth:" + k; }
@@ -308,7 +316,7 @@
   }
   function apply(k, raw) {
     if (k === "ui_focus") {
-      var ln = parseInt(raw, 10);            /* 0-14 lane, 15 = master */
+      var ln = parseInt(raw, 10);            /* 0-15 lane, 16 = master */
       if (ln >= 0 && ln < LANES.length && ln !== lane) selectLane(ln);
       return;
     }
@@ -510,7 +518,7 @@
    * index) on every pad it follows, and the manager pushes writes and re-reads
    * it on its refresh. Nothing needs selecting here — every instrument is
    * already on the panel — so following just moves the highlight and the
-   * deck's header, which is what tells you which drum you last hit. Lane 15
+   * deck's header, which is what tells you which drum you last hit. Lane 16
    * is Master and has no column; apply() ignores it.
    */
   function selectLane(i) {

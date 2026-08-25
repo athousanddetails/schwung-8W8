@@ -34,7 +34,7 @@ static int g_fail = 0;
  * about the shared object we are loading. */
 static const char *const kLane[SC808_NUM_VOICES] = {
     "bd", "sd", "lt", "mt", "ht", "lc", "mc", "hc",
-    "rs", "ma", "cp", "cb", "ch", "oh", "cy"
+    "rs", "cl", "ma", "cp", "cb", "ch", "oh", "cy"
 };
 
 static void ok(const int cond, const char *what, const char *detail)
@@ -98,13 +98,24 @@ static void capture(plugin_api_v2_t *api, void *inst, const int which)
  *
  * NOT an equality test, and the first version of this was, which was wrong.
  * In Retrig mode the OSCILLATORS restart, but 8W8's voices are persistent and
- * their filters still hold the previous hit's tail — so two hits differ by
- * about -86 dB rather than exactly zero. SuperCollider gets exact equality
- * only because every note there is a brand new synth with brand new filters.
+ * their filters still hold the previous hit's tail — so two hits differ by a
+ * real amount rather than by nothing. SuperCollider gets exact equality only
+ * because every note there is a brand new synth with brand new filters.
  *
- * The two cases are four orders of magnitude apart, so any threshold between
- * them is decisive: Retrig lands near 0.0001, Free near 1.4 (which is what
- * two uncorrelated signals of equal level give).
+ * MEASURED, on a fresh instance, hat / open hat / cymbal:
+ *
+ *     Retrig   0.036 .. 0.050
+ *     Free     1.41  .. 1.55      (two uncorrelated signals of equal level)
+ *
+ * about thirty times apart, and the thresholds sit in the gap with room on
+ * both sides. An earlier version of this comment claimed Retrig landed near
+ * 0.0001 — four orders of magnitude out — and the threshold was set to 0.01
+ * to match. It passed anyway, because the test ran on an instance that had
+ * been through a dozen other tests and inherited state that happened to pull
+ * the number down; the day the voices before it started ringing longer, it
+ * began failing without either hat changing by a single sample. That is why
+ * this test now takes a fresh instance, and why these numbers are written
+ * down as measurements rather than as recollections.
  */
 static double captures_diff(void)
 {
@@ -140,10 +151,37 @@ static void note_on(plugin_api_v2_t *api, void *inst, const int note, const int 
  */
 static void quiesce(plugin_api_v2_t *api, void *inst)
 {
-    api->set_param(inst, "mutes", "32767");     /* all 15 bits */
+    api->set_param(inst, "mutes", "65535");     /* all 16 bits */
     render_peak(api, inst, 8);                  /* let the fades complete */
     api->set_param(inst, "mutes", "0");
     render_peak(api, inst, 2);
+}
+
+/*
+ * A genuinely clean instance, for the tests that measure a voice against
+ * itself.
+ *
+ * quiesce() takes every lane OUT OF THE MIX, which is all most tests need,
+ * but it does not END the notes: a muted lane stops being rendered, so its
+ * envelope stops advancing and its filters keep the state they had. The voice
+ * is frozen, not finished.
+ *
+ * That was invisible while every voice died inside a quiesce anyway. The
+ * circuit toms and the circuit clap ring for over a second, so tests began
+ * inheriting state from whatever ran before them, and two measurements that
+ * compare a voice with itself started drifting — the hat's Retrig figure and
+ * the two kick engines' levels both moved without either voice changing at
+ * all. (Confirmed by rendering the hat from this engine and from the previous
+ * commit's: byte for byte the same.)
+ *
+ * So: anything that needs a REPRODUCIBLE absolute number gets a fresh
+ * instance, and does not have to reason about what ran before it.
+ */
+static void *fresh(plugin_api_v2_t *api, void **inst)
+{
+    if(*inst) api->destroy_instance(*inst);
+    *inst = api->create_instance(".", NULL);
+    return *inst;
 }
 
 int main(int argc, char **argv)
@@ -258,7 +296,7 @@ int main(int argc, char **argv)
     {
         quiesce(api, inst);
         static const int pads[SC808_NUM_VOICES] = {
-            68, 69, 70, 71, 76, 77, 78, 79, 84, 85, 86, 87, 92, 93, 94
+            68, 69, 70, 71, 76, 77, 78, 79, 84, 85, 86, 87, 92, 93, 94, 95
         };
         int silent = 0;
         for(int v = 0; v < SC808_NUM_VOICES; ++v)
@@ -271,9 +309,12 @@ int main(int argc, char **argv)
         g_fail += silent;
         if(!silent) printf("  ok    all %d pads sound\n", SC808_NUM_VOICES);
 
+        /* Pad 95 is the cymbal now, not Master — with sixteen drums there is
+         * no spare pad. What must NOT sound is a pad outside the block. */
         quiesce(api, inst);
-        note_on(api, inst, 95, 100);
-        ok(render_peak(api, inst, 8) == 0, "pad 95 (Master) does not sound", NULL);
+        note_on(api, inst, 75, 100);       /* right-hand block, not ours */
+        ok(render_peak(api, inst, 8) == 0,
+           "a pad outside the left 4x4 block does not sound", NULL);
     }
 
     /* ---- 6. a pot actually changes the audio ---- */
@@ -304,9 +345,9 @@ int main(int argc, char **argv)
         ok(un > 0, "unmuting restores it", NULL);
 
         char buf[32];
-        api->set_param(inst, "mutes", "16384");        /* bit 14 = cymbal */
+        api->set_param(inst, "mutes", "32768");        /* bit 15 = cymbal */
         api->get_param(inst, "mutes", buf, sizeof(buf));
-        ok(atoi(buf) == 16384, "the top lane's mute bit survives", buf);
+        ok(atoi(buf) == 32768, "the top lane's mute bit survives", buf);
         api->set_param(inst, "mutes", "0");
     }
 
@@ -418,27 +459,24 @@ int main(int argc, char **argv)
     /* ---- 12. the two-in-one lanes and the kick's two engines ---- */
     printf("\nmodes\n");
     {
-        /* Rim and Clave share a lane; both must sound, and differently. */
+        /* Rim and Clave have a pad each now, and must be different sounds. */
         quiesce(api, inst);
-        api->set_param(inst, "rs_mode", "0");
         note_on(api, inst, 36 + SC808_RS, 100);
         const int rim = render_peak(api, inst, 60);
         quiesce(api, inst);
-        api->set_param(inst, "rs_mode", "1");
-        note_on(api, inst, 36 + SC808_RS, 100);
+        note_on(api, inst, 36 + SC808_CL, 100);
         const int clave = render_peak(api, inst, 60);
-        ok(rim > 0 && clave > 0, "both Rim and Clave sound on the shared lane", NULL);
+        ok(rim > 0 && clave > 0, "Rim and Clave both sound, on their own lanes", NULL);
         ok(rim != clave, "and they are not the same sound", NULL);
-        api->set_param(inst, "rs_mode", "default");
 
         /* Both kick engines must sound, and land at a comparable level —
          * they share one per-lane trim, so if they disagree about what a
          * kick comes out at, switching engines shifts the kit balance. */
-        quiesce(api, inst);
+        fresh(api, &inst);
         api->set_param(inst, "bd_engine", "0");        /* circuit */
         note_on(api, inst, 36, 100);
         const int circ = render_peak(api, inst, 90);
-        quiesce(api, inst);
+        fresh(api, &inst);
         api->set_param(inst, "bd_engine", "1");        /* sc808 */
         note_on(api, inst, 36, 100);
         const int sc = render_peak(api, inst, 90);
@@ -464,24 +502,24 @@ int main(int argc, char **argv)
      * same phase every time. */
     printf("\nfree-running metal\n");
     {
+        fresh(api, &inst);
         api->set_param(inst, "metal_run", "1");        /* Retrig, i.e. sc808 */
-        quiesce(api, inst);
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 0);
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 1);
         {
             const double diff = captures_diff();
             char d[64]; snprintf(d, sizeof(d), "relative difference %.5f", diff);
-            ok(diff < 0.01, "Retrig: consecutive hats are the same hit", d);
+            ok(diff < 0.20, "Retrig: consecutive hats are the same hit", d);
         }
 
+        fresh(api, &inst);
         api->set_param(inst, "metal_run", "0");        /* Free, i.e. hardware */
-        quiesce(api, inst);
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 0);
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 1);
         {
             const double diff = captures_diff();
             char d[64]; snprintf(d, sizeof(d), "relative difference %.5f", diff);
-            ok(diff > 0.20, "Free: consecutive hats are different hits, as on an 808", d);
+            ok(diff > 0.50, "Free: consecutive hats are different hits, as on an 808", d);
         }
         api->set_param(inst, "metal_run", "default");
     }

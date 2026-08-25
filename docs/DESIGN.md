@@ -14,10 +14,18 @@ adapted by Sam Aaron). Vendored under `src/vendor/sc808`, transcribed in
 `src/dsp/sc808_voices.h`, and **verified sample-for-sample against
 SuperCollider** by `test/nulltest.sh`.
 
-**Engine B — the circuit.** So far the bass drum (`sc808_bd_circuit.h`, from
-Werner, Abel and Smith's DAFx-14 analysis) and the snare
-(`sc808_sd_circuit.h`, from the service notes' component values via Werner's
-snare analysis). Both are the default for their lane, both switchable.
+**Engine B — the circuit.** Eleven of the sixteen lanes now have one, all
+default and all switchable:
+
+| Voice | File | Built from |
+|---|---|---|
+| Bass drum | `sc808_bd_circuit.h` | Werner, Abel and Smith, DAFx-14 |
+| Snare | `sc808_sd_circuit.h` | service notes' component values, via Werner's snare analysis |
+| Tom / conga ×6 | `sc808_tom_circuit.h` | service notes, voicing board — Q derived, the rest fitted |
+| Hand clap | `sc808_cp_circuit.h` | service notes, voicing board — bandpass and tail derived |
+
+The shared blocks live once, in `sc808_circuit_common.h`: the pulse shaper,
+the op-amp clip, the bridged-T, and now the multiple-feedback bandpass.
 
 The split is deliberate and it is the same shape 9W9 uses, where the original
 ER-99 engine is still selectable. Engine A gets a complete, verified kit
@@ -99,6 +107,8 @@ carried between segments. Moving the reference to a newer SC without updating
 | Individual UGens | `test/nulltest.sh --probes` |
 | Circuit kick | `tools/bd_check` — every behaviour the paper asserts |
 | Circuit snare | nothing of its own yet — see "what is left" |
+| Circuit clap | `tools/cp_check` — Decay moves the tail, Spread only moves the burst |
+| Circuit tom/conga | `tools/tom_check` — tom ≠ conga at matched pitch; both engines within 3 dB |
 | Kit balance | `tools/kit_check` — fits trims and headroom, reports the residual |
 | On-device editor | `test/ui_chain.test.mjs` against the real `param_pages` |
 | Editor ↔ DSP agreement | same file — cross-checks the pad tables |
@@ -112,22 +122,34 @@ that cannot fail is not a test.
 ### Measured on the Move
 
 ```
-worst single lane   cymbal, 37x realtime (2.7% of a core)
-busy pattern        15x realtime (6.5% of a core)
-all 15 every 16th   5.1x realtime (19.7% of a core)  [pathological]
+worst single lane   cymbal, 35.1x realtime (2.9% of a core)
+busy pattern        15.9x realtime (6.3% of a core)
+all 16 every 16th    4.4x realtime (22.9% of a core)  [pathological]
 ```
 
-6W6 ships at 22% of a core. 8W8 is well inside that.
+6W6 ships at 22% of a core. 8W8 is well inside that — and note that the busy
+pattern did not get *more* expensive when eleven lanes moved to circuit
+models. A bridged-T in a loop is two biquad-ish updates and a clip; sc808's
+voices are envelopes and oscillators. The pathological case rose from 19.7%
+because there are sixteen lanes now instead of fifteen.
 
 ---
 
 ## 4. Decisions worth remembering
 
-**The roster is 15 + Master**, filling Move's left 4×4 pad block exactly. Rim
-shot and claves share a lane with a mode switch — because they share a
-*channel* on the hardware, where the panel has one RS/CL selector and a
-pattern cannot contain both. Merging the pair the machine itself merges is
-what frees the pad Master needs.
+**The roster is 16 drums and no Master pad**, filling Move's left 4×4 block
+exactly. Rim shot and claves used to share a lane with a mode switch, because
+they share a *channel* on the hardware — one RS/CL selector, and a pattern
+cannot contain both. They now have a pad each, which is a deliberate
+departure: sc808 ships them as two SynthDefs, a pattern that wants both is a
+normal thing to want, and it makes the roster sixteen. The cost is the Master
+pad, which moves to the jog with every other page.
+
+**Where a circuit engine is the default, the DEFAULT POT IS THE CIRCUIT'S.**
+The clap's Decay sits at 330 ms because that is R362 × C143. This is the one
+place 8W8 knowingly departs from "defaults are sc808's arguments", and it is
+the right way round: a fresh patch should be the sound that was verified, and
+for those lanes the thing that was verified is the circuit.
 
 **Kit balance is fitted, not chosen**, and two earlier metrics are recorded in
 `kit_check.cpp` as failures worth not repeating:
@@ -161,24 +183,54 @@ mean different things to the two engines.
 
 ## 5. What is left
 
-**Engine B, the rest of it — and the evidence problem.** On the hardware the
-toms, congas, rim shot and claves are all bridged-T networks too, the same
-topology as the kick and snare. The class exists and extending it is mostly
-parameter work. What does *not* exist is published component values for those
-voices: Werner's papers cover the bass drum and the cymbal, and his snare
-analysis covers the snare. Building the toms from general knowledge would put
-them on much weaker ground than the two that are done, and the header of any
-such voice would have to say so.
+**Engine B, the rest of it.** The rim shot and the claves are bridged-T
+networks on the hardware too, the same topology as everything else here, and
+they do not have a circuit engine yet. The evidence problem that used to block
+the toms is smaller than it looked: the service notes have the component
+values, and the two that matter for a bridged-T — the shunt and series
+resistors — are legible. What they do not have is the analysis. Q comes
+straight out of the values; loop-gain maps, pitch drops and noise levels do
+not, and every one of those in `sc808_tom_circuit.h` is fitted and says so in
+the header. Any new voice has to be that explicit about which half is which.
 
-The metal voices are the other half: the cymbal paper gives the six
+The metal voices are the bigger piece: the cymbal paper gives the six
 Schmitt-trigger oscillators (205.3, 369.6, 304.4, 522.7 measured, plus 800 and
 540 on trimpots), the passive mixing network, two bandpasses at ~3440 and
 ~7100 Hz, three swing-type VCAs with fitted nonlinearities and three
-Sallen-Key highpasses.
+Sallen-Key highpasses. That is a real rebuild, not a parameter fit.
 
-**The clap** is the widest gap between sc808 and hardware in Engine A: the real
-808 fires three fast bursts before the tail, sc808 uses one immediate and one
-delayed 26 ms. It is also the voice whose null is weakest.
+**Presets.** There are none. Sixteen lanes with five controls each is a lot of
+knobs to arrive at from defaults.
 
 **On-device UI verification.** The editor is tested offline against the real
-library, but nobody has driven it on the Move yet.
+library, and the DSP has now been benchmarked and loadtested on the Move, but
+nobody has driven the *interface* there yet.
+
+---
+
+## 6. Traps worth not falling into twice
+
+**calloc means no constructors.** `sc808_create` allocates the whole engine
+with `calloc`, so every voice object is zero bytes and C++ default member
+initialisers never run. `PulseShaper`'s `dc_ = 0.045` became `0.0`, which
+makes it return exactly zero for any input. The toms still sounded, because
+their noise head drives the resonator on its own, and only the *congas* went
+silent — so the search started at the congas, which were fine. Every voice's
+`init()` must set everything it needs, explicitly.
+
+**A short initialiser list zero-fills its tail, silently.** Adding a sixteenth
+voice left `kVoiceTrim` with fifteen entries; the cymbal read `0.0f` and
+vanished. `tools/kit_check` caught it as a `-inf`, which is what that check is
+for, but a compile error is cheaper — `sc808_engine.cpp` now `static_assert`s
+that no trim is zero, and `tools/fit_trim.py` reads the lane order out of
+`kVoiceIds` rather than keeping its own copy.
+
+**And a third, about tests.** Two loadtest assertions failed after this round
+without either voice changing by a single sample — confirmed by rendering the
+hat from this engine and from the previous commit's and getting byte-identical
+output. `quiesce()` takes lanes out of the mix but does not *end* their notes,
+so once the circuit toms and clap started ringing for over a second, tests
+began inheriting state from whatever ran before them. Anything measuring an
+absolute number now takes a fresh instance. The Retrig threshold had also been
+set from a figure four orders of magnitude off the real one and only ever
+passed on that inherited state; it is now written down as a measurement.

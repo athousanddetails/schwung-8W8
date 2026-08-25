@@ -85,7 +85,8 @@ JSON.parse(CHAIN_PARAMS); JSON.parse(UI_PAGES);
   const lanesTbl = js.slice(js.indexOf("var PAD2LANE"), js.indexOf("var LEVEL2LANE"));
   const lane = {};
   for (const m of lanesTbl.matchAll(/(\d+):\s*(\d+)/g)) lane[m[1]] = Number(m[2]);
-  const order = ["bd","sd","lt","mt","ht","lc","mc","hc","rs","ma","cp","cb","ch","oh","cy"];
+  const order = ["bd","sd","lt","mt","ht","lc","mc","hc",
+                 "rs","cl","ma","cp","cb","ch","oh","cy"];
   let bad = null;
   for (const p of dspPads) if (order[lane[p]] !== dsp[p]) bad = `pad ${p}`;
   check(!bad, "PAD2LANE indices match the DSP's lane order" + (bad ? " — " + bad : ""));
@@ -109,7 +110,7 @@ JSON.parse(CHAIN_PARAMS); JSON.parse(UI_PAGES);
    * extras regex below would read its entries as parameter keys. */
   const lanesSrc = html.slice(html.indexOf("var LANES = ["), html.indexOf("var PANEL"));
   const ids = [...lanesSrc.matchAll(/id:\s*"([a-z]+)"/g)].map(m => m[1]);
-  check(ids.length === 15, `panel declares 15 lanes (got ${ids.length})`);
+  check(ids.length === 16, `panel declares 16 lanes (got ${ids.length})`);
 
   /* `id + "_suffix"` call sites */
   const suffixes = [...html.matchAll(/id \+ "(_[a-z_]+)"/g)].map(m => m[1]);
@@ -134,7 +135,8 @@ JSON.parse(CHAIN_PARAMS); JSON.parse(UI_PAGES);
 
   /* LANES must be in the DSP's order, because its INDEX is the mute bit and
    * the ui_focus value. */
-  const order = ["bd","sd","lt","mt","ht","lc","mc","hc","rs","ma","cp","cb","ch","oh","cy"];
+  const order = ["bd","sd","lt","mt","ht","lc","mc","hc",
+                 "rs","cl","ma","cp","cb","ch","oh","cy"];
   check(JSON.stringify(ids) === JSON.stringify(order),
         "panel LANES is in the DSP's enum order (mute bits and ui_focus depend on it)");
 
@@ -214,18 +216,19 @@ setLog.length = 0; note(69, 100); off(69);
 check(setLog.length === 1 && setLog[0][1] === "1", "moving to another pad does write (lane 1)");
 
 /* the pads 6W6 never had: the third and fourth rows */
-setLog.length = 0; note(87, 100); off(87);
-check(setLog.some(([k, v]) => k === "synth:ui_focus" && v === "11"),
-      "pad 87 is the COWBELL (lane 11) — it was Master in 6W6");
-setLog.length = 0; note(94, 100); off(94);
-check(setLog.some(([k, v]) => k === "synth:ui_focus" && v === "14"),
-      "pad 94 is the cymbal (lane 14)");
+setLog.length = 0; note(85, 100); off(85);
+check(setLog.some(([k, v]) => k === "synth:ui_focus" && v === "9"),
+      "pad 85 is the CLAVES (lane 9) — its own pad now, not a mode switch");
+setLog.length = 0; note(92, 100); off(92);
+check(setLog.some(([k, v]) => k === "synth:ui_focus" && v === "12"),
+      "pad 92 is the cowbell (lane 12)");
 
-/* pad 16 = master page: never reaches Move */
+/* There is no master pad any more: sixteen drums fill the block, so pad 95 is
+ * the CYMBAL and it plays like any other. Master is reached by the jog. */
 injected = []; setLog.length = 0; note(95, 100); off(95);
-check(injected.length === 0, "pad 95 (master) never sounds");
+check(injected.length === 2, "pad 95 is a drum now and reaches Move");
 check(setLog.some(([k, v]) => k === "synth:ui_focus" && v === "15"),
-      "pad 95 publishes ui_focus=15 (master)");
+      "pad 95 publishes ui_focus=15 (the cymbal's lane)");
 
 /* Shift+Pad: silent select -> mute_ms 60 then inject */
 shift = true; injected = []; setLog.length = 0;
@@ -237,14 +240,14 @@ check(injected.length === 2, "Shift+Pad still reaches Move (white pad follows)")
 /* Mute+Pad on a lane above bit 7 — the one 6W6's byte mask could not hold */
 ui.onMidiMessageInternal(new Uint8Array([0xB0, 88, 127]));   /* mute held */
 setLog.length = 0; injected = [];
-note(94, 100); off(94);                                      /* cymbal, lane 14 */
+note(95, 100); off(95);                                      /* cymbal, lane 15 */
 ui.onMidiMessageInternal(new Uint8Array([0xB0, 88, 0]));
-check(setLog.some(([k, v]) => k === "synth:mutes" && v === String(1 << 14)),
-      "Mute+Pad toggles the cymbal lane (bit 14, needs the 15-bit mask)");
+check(setLog.some(([k, v]) => k === "synth:mutes" && v === String(1 << 15)),
+      "Mute+Pad toggles the cymbal lane (bit 15, needs the 16-bit mask)");
 check(injected.length === 2, "Mute+Pad press still reaches Move");
 ui.tick();
 check(true, "tick with a muted lane renders");
-ui.onMidiMessageInternal(new Uint8Array([0xB0, 88, 127])); note(94, 100); off(94);
+ui.onMidiMessageInternal(new Uint8Array([0xB0, 88, 127])); note(95, 100); off(95);
 ui.onMidiMessageInternal(new Uint8Array([0xB0, 88, 0]));
 check(params["synth:mutes"] === "0", "second Mute+Pad clears it");
 
@@ -275,6 +278,57 @@ globalThis.shadow_get_ui_slot = () => 1; setLog.length = 0; injected = [];
 note(68, 100); ui.onMidiMessageInternal(new Uint8Array([0xB0, 71, 1]));
 check(injected.length === 1 && setLog.length === 0,
       "unfocused slot: pads pass through, knobs ignored");
+
+/* ---- every attack/decay pair must draw as ONE envelope across BOTH slots --
+ *
+ * param_pages spans an AD graphic across adjacent attack/decay knobs, and it
+ * reads the row LEFT TO RIGHT: decay-then-attack is not a run it recognises,
+ * so the graph collapses onto one slot and the neighbour draws a bare knob.
+ * The maracas page shipped that way and it looked broken, which is what it
+ * was. Ordering is a property of gen_params.py's dict, so nothing but a test
+ * like this stops it drifting back.
+ */
+{
+  const { buildMetaIndex } = await import(
+    pathToFileURL(path.join(SHARED, "param_pages/param_meta.mjs")).href);
+  const { resolveViz, VIZ_ENVELOPE } = await import(
+    pathToFileURL(path.join(SHARED, "param_pages/viz.mjs")).href);
+
+  const hierarchy = JSON.parse(UI_PAGES);
+  const metaIndex = buildMetaIndex({ hierarchy, chainParams: JSON.parse(CHAIN_PARAMS) });
+
+  let pairs = 0, opted = 0, bad = [];
+  for (const [id, lvl] of Object.entries(hierarchy.levels || {})) {
+    const keys = (lvl.knobs || []).slice(0, 8);
+    const a = keys.findIndex(k => k && /_attack$/.test(k));
+    const d = keys.findIndex(k => k && /_decay$/.test(k));
+    if (a < 0 || d < 0) continue;
+
+    /* Attack before Decay on every page, envelope or not — one convention. */
+    if (!(a < d)) { bad.push(`${id}: decay@${d} sits before attack@${a}`); continue; }
+
+    /*
+     * viz:false is an OPT-OUT and must be honoured, not overridden. The bass
+     * drum declares it because on the circuit engine "Attack" is a frequency
+     * and Q jump and "Decay" is loop gain — neither is an envelope time, and
+     * drawing an AD curve over them would be a lie the renderer tells. 9W9
+     * learned that one the hard way. So: pages that opt out are exempt from
+     * the span rule, pages that do not must actually get their two slots.
+     */
+    const meta = k => (metaIndex.get ? metaIndex.get(k) : metaIndex[k]) || {};
+    if (meta(keys[a]).viz === false || meta(keys[d]).viz === false) { opted++; continue; }
+
+    pairs++;
+    const { groups } = resolveViz({ keys, metaIndex });
+    const env = groups.find(g => g.kind === VIZ_ENVELOPE && g.keys.includes(keys[a]));
+    const span = env ? env.keys.filter(k => keys.includes(k)).length : 0;
+    if (span < 2) bad.push(`${id}: attack@${a} decay@${d} span=${span}`);
+  }
+  check(pairs > 0, `${pairs} attack/decay pages draw an envelope, ${opted} opted out`);
+  check(bad.length === 0,
+        "every attack/decay pair spans two slots, attack first" +
+        (bad.length ? " — " + bad.join("; ") : ""));
+}
 
 console.log(fails ? `\nFAILED (${fails})` : "\nALL PASS");
 process.exit(fails ? 1 : 0);

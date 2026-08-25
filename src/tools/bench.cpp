@@ -4,7 +4,7 @@
  * 6W6's three metal voices summed 141 sines per sample and took 55% of the
  * device's block budget before they were rewritten. 8W8's arithmetic is
  * cheaper per voice — naive pulses and biquads rather than partial sums — but
- * there are fifteen lanes instead of eight and the cymbal alone runs eighteen
+ * there are sixteen lanes instead of eight and the cymbal alone runs eighteen
  * biquads through three parallel chains. That is worth measuring on the
  * hardware rather than assuming, which is what this is for.
  *
@@ -16,9 +16,9 @@
  *
  * MEASURED ON THE MOVE, 2026-08-23, first build:
  *   worst single lane   cymbal, 39.7x realtime (2.5% of a core)
- *   all 15 every 16th   5.6x realtime (18.0% of a core)
+ *   all 16 every 16th   (see docs/DESIGN.md for the measured figure)
  *   busy pattern        see below
- * The "all 15" case is pathological — every voice retriggered 9.3 times a
+ * The "all 16" case is pathological — every voice retriggered 9.3 times a
  * second — and is here as a ceiling, not as a target.
  *
  * GPL-3.0.
@@ -49,7 +49,7 @@ static double now_seconds(void)
  * costs nothing and would flatter the result.
  *
  * voice >= 0   that lane alone
- * voice == -1  all fifteen, every 16th (the ceiling)
+ * voice == -1  all sixteen, every 16th (the ceiling)
  * voice == -2  a realistic pattern: hats on every 16th, kick and snare and
  *              clap on their beats. This is the one that matters.
  */
@@ -109,13 +109,13 @@ int main(void)
 
     printf("\n");
     const double busy = measure(-2, "busy pattern");
-    const double all  = measure(-1, "all 15, every 16th");
+    const double all  = measure(-1, "all 16, every 16th");
 
     printf("\nworst single lane %.1fx (%.1f%% of a core)\n",
            worst, 100.0 / worst);
     printf("busy pattern      %.1fx (%.1f%% of a core)   <- the one that matters\n",
            busy, 100.0 / busy);
-    printf("all 15 at once    %.1fx (%.1f%% of a core)   [pathological]\n",
+    printf("all 16 at once    %.1fx (%.1f%% of a core)   [pathological]\n",
            all, 100.0 / all);
 
     /* 6W6 ships at 22% of a core. A third is where this stops being fine. */

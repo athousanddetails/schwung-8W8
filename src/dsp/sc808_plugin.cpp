@@ -25,7 +25,7 @@ static const host_api_v1_t *g_host = NULL;
 /* Page ids from gen_params.py. Pad-follow publishes one of these. */
 static const char *const kLevelOf[SC808_NUM_VOICES] = {
     "bd", "sd", "lt", "mt", "ht", "lc", "mc", "hc",
-    "rs", "ma", "cp", "cb", "ch", "oh", "cy"
+    "rs", "cl", "ma", "cp", "cb", "ch", "oh", "cy"
 };
 
 typedef struct {
@@ -39,7 +39,7 @@ typedef struct {
     unsigned        focus_count;
 
     /* ---- Per-voice step sequencer ----
-     * 15 lanes x 16 steps, clocked from host get_beat_position() so it phase-
+     * 16 lanes x 16 steps, clocked from host get_beat_position() so it phase-
      * locks to whatever transport is running and stays drift-free. Step input
      * arrives as notes 16-31 through the patch's capture rules — the
      * Schwung-supported path, no core patching. */
@@ -76,11 +76,15 @@ typedef struct {
  *                  drum block
  *
  * The kit lives in the LEFT block so it reads like a drum machine instead of
- * being smeared across the grid. Fifteen voices plus Master on the sixteenth
- * pad fills it exactly — 6W6 used half this block and 9W9 eleven pads.
+ * being smeared across the grid. SIXTEEN voices fill it exactly, one per
+ * sc808 SynthDef — 6W6 used half this block and 9W9 eleven pads.
  *
  * Bottom row is the 808's front-panel order (BD SD LT MT); the toms continue
  * into the congas above them, then the percussion, then the metal on top.
+ *
+ * There is no Master pad any more. 9W9 and 6W6 put it on pad 16; with sixteen
+ * drums there is no sixteenth pad left, so Master is reached by the jog —
+ * click for the section list, or Shift+Jog — like every other page.
  */
 static int pad_to_voice(const uint8_t _note)
 {
@@ -93,11 +97,11 @@ static int pad_to_voice(const uint8_t _note)
     case 76: return SC808_HT;   case 77: return SC808_LC;
     case 78: return SC808_MC;   case 79: return SC808_HC;
     /* row 2 */
-    case 84: return SC808_RS;   case 85: return SC808_MA;
-    case 86: return SC808_CP;   case 87: return SC808_CB;
-    /* row 3 — pad 95 is Master and deliberately has no voice */
-    case 92: return SC808_CH;   case 93: return SC808_OH;
-    case 94: return SC808_CY;
+    case 84: return SC808_RS;   case 85: return SC808_CL;
+    case 86: return SC808_MA;   case 87: return SC808_CP;
+    /* row 3 */
+    case 92: return SC808_CB;   case 93: return SC808_CH;
+    case 94: return SC808_OH;   case 95: return SC808_CY;
     default: return -1;
     }
 }
@@ -111,7 +115,7 @@ static int pad_to_voice(const uint8_t _note)
  */
 static int drumrack_to_voice(const uint8_t _note)
 {
-    if(_note >= 36 && _note <= 50) return (int)(_note - 36);
+    if(_note >= 36 && _note <= 51) return (int)(_note - 36);
     return -1;
 }
 
@@ -135,7 +139,8 @@ static int note_to_voice(const uint8_t _note)
     case 64:          return SC808_LC;   /* low conga        */
     case 62:          return SC808_MC;   /* mute high conga  */
     case 63:          return SC808_HC;   /* open high conga  */
-    case 37: case 75: return SC808_RS;   /* side stick, claves — one lane */
+    case 37:          return SC808_RS;   /* side stick */
+    case 75:          return SC808_CL;   /* claves — their own lane now */
     case 70:          return SC808_MA;
     case 39:          return SC808_CP;
     case 56:          return SC808_CB;

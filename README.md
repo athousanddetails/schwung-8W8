@@ -1,14 +1,16 @@
 # 8W8 — Rhythm Composer for Ableton Move
 
 A TR-808 style drum machine for [Schwung](https://github.com/charlesvestal/schwung)
-on Ableton Move. Fifteen voices, all synthesised, no samples. The kick and the
-snare are models of the 808's actual circuits; the rest of the kit is a
-transcription of Sonic Pi's sc808, verified sample-for-sample against
-SuperCollider.
+on Ableton Move. Sixteen voices, all synthesised, no samples. Eleven of them
+are models of the 808's actual circuits, built from the service notes; the
+rest of the kit is a transcription of Sonic Pi's sc808, verified
+sample-for-sample against SuperCollider.
 
-Fifteen drums and Master fill Move's left 4×4 pad block exactly — where
+Sixteen drums fill Move's left 4×4 pad block exactly — where
 [6W6](https://github.com/athousanddetails/schwung-6W6) uses half the block and
-[9W9](https://github.com/athousanddetails/schwung-9W9) eleven pads.
+[9W9](https://github.com/athousanddetails/schwung-9W9) eleven pads. There is no
+Master pad, because sixteen drums leave no room for one; Master is on the jog
+with every other page.
 
 ## Voices
 
@@ -16,11 +18,12 @@ Fifteen drums and Master fill Move's left 4×4 pad block exactly — where
 |---|---|
 | Bass Drum | **Circuit** — a bridged-T network in an op-amp feedback loop, where Decay is loop gain and the pitch sighs because the circuit makes it. Or **sc808**, switchable |
 | Snare | **Circuit** — two bridged-T shells at 173 and 336 Hz from the service notes' component values, so Tone balances two ringing shells and Snappy sets the noise's length as well as its level. Or **sc808**, switchable |
-| Low / Mid / Hi Tom | A sine on a falling pitch envelope under a very steep amplitude curve |
-| Low / Mid / Hi Conga | The same circuit at a different tuning — as on the hardware, where tom and conga share a channel |
-| Rim / Clave | One lane, one switch, because the 808's front panel has one RS/CL selector |
+| Low / Mid / Hi Tom | **Circuit** — a bridged-T at Q 10.8 ringing in a feedback loop, plus the noise head the 808 feeds its toms from the pink-noise bus. Or **sc808**, switchable |
+| Low / Mid / Hi Conga | The same channel with the switch the other way: struck clean, no head, all shell — which is what separates a conga from a tom on the hardware and now here. Or **sc808** |
+| Rim Shot | A triangle and an 80% pulse through a fat +8 dB peak at 464 Hz — that peak is the "tock" |
+| Claves | One sine, one envelope. The simplest voice in the kit, and its own pad |
 | Maracas | Noise, a 5.6 kHz highpass, and a 27 ms ramp up that is the rattle |
-| Hand Clap | An immediate noise burst, a second one 26 ms later, and a long diffuse tail |
+| Hand Clap | **Circuit** — three noise bursts about 10 ms apart and a 330 ms tail, through the 874 Hz bandpass R342/R334/C128 make. Or **sc808**, switchable |
 | Cowbell | Two pulse oscillators at 811 and 539 Hz — numbers 5 and 6 of the metal bank, exactly as the hardware wires them |
 | Closed / Open Hat | The six Schmitt-trigger oscillators through two filter paths. **Free-running** by default, as on the hardware, so no two hits are the same |
 | Cymbal | The same six through **three** parallel chains and four envelopes |
@@ -30,13 +33,17 @@ Wavefolder / Bitcrush) and **Level**, plus a **Master Drive / Distortion**
 across the kit. Every continuous control is a **0–127 pot**. **Hat choke is a
 switch**: Off, CH cuts OH (the hardware's shared metal source), or Mutual.
 
-Defaults are not pot centre. They are sc808's own declared arguments, which is
-what the null test verifies — so a fresh patch is the sound that was checked.
+Defaults are not pot centre. Where sc808 is the engine they are sc808's own
+declared arguments, which is what the null test verifies. Where a circuit
+engine is the default they are the **circuit's** — the clap's Decay sits at
+330 ms because that is R362 × C143 on the real board — so a fresh patch is
+always the sound that was checked, whichever engine checked it.
 
 ## The circuit voices
 
-Two of the fifteen are models of the real circuit rather than transcriptions
-of sc808, and both are switchable per patch.
+Eleven of the sixteen are models of the real circuit rather than
+transcriptions of sc808, and every one of them is switchable per patch, so
+nothing is lost — the verified transcription is always one knob away.
 
 ### The two kicks
 
@@ -80,6 +87,63 @@ rectification times the envelope. What is *not* derived, and is marked in the
 source: the noise high-pass corner and the envelope times, which are not in
 the sources and take sc808's fitted values instead.
 
+### Toms and congas, and why they used to sound the same
+
+They *were* the same. sc808 gives the hi tom and the hi conga the same note,
+the same two detune ratios and the same graph — a sine under a steep curve —
+so the only thing separating them was how long they rang. Transposing one
+does not fix that; it just moves it.
+
+The hardware has three tom/conga **channels** and a switch, and it can never
+play a tom and a conga together. 8W8 gives them a pad each, so ours have to be
+further apart than the hardware's, not closer.
+
+**Circuit** (default) is what the service notes show. One bridged-T network
+per channel, its two resistors the same in all three — 4.7 k in the shunt arm
+and 2.2 M in the series arm, which is a **Q of 10.82** — inside a feedback
+loop, so **Decay is loop gain** here exactly as it is on the kick. The
+TOM/CONGA switch grounds a node for conga and puts 1.5 k there for tom: it is
+in the *trigger* path, so what it changes is how the network is struck. And
+each channel takes **P.N.**, the machine's pink noise, alongside its trigger —
+that is the drum head, the part of a tom that is a stick on a skin rather than
+a shell ringing. The toms get it, the congas do not, and that is the
+difference you actually hear.
+
+What is *not* derived, and is marked in the source: the loop-gain map, the
+pitch drop, and how much noise head a tom gets. Werner's papers do that work
+for the bass drum and the cymbal; there is no equivalent for the toms, and
+these are fitted rather than analysed.
+
+### The clap that finally has a Decay knob
+
+sc808's clap fires one burst, a second 26 ms later, and a long diffuse tail.
+Two things followed from that, and both were reported as faults:
+
+- **Decay did nothing.** In the SynthDef it sets the attack burst's envelope,
+  whose curve is −160 — so steep that the audible part lasts `decay/160`,
+  under two milliseconds across the whole pot. The part you hear is a second
+  envelope hard-coded to six seconds, which no knob reaches.
+- **Spread was odd.** One delayed burst over 5–100 ms is a flam.
+
+**Circuit** (default) is the board: Q70 turns the trigger into a short **burst
+of pulses**, not one pulse — that is what a clap is, several hands not quite
+together — and C143 bleeds off through R362 afterwards, which is a tail whose
+time constant you can read straight off the schematic at **330 ms**. The noise
+goes through IC22 (a BA662, the same VCA the snare uses) and IC21's
+multiple-feedback bandpass, R342 15 k in, C128 = C129 = 4.7 nF, R334 100 k
+around the op-amp:
+
+    f0 = 1 / (2π C √(Rin Rf)) = 874.4 Hz     Q = ½ √(Rf / Rin) = 1.291
+
+874 Hz is why an 808 clap sits where it does in a mix. So Decay is the tail,
+Spread is the spacing of the burst, and both do what their labels say.
+
+What is *not* derived: how many pulses and how far apart. That falls out of a
+transistor's switching behaviour around the C.P. OFFSET trimmer, and nobody
+has published the analysis. Three pulses about 10 ms apart is a measurement,
+not a derivation, and it is a knob rather than a constant so it does not have
+to be exactly right.
+
 ### Free-running metal
 
 On the hardware the hats' and cymbal's six Schmitt-trigger oscillators never
@@ -92,16 +156,17 @@ default.
 ## Workflow on the Move
 
 - **Pads (left 4×4)** play and select drums; the parameter page follows what
-  you hit. Row 1: BD SD LT MT. Row 2: HT LC MC HC. Row 3: RS MA CP CB. Row 4:
-  CH OH CY, and pad 16 opens **Master**. **Shift+Pad** selects silently (works
-  during playback). **Mute+Pad** mutes that drum (`[M]` in the title bar).
+  you hit. Row 1: BD SD LT MT. Row 2: HT LC MC HC. Row 3: RS CL MA CP. Row 4:
+  CB CH OH CY. All sixteen are drums, so **Master** is reached by the jog
+  rather than by a pad. **Shift+Pad** selects silently (works during
+  playback). **Mute+Pad** mutes that drum (`[M]` in the title bar).
 - **Knobs 1–8** edit the visible page, drawn with Schwung's stock knob grid
   (host 0.12.1+): **jog** cycles pages, **Shift+Jog** jumps sections, **jog
   click** opens the section list, **Shift** reveals values / fine mode,
   **Mute+knob** resets a pot to its default.
 - **Sequencing:** use Move's own sequencer — a drum track with a kit, muted
   (HiJack), track MIDI OUT on the slot's channel. Each drum is its own lane.
-  Note map: drum rack (36–50, default) or General MIDI, switchable.
+  Note map: drum rack (36–51, default) or General MIDI, switchable.
 - Works with [Movy](https://github.com/DimaDake/schwung-movy) — a
   `movy_config.json` ships with the module.
 
@@ -133,14 +198,28 @@ the block ramp starts *at* the previous control value; SuperCollider runs one
 sample through the whole graph at synth construction; and the bass drum never
 reset its oscillator phases.
 
-The circuit kick has nothing to null against, so it gets
-`tools/bd_check` instead — every behaviour the paper asserts about the real
-circuit, asserted as a test. `test/ui_chain.test.mjs` runs the on-device
-editor against the real `param_pages` library and cross-checks its pad tables
-against the DSP's. `sc808_loadtest` dlopens the shipped `dsp.so` exactly as
-Schwung's chain host does.
+A circuit voice has nothing to null against, so each one gets a test that
+asserts what its header claims instead: `tools/bd_check` for the kick,
+`tools/cp_check` for the clap, `tools/tom_check` for the tom and conga
+channel. The last two assert the reports that produced them — that Decay
+changes the clap's tail and Spread only moves its burst, and that a tom and a
+conga at the same pitch, same decay and same accent are still not the same
+sound. They also check that both engines on a lane land within 3 dB of each
+other, because the two share one trim and a mismatch would make the Engine
+switch change the mix.
 
-CPU on the device: a busy pattern is **6.5% of one core**, against 6W6's 22%.
+`test/ui_chain.test.mjs` runs the on-device editor against the real
+`param_pages` library, cross-checks its pad tables against the DSP's, and
+checks that every attack/decay pair on a page draws as one envelope across
+both knobs — the fault that started this round. `sc808_loadtest` dlopens the
+shipped `dsp.so` exactly as Schwung's chain host does.
+
+`./test/all.sh` runs all of it. Steps whose tooling is missing report **SKIP**
+and say so in the summary, rather than passing quietly.
+
+CPU, measured on the Move: a busy pattern is **6.3% of one core**, against
+6W6's 22%. The worst single lane is the cymbal at 2.9%; all sixteen retriggered
+every sixteenth — which no pattern does — is 22.9%.
 
 ## Install
 

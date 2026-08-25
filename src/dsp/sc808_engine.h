@@ -20,22 +20,30 @@
  * Lane order. This is the pad order, the state blob order and the mute-bit
  * order, and changing it breaks saved patches.
  *
- * Fifteen voices and a Master fill Move's left 4x4 pad block exactly:
+ * SIXTEEN voices fill Move's left 4x4 pad block exactly:
  *
- *     row 3 (92-95)   CH  OH  CY  MASTER
- *     row 2 (84-87)   RS  MA  CP  CB
+ *     row 3 (92-95)   CB  CH  OH  CY
+ *     row 2 (84-87)   RS  CL  MA  CP
  *     row 1 (76-79)   HT  LC  MC  HC
  *     row 0 (68-71)   BD  SD  LT  MT
  *
- * sc808 ships sixteen SynthDefs; rim shot and claves share this lane with a
- * mode switch because they share one channel on the hardware — the 808's
- * panel has a single RS/CL selector and a pattern cannot contain both.
+ * The rim shot and the claves have a pad each. They share one CHANNEL on the
+ * hardware — the 808's panel has a single RS/CL selector and a pattern cannot
+ * contain both — and 8W8 ran them as one lane with a mode switch for exactly
+ * that reason. Splitting them is a deliberate departure: sc808 ships them as
+ * two SynthDefs, a pattern that wants both is a normal thing to want, and it
+ * makes the roster sixteen, which is what the pad block holds.
+ *
+ * The cost is the Master pad. With sixteen drums there is no sixteenth pad
+ * left for it, so Master is reached by the jog — click for the section list,
+ * or Shift+Jog — as every other page is. 9W9 and 6W6 keep pad 16 for Master;
+ * this one cannot.
  */
 typedef enum {
-    SC808_BD = 0, SC808_SD, SC808_LT, SC808_MT, SC808_HT,
-    SC808_LC, SC808_MC, SC808_HC,
-    SC808_RS, SC808_MA, SC808_CP, SC808_CB,
-    SC808_CH, SC808_OH, SC808_CY,
+    SC808_BD = 0, SC808_SD, SC808_LT, SC808_MT,
+    SC808_HT, SC808_LC, SC808_MC, SC808_HC,
+    SC808_RS, SC808_CL, SC808_MA, SC808_CP,
+    SC808_CB, SC808_CH, SC808_OH, SC808_CY,
     SC808_NUM_VOICES
 } sc808_voice_t;
 

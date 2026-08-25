@@ -3,7 +3,7 @@
  *
  * Each sc808 SynthDef was written to be played on its own with its own `amp`,
  * so the voices arrive at wildly different levels: the closed hat peaks near
- * 17 while the hand clap peaks at 0.38. Summing fifteen of those is not a
+ * 17 while the hand clap peaks at 0.38. Summing sixteen of those is not a
  * drum machine. sc808_engine.cpp carries a per-lane trim table to put them in
  * proportion, and this is what produces it.
  *
@@ -79,6 +79,7 @@ static const double kVoicing[SC808_NUM_VOICES] = {
      -5.0,   /* mc */
      -5.0,   /* hc */
      -6.0,   /* rs */
+     -7.0,   /* cl — a clave is a sharp accent, not a lead */
     -10.0,   /* ma */
      -3.0,   /* cp — the clap carries a backbeat, it needs to be heard */
      -7.0,   /* cb */
@@ -105,7 +106,7 @@ static const double kVoicing[SC808_NUM_VOICES] = {
  * ceiling instead costs 7 dB on everything anyone actually plays, to protect
  * a hit that is rare and that the Volume pot already answers.
  *
- * "All fifteen at once" is easy to measure and irrelevant — no pattern does
+ * "All sixteen at once" is easy to measure and irrelevant — no pattern does
  * it — and solo-voice peaks say nothing about a mix. Fitting the balance
  * without also fitting this is how you end up with a kit whose every lane is
  * beautifully in proportion and which clips on the first bar.
@@ -138,6 +139,7 @@ static const Band kBand[SC808_NUM_VOICES] = {
     {  120.0,   450.0, "mid conga"                 },
     {  150.0,   600.0, "hi conga"                  },
     {  300.0,  4000.0, "rim shot"                  },
+    { 1500.0,  6000.0, "claves"                    },
     { 3000.0, 16000.0, "maracas"                   },
     {  300.0,  3000.0, "hand clap"                 },
     {  400.0,  3000.0, "cowbell"                   },
@@ -305,7 +307,7 @@ int main(void)
 
     /* ---- headroom ----
      *
-     * "All fifteen at once" is the number that is easy to measure and the one
+     * "All sixteen at once" is the number that is easy to measure and the one
      * that does not matter: no pattern ever does that. What sets the default
      * volume is the loudest thing a REAL pattern does, which is a downbeat —
      * kick, snare, clap and a hat landing together on an accent.
@@ -333,6 +335,6 @@ int main(void)
     { const double a = fabs((double)g_buf[i]); if(a > peak) peak = a; }
     sc808_destroy(e);
     printf("%-28s peak %.3f (%+.1f dBFS)   [never happens]\n",
-           "all 15 at once", peak, 20.0 * log10(peak > 0 ? peak : 1e-12));
+           "all 16 at once", peak, 20.0 * log10(peak > 0 ? peak : 1e-12));
     return 0;
 }

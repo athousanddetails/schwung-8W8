@@ -5,13 +5,13 @@
       "title": "Overview",
       "lines": [
         "TR-808 style drum",
-        "machine. 15 voices,",
+        "machine. 16 voices,",
         "all synthesized,",
         "no samples.",
         "",
-        "Kick and snare are",
-        "circuit models of",
-        "the real 808. The",
+        "Kick, snare, toms,",
+        "congas and clap are",
+        "circuit models. The",
         "rest are checked",
         "against sc808 to",
         "within -64 dB."
@@ -23,9 +23,12 @@
         "Pads (left 4x4):",
         " r1: BD SD LT MT",
         " r2: HT LC MC HC",
-        " r3: RS MA CP CB",
-        " r4: CH OH CY Mst",
+        " r3: RS CL MA CP",
+        " r4: CB CH OH CY",
         "",
+        "16 drums, so no",
+        "Master pad - reach",
+        "it with the jog.",
         "Shift+Pad: select",
         " without sounding.",
         "Mute+Pad: mute that",
@@ -81,6 +84,38 @@
       ]
     },
     {
+      "title": "Tom/Conga Eng",
+      "lines": [
+        "Circ: one bridged-T",
+        " ringing in a loop,",
+        " Q 10.8 from the",
+        " service notes.",
+        " DECAY is LOOP GAIN.",
+        " Toms get a noise",
+        " head off the P.N.",
+        " bus, congas do not",
+        " - that is what",
+        " tells them apart.",
+        "sc808: a sine."
+      ]
+    },
+    {
+      "title": "Clap Engine",
+      "lines": [
+        "Circ: three noise",
+        " bursts then a tail,",
+        " through the 874 Hz",
+        " bandpass R342/R334",
+        " make.",
+        " DECAY is the tail -",
+        " 330 ms is R362 x",
+        " C143, the real one.",
+        " SPREAD spaces the",
+        " bursts, ~10 ms.",
+        "sc808: two bursts."
+      ]
+    },
+    {
       "title": "Metal",
       "lines": [
         "On Master. How the",
@@ -104,12 +139,15 @@
         "Distortion type and",
         "Level. Defaults are",
         "the sc808 sound, not",
-        "pot centre.",
+        "pot centre - except",
+        "where a circuit",
+        "engine is default,",
+        "and there the",
+        "default is what the",
+        "hardware does.",
         "",
-        "Rim / Clave share a",
-        "lane with a Mode",
-        "switch, like the",
-        "808's own RS/CL."
+        "Rim and Clave have",
+        "a pad each."
       ]
     },
     {

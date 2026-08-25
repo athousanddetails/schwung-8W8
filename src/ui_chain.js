@@ -5,9 +5,10 @@
  * identical under the hands, so the gestures, the hint and the focus gate are
  * the same code with different tables.
  *
- * 8W8 fills the pad block where 6W6 half-filled it — fifteen drums and Master
- * on pad 16 — so the tables below are the only real difference, plus a mute
- * mask that needs fifteen bits rather than eight.
+ * 8W8 fills the pad block where 6W6 half-filled it — SIXTEEN drums, one per
+ * sc808 SynthDef — so the tables below are the only real difference, plus a
+ * mute mask that needs sixteen bits rather than eight. There is no Master pad
+ * to handle, because there is no pad left for it.
  *
  * Division of labour:
  *   param_pages (stock)          this file (8W8)
@@ -39,33 +40,34 @@ import { LAYOUT_MOVY } from '/data/UserData/schwung/shared/param_pages/render_pa
     "use strict";
 
     /* raw pad note -> page key (page-follow). The left 4x4 block, bottom row
-     * first: BD SD LT MT / HT LC MC HC / RS MA CP CB / CH OH CY, and pad 16
-     * (note 95) is Master. These must match pad_to_voice() in
-     * sc808_plugin.cpp — the DSP decides what sounds, this decides what the
-     * screen shows, and they disagreeing is a bug nobody would spot quickly. */
+     * first: BD SD LT MT / HT LC MC HC / RS CL MA CP / CB CH OH CY. These
+     * must match pad_to_voice() in sc808_plugin.cpp — the DSP decides what
+     * sounds, this decides what the screen shows, and them disagreeing is a
+     * bug nobody would spot quickly. */
     var PAD2LEVEL = { 68: "bd", 69: "sd", 70: "lt", 71: "mt",
                       76: "ht", 77: "lc", 78: "mc", 79: "hc",
-                      84: "rs", 85: "ma", 86: "cp", 87: "cb",
-                      92: "ch", 93: "oh", 94: "cy", 95: "root" };
+                      84: "rs", 85: "cl", 86: "ma", 87: "cp",
+                      92: "cb", 93: "ch", 94: "oh", 95: "cy" };
 
     /* raw pad note -> 8W8 lane (Mute+Pad). Same order as the DSP's enum. */
     var PAD2LANE = { 68: 0, 69: 1, 70: 2, 71: 3, 76: 4, 77: 5, 78: 6, 79: 7,
-                     84: 8, 85: 9, 86: 10, 87: 11, 92: 12, 93: 13, 94: 14 };
+                     84: 8, 85: 9, 86: 10, 87: 11, 92: 12, 93: 13, 94: 14,
+                     95: 15 };
 
     /* page key -> lane whose mute the title indicator shows (-1 = none) */
     var LEVEL2LANE = { bd: 0, sd: 1, lt: 2, mt: 3, ht: 4, lc: 5, mc: 6, hc: 7,
-                       rs: 8, ma: 9, cp: 10, cb: 11, ch: 12, oh: 13, cy: 14,
-                       root: -1 };
+                       rs: 8, cl: 9, ma: 10, cp: 11, cb: 12, ch: 13, oh: 14,
+                       cy: 15, root: -1 };
 
-    /* Master's pad, and the lane index that means "Master" to the DSP's
-     * ui_focus. Fifteen drums, so Master is 15 — 6W6 had eight and used 8. */
-    var MASTER_PAD  = 95;
-    var MASTER_LANE = 15;
+    /* The lane index that means "Master" to the DSP's ui_focus. Sixteen
+     * drums, so Master is 16 — and there is NO master pad any more: 9W9 and
+     * 6W6 put it on pad 16, and with sixteen drums the block is full. Master
+     * is reached by the jog, like every other page. */
+    var MASTER_LANE = 16;
 
-    /* Fifteen lanes: the mute mask needs fifteen bits, not the byte 6W6 used.
-     * Masking with 0xFF here would silently drop the cymbal, both hats and
-     * the cowbell from every mute. */
-    var LANE_MASK = 0x7FFF;
+    /* Sixteen lanes: the mute mask needs sixteen bits. 6W6 used a byte, and
+     * masking with 0xFF here would silently drop the whole top row. */
+    var LANE_MASK = 0xFFFF;
 
     var mySlot = -1;
     var padBlocked = false;
@@ -298,12 +300,12 @@ import { LAYOUT_MOVY } from '/data/UserData/schwung/shared/param_pages/render_pa
                 return;
             }
 
-            /* Plain pad: page follows what you play; Move plays/records. */
-            if (status === 0x90 && d2 > 0 && level !== undefined && d1 !== MASTER_PAD)
+            /* Plain pad: page follows what you play; Move plays/records.
+             * Every pad in the block is a drum now, so every one of them
+             * sounds and every one of them reaches Move. */
+            if (status === 0x90 && d2 > 0 && level !== undefined)
                 goToLevel(level);
-            if (status === 0x90 && d2 > 0 && d1 === MASTER_PAD)
-                goToLevel("root");             /* pad 16: master, never sounds */
-            if (d1 !== MASTER_PAD) injectToMove(data);
+            injectToMove(data);
             return;
         }
 

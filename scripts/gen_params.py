@@ -90,15 +90,13 @@ def RATIO(v):  return P(f"{v}_tune", "Tune", 0.5, 2.0, EXP, 64)
 
 # ---- Pages. One per voice, in TR-808 front-panel order. --------------------
 #
-# 15 voices and a Master, which fills Move's left 4x4 pad block exactly. That
-# is a better fit than 6W6 (8 voices, half the block) or 9W9 (11), and it is
-# why the roster is what it is.
+# SIXTEEN voices, which is exactly what Move's left 4x4 pad block holds — one
+# per sc808 SynthDef. 6W6 uses half the block and 9W9 eleven pads.
 #
-# sc808 ships SIXTEEN SynthDefs; rim shot and claves share one lane here with
-# a mode switch, because they share one CHANNEL on the hardware — the 808's
-# front panel has a single RS/CL selector and you cannot have both in a
-# pattern. Merging the pair the machine itself merges costs nothing and buys
-# the pad that Master needs.
+# The rim shot and the claves get a pad each even though the hardware runs
+# them off one channel behind an RS/CL selector. The cost is the Master pad:
+# with sixteen drums there is no sixteenth pad left for it, so Master is
+# reached by the jog like every other page.
 PAGES = [
     ("bd", "Bass Drum", [
         # note 34, click 0.11, decay 2 s. `punch` is fixed at 2 in the
@@ -108,7 +106,12 @@ PAGES = [
         # to the lane's base note. Declaring it as an absolute MIDI note
         # instead put the kick at midicps(34+34) = 415 Hz.
         TUNE("bd"),
-        PV("bd_decay",  "Decay",   0.1,  8.0, EXP,  2.0),
+        # Attack BEFORE Decay, and that ordering is load-bearing: the knob grid
+        # spans one AD envelope graphic across an adjacent attack/decay pair,
+        # and it reads the row left to right. Decay-then-attack draws the graph
+        # squashed onto a single slot with an empty knob beside it. Guarded by
+        # test/ui_chain.test.mjs.
+        #
         # The one pot whose default is NOT sc808's argument, and deliberately.
         # To the circuit engine this is the attack-time frequency and Q jump,
         # which on the hardware is not a control at all — it simply happens,
@@ -116,6 +119,7 @@ PAGES = [
         # what the circuit does. The sc808 engine reads the same pot as its
         # `click` pre-level, whose own default would be pot 14.
         P("bd_attack", "Attack", 0.0, 1.0, LIN, 100),
+        PV("bd_decay",  "Decay",   0.1,  8.0, EXP,  2.0),
         PV("bd_tone",   "Tone",    0.0,  6.0, LIN,  2.0),
         # Which kick. "Circuit" is the bridged-T model from Werner et al.'s
         # analysis of the real 808 — a resonator in an op-amp feedback loop,
@@ -145,41 +149,77 @@ PAGES = [
         E("sd_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("sd"), DTYPE("sd"), LEVEL("sd"),
     ]),
+    # The six tom / conga lanes. Each gets an Engine switch of its own, like
+    # the kick and the snare — on the hardware there is ONE tom/conga switch
+    # for the whole machine, but there tom and conga are the same channel and
+    # cannot sound together, while here they are six pads that can.
+    #
+    # Decay reads as SECONDS on sc808 and as LOOP GAIN on the circuit, from
+    # the same knob position; see the circuit kick for why that is deliberate.
     ("lt", "Low Tom",   [TUNE("lt"), PV("lt_decay", "Decay", 1.0, 40.0, EXP, 20.0),
+                         E("lt_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("lt"), DTYPE("lt"), LEVEL("lt")]),
     ("mt", "Mid Tom",   [TUNE("mt"), PV("mt_decay", "Decay", 1.0, 40.0, EXP, 16.0),
+                         E("mt_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("mt"), DTYPE("mt"), LEVEL("mt")]),
     ("ht", "Hi Tom",    [TUNE("ht"), PV("ht_decay", "Decay", 1.0, 40.0, EXP, 11.0),
+                         E("ht_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("ht"), DTYPE("ht"), LEVEL("ht")]),
     ("lc", "Low Conga", [TUNE("lc"), PV("lc_decay", "Decay", 1.0, 40.0, EXP, 18.0),
+                         E("lc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("lc"), DTYPE("lc"), LEVEL("lc")]),
     ("mc", "Mid Conga", [TUNE("mc"), PV("mc_decay", "Decay", 1.0, 40.0, EXP, 18.0),
+                         E("mc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("mc"), DTYPE("mc"), LEVEL("mc")]),
     ("hc", "Hi Conga",  [TUNE("hc"), PV("hc_decay", "Decay", 1.0, 40.0, EXP, 18.0),
+                         E("hc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("hc"), DTYPE("hc"), LEVEL("hc")]),
-    ("rs", "Rim / Clave", [
-        # sc808: rim shot decay 0.07 s, claves 0.1 s. One lane, one switch,
-        # as on the panel.
+    ("rs", "Rim Shot", [
         TUNE("rs"),
         PV("rs_decay", "Decay", 0.01, 0.5, EXP, 0.07),
-        E("rs_mode", "Mode", ["Rim", "Clave"]),          # RIM / CLA in the box
         DRIVE("rs"), DTYPE("rs"), LEVEL("rs"),
+    ]),
+    ("cl", "Claves", [
+        # A pad of their own. On the hardware the claves share the rim shot's
+        # channel behind an RS/CL selector, and 8W8 ran them as one lane with
+        # a Mode switch for that reason — but sc808 ships them as two
+        # SynthDefs, wanting both in one pattern is normal, and sixteen voices
+        # is exactly what the pad block holds.
+        TUNE("cl"),
+        PV("cl_decay", "Decay", 0.01, 0.5, EXP, 0.10),
+        DRIVE("cl"), DTYPE("cl"), LEVEL("cl"),
     ]),
     ("ma", "Maracas", [
         # hpf 113, click 0.027, decay 0.07. `click` here is a real DURATION,
-        # not a level — the 27 ms ramp from 0.3 up to 1 that is the rattle.
+        # not a level — the 27 ms ramp from 0.3 up to 1 that is the rattle —
+        # so unlike the kick's Attack it is a genuine envelope time.
+        #
+        # ATTACK BEFORE DECAY, and that ordering is the whole of it: the
+        # stock grid detects an adjacent attack/decay pair and draws one AD
+        # envelope spanning both cells. It only reads left to right, so with
+        # Decay first the graph came out backwards and lopsided, sitting over
+        # Decay with Attack blank beside it.
         TUNE("ma"),
-        PV("ma_decay",  "Decay",  0.01, 0.5, EXP, 0.07),
         PV("ma_attack", "Attack", 0.0,  0.1, LIN, 0.027),
+        PV("ma_decay",  "Decay",  0.01, 0.5, EXP, 0.07),
         DRIVE("ma"), DTYPE("ma"), LEVEL("ma"),
     ]),
     ("cp", "Hand Clap", [
-        # hpf 71, lpf 84, click 0.5, decay 0.3, rev 1. Spread is sc808's
-        # fixed 26 ms gap before the second burst.
+        # sc808's args: hpf 71, lpf 84, click 0.5, decay 0.3, rev 1.
+        #
+        # The defaults below are the CIRCUIT's, because Circuit is the default
+        # engine — the same rule the kick and the snare follow.
+        #
+        # Decay 0.33 is R362 x C143 off the schematic, so the knob at its
+        # default IS the hardware's tail. Spread 0.010 is the burst spacing;
+        # its old 5..100 ms range is what made it "odd", because 100 ms of gap
+        # between two bursts is a flam and not a clap. 3..30 ms is a clap that
+        # is tight at one end and a roomful of people at the other.
         TUNE("cp"),
-        PV("cp_decay",  "Decay",  0.05, 1.5,  EXP, 0.3),
-        PV("cp_spread", "Spread", 0.005, 0.1, EXP, 0.026),
-        PV("cp_room",   "Room",   0.0,  2.0,  LIN, 1.0),
+        PV("cp_decay",  "Decay",  0.05,  1.5,  EXP, 0.33),
+        PV("cp_spread", "Spread", 0.003, 0.03, EXP, 0.010),
+        PV("cp_room",   "Room",   0.0,   2.0,  LIN, 1.0),
+        E("cp_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("cp"), DTYPE("cp"), LEVEL("cp"),
     ]),
     ("cb", "Cowbell", [
@@ -304,9 +344,9 @@ levels["root"] = {"name": "8W8",
 # is the lane the on-device editor is showing (0-14, 15 = master); mutes is
 # the per-lane mute mask, which needs 15 bits.
 cp.append({"key": "ui_focus", "name": "Focus", "type": "int",
-           "min": 0, "max": 15, "default": 0})
+           "min": 0, "max": 16, "default": 0})       # 16 == Master
 cp.append({"key": "mutes", "name": "Mutes", "type": "int",
-           "min": 0, "max": 32767, "default": 0})
+           "min": 0, "max": 65535, "default": 0})    # sixteen lanes, sixteen bits
 
 cpj = json.dumps(cp, separators=(",", ":"))
 uhj = json.dumps({"levels": levels}, separators=(",", ":"))
@@ -409,13 +449,14 @@ static const char sc808_ui_pages_json[] =
 # so a multi-row bank shifts every following page's label. One row per bank.
 SHORT = {"Tune": "TUNE", "Decay": "DECAY", "Attack": "ATTK", "Tone": "TONE",
          "Drive": "DRIVE", "Distortion": "DIST", "Level": "LEVEL",
-         "Snappy": "SNAPY", "Mode": "MODE", "Spread": "SPRD", "Room": "ROOM",
+         "Snappy": "SNAPY", "Spread": "SPRD", "Room": "ROOM",
          "Choke": "CHOKE", "Engine": "ENGIN", "Metal": "METAL",
          "Master Dist": "MDIST", "Master Drive": "MDRV",
          "Volume": "VOL", "Accent": "ACNT", "Note Map": "NMAP"}
 MOVY_NAME = {"bd": "Kick", "sd": "Snare", "lt": "Lo Tom", "mt": "Mid Tom",
              "ht": "Hi Tom", "lc": "Lo Cnga", "mc": "Md Cnga", "hc": "Hi Cnga",
-             "rs": "Rim/Cl", "ma": "Maracas", "cp": "Clap", "cb": "Cowbell",
+             "rs": "Rim", "cl": "Claves", "ma": "Maracas", "cp": "Clap",
+             "cb": "Cowbell",
              "ch": "Cl Hat", "oh": "Op Hat", "cy": "Cymbal"}
 
 

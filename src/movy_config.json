@@ -20,17 +20,17 @@
             "max": 127
           },
           {
-            "key": "bd_decay",
-            "short": "DECAY",
-            "full": "Decay",
+            "key": "bd_attack",
+            "short": "ATTK",
+            "full": "Attack",
             "type": "int",
             "min": 0,
             "max": 127
           },
           {
-            "key": "bd_attack",
-            "short": "ATTK",
-            "full": "Attack",
+            "key": "bd_decay",
+            "short": "DECAY",
+            "full": "Decay",
             "type": "int",
             "min": 0,
             "max": 127
@@ -182,6 +182,16 @@
             "max": 127
           },
           {
+            "key": "lt_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
+          },
+          {
             "key": "lt_drive",
             "short": "DRIVE",
             "full": "Drive",
@@ -210,7 +220,6 @@
             "max": 127
           },
           null,
-          null,
           null
         ]
       ]
@@ -234,6 +243,16 @@
             "type": "int",
             "min": 0,
             "max": 127
+          },
+          {
+            "key": "mt_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
           },
           {
             "key": "mt_drive",
@@ -264,7 +283,6 @@
             "max": 127
           },
           null,
-          null,
           null
         ]
       ]
@@ -288,6 +306,16 @@
             "type": "int",
             "min": 0,
             "max": 127
+          },
+          {
+            "key": "ht_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
           },
           {
             "key": "ht_drive",
@@ -318,7 +346,6 @@
             "max": 127
           },
           null,
-          null,
           null
         ]
       ]
@@ -342,6 +369,16 @@
             "type": "int",
             "min": 0,
             "max": 127
+          },
+          {
+            "key": "lc_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
           },
           {
             "key": "lc_drive",
@@ -372,7 +409,6 @@
             "max": 127
           },
           null,
-          null,
           null
         ]
       ]
@@ -396,6 +432,16 @@
             "type": "int",
             "min": 0,
             "max": 127
+          },
+          {
+            "key": "mc_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
           },
           {
             "key": "mc_drive",
@@ -426,7 +472,6 @@
             "max": 127
           },
           null,
-          null,
           null
         ]
       ]
@@ -450,6 +495,16 @@
             "type": "int",
             "min": 0,
             "max": 127
+          },
+          {
+            "key": "hc_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
           },
           {
             "key": "hc_drive",
@@ -480,13 +535,12 @@
             "max": 127
           },
           null,
-          null,
           null
         ]
       ]
     },
     {
-      "name": "Rim/Cl",
+      "name": "Rim",
       "rows": [
         [
           {
@@ -504,16 +558,6 @@
             "type": "int",
             "min": 0,
             "max": 127
-          },
-          {
-            "key": "rs_mode",
-            "short": "MODE",
-            "full": "Mode",
-            "type": "enum",
-            "options": [
-              "Rim",
-              "Clave"
-            ]
           },
           {
             "key": "rs_drive",
@@ -544,6 +588,61 @@
             "max": 127
           },
           null,
+          null,
+          null
+        ]
+      ]
+    },
+    {
+      "name": "Claves",
+      "rows": [
+        [
+          {
+            "key": "cl_tune",
+            "short": "TUNE",
+            "full": "Tune",
+            "type": "int",
+            "min": 0,
+            "max": 127
+          },
+          {
+            "key": "cl_decay",
+            "short": "DECAY",
+            "full": "Decay",
+            "type": "int",
+            "min": 0,
+            "max": 127
+          },
+          {
+            "key": "cl_drive",
+            "short": "DRIVE",
+            "full": "Drive",
+            "type": "int",
+            "min": 0,
+            "max": 127
+          },
+          {
+            "key": "cl_dist_type",
+            "short": "DIST",
+            "full": "Distortion",
+            "type": "enum",
+            "options": [
+              "Diode",
+              "Clip",
+              "Fold",
+              "Crush"
+            ]
+          },
+          {
+            "key": "cl_level",
+            "short": "LEVEL",
+            "full": "Level",
+            "type": "int",
+            "min": 0,
+            "max": 127
+          },
+          null,
+          null,
           null
         ]
       ]
@@ -561,17 +660,17 @@
             "max": 127
           },
           {
-            "key": "ma_decay",
-            "short": "DECAY",
-            "full": "Decay",
+            "key": "ma_attack",
+            "short": "ATTK",
+            "full": "Attack",
             "type": "int",
             "min": 0,
             "max": 127
           },
           {
-            "key": "ma_attack",
-            "short": "ATTK",
-            "full": "Attack",
+            "key": "ma_decay",
+            "short": "DECAY",
+            "full": "Decay",
             "type": "int",
             "min": 0,
             "max": 127
@@ -646,6 +745,16 @@
             "max": 127
           },
           {
+            "key": "cp_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
+          },
+          {
             "key": "cp_drive",
             "short": "DRIVE",
             "full": "Drive",
@@ -672,8 +781,7 @@
             "type": "int",
             "min": 0,
             "max": 127
-          },
-          null
+          }
         ]
       ]
     },

@@ -144,6 +144,35 @@ static inline double bridgedTQ(const double _r1, const double _r2)
     return 0.5 * sqrt(_r2 / _r1);
 }
 
+/*
+ * A multiple-feedback (Deliyannis) bandpass, from its component values.
+ *
+ * The other filter the 808 builds over and over. Where the bridged-T rings in
+ * a feedback loop and makes a drum, this one just shapes noise, and the hand
+ * clap's is the clearest example: R342 in, C128 and C129 equal, R334 around
+ * the op-amp, no shunt leg to ground.
+ *
+ * With C1 = C2 = C and no shunt resistor:
+ *
+ *   f0 = 1 / (2 pi C sqrt(Rin Rf))
+ *   Q  = (1/2) sqrt(Rf / Rin)
+ *
+ * Realised with BridgedT, which is the same constant-peak-gain two-pole
+ * bandpass — the MFB's own passband gain (Rf / 2 Rin) is a property of the
+ * stage, not of the response, so anything using this puts it back on the
+ * input side exactly as the bridged-T voices do.
+ */
+static inline double mfbBandpassFreq(const double _rin, const double _rf,
+                                     const double _c)
+{
+    return 1.0 / (2.0 * kCircPi * _c * sqrt(_rin * _rf));
+}
+
+static inline double mfbBandpassQ(const double _rin, const double _rf)
+{
+    return 0.5 * sqrt(_rf / _rin);
+}
+
 } /* namespace sc808 */
 
 #endif /* SC808_CIRCUIT_COMMON_H */
