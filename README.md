@@ -1,9 +1,10 @@
 # 8W8 — Rhythm Composer for Ableton Move
 
 A TR-808 style drum machine for [Schwung](https://github.com/charlesvestal/schwung)
-on Ableton Move. Fifteen voices, all synthesised, no samples. The kick is a
-model of the 808's actual circuit; the rest of the kit is a transcription of
-Sonic Pi's sc808 that is verified sample-for-sample against SuperCollider.
+on Ableton Move. Fifteen voices, all synthesised, no samples. The kick and the
+snare are models of the 808's actual circuits; the rest of the kit is a
+transcription of Sonic Pi's sc808, verified sample-for-sample against
+SuperCollider.
 
 Fifteen drums and Master fill Move's left 4×4 pad block exactly — where
 [6W6](https://github.com/athousanddetails/schwung-6W6) uses half the block and
@@ -14,14 +15,14 @@ Fifteen drums and Master fill Move's left 4×4 pad block exactly — where
 | Voice | Engine |
 |---|---|
 | Bass Drum | **Circuit** — a bridged-T network in an op-amp feedback loop, where Decay is loop gain and the pitch sighs because the circuit makes it. Or **sc808**, switchable |
-| Snare | Two detuned shell oscillators crossfaded against bandpassed noise; Snappy is the crossfade |
+| Snare | **Circuit** — two bridged-T shells at 173 and 336 Hz from the service notes' component values, so Tone balances two ringing shells and Snappy sets the noise's length as well as its level. Or **sc808**, switchable |
 | Low / Mid / Hi Tom | A sine on a falling pitch envelope under a very steep amplitude curve |
 | Low / Mid / Hi Conga | The same circuit at a different tuning — as on the hardware, where tom and conga share a channel |
 | Rim / Clave | One lane, one switch, because the 808's front panel has one RS/CL selector |
 | Maracas | Noise, a 5.6 kHz highpass, and a 27 ms ramp up that is the rattle |
 | Hand Clap | An immediate noise burst, a second one 26 ms later, and a long diffuse tail |
 | Cowbell | Two pulse oscillators at 811 and 539 Hz — numbers 5 and 6 of the metal bank, exactly as the hardware wires them |
-| Closed / Open Hat | The six Schmitt-trigger oscillators through two filter paths |
+| Closed / Open Hat | The six Schmitt-trigger oscillators through two filter paths. **Free-running** by default, as on the hardware, so no two hits are the same |
 | Cymbal | The same six through **three** parallel chains and four envelopes |
 
 Every drum has **Tune, Decay, Drive, a Distortion type** (Diode / Hard Clip /
@@ -32,7 +33,12 @@ switch**: Off, CH cuts OH (the hardware's shared metal source), or Mutual.
 Defaults are not pot centre. They are sc808's own declared arguments, which is
 what the null test verifies — so a fresh patch is the sound that was checked.
 
-## The two kicks
+## The circuit voices
+
+Two of the fifteen are models of the real circuit rather than transcriptions
+of sc808, and both are switchable per patch.
+
+### The two kicks
 
 The kick is the voice an 808 is judged on, so it gets both.
 
@@ -54,6 +60,34 @@ buffer failing to lose the signal. That one fact is why it behaves like an
 **sc808** is the transcription: a sine on a pitch envelope. A good kick drum,
 and not a TR-808. Kept because it is the one the null test covers, and because
 sometimes it is the one you want.
+
+### The two snares
+
+**Circuit** (default) is two bridged-T networks, derived from the component
+values in Roland's service notes: R196/R197/C58/C59 give **173.334 Hz at
+Q 17.4**, R195/R198/C60/C61 give **335.976 Hz at Q 10.7**, through the same
+frequency and Q forms the bass drum paper uses. Three things follow that two
+enveloped sines cannot do —
+
+- **Tone is VR8**, the *balance* between the two shells, not a filter sweep
+- the shells **decay at different rates** from their own components: the
+  harmonic dies in about 65 ms while the fundamental rings for 200
+- **Snappy is a voltage divider on the trigger** into the noise envelope
+  generator, so turning it down makes the noise shorter as well as quieter
+
+The noise runs through Werner's model of the swing-type VCA — half-wave
+rectification times the envelope. What is *not* derived, and is marked in the
+source: the noise high-pass corner and the envelope times, which are not in
+the sources and take sc808's fitted values instead.
+
+### Free-running metal
+
+On the hardware the hats' and cymbal's six Schmitt-trigger oscillators never
+stop — the envelopes gate them — so every hit catches the bank at a different
+phase and no two 808 hats are quite the same. sc808 restarts them on every
+note, because in SuperCollider every note is a new synth, and its hats are
+bit-identical hit to hit. **Metal: Free / Retrig** on the Master page, Free by
+default.
 
 ## Workflow on the Move
 
@@ -106,7 +140,7 @@ editor against the real `param_pages` library and cross-checks its pad tables
 against the DSP's. `sc808_loadtest` dlopens the shipped `dsp.so` exactly as
 Schwung's chain host does.
 
-CPU on the device: a busy pattern is **5.6% of one core**.
+CPU on the device: a busy pattern is **6.5% of one core**, against 6W6's 22%.
 
 ## Install
 

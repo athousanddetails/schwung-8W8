@@ -7,11 +7,14 @@
         "TR-808 style drum",
         "machine. 15 voices,",
         "all synthesized,",
-        "no samples. Kick,",
-        "snare, toms, congas,",
-        "rim/clave, maracas,",
-        "clap, cowbell, hats",
-        "and cymbal."
+        "no samples.",
+        "",
+        "Kick and snare are",
+        "circuit models of",
+        "the real 808. The",
+        "rest are checked",
+        "against sc808 to",
+        "within -64 dB."
       ]
     },
     {
@@ -43,6 +46,54 @@
         " and fine mode.",
         "Mute+knob: reset",
         " that pot."
+      ]
+    },
+    {
+      "title": "Kick Engine",
+      "lines": [
+        "Circ: the real 808",
+        " circuit. DECAY is",
+        " LOOP GAIN, not a",
+        " time - the pitch",
+        " sighs down, the",
+        " attack jumps an",
+        " octave, and fast",
+        " repeats never",
+        " machine-gun.",
+        "sc808: a sine on a",
+        " pitch envelope."
+      ]
+    },
+    {
+      "title": "Snare Engine",
+      "lines": [
+        "Circ: two ringing",
+        " shells at 173 and",
+        " 336 Hz, from the",
+        " service notes.",
+        " TONE balances the",
+        " two shells, not a",
+        " filter. SNAPPY",
+        " sets the noise",
+        " length as well as",
+        " its level.",
+        "sc808: two sines."
+      ]
+    },
+    {
+      "title": "Metal",
+      "lines": [
+        "On Master. How the",
+        "hats' and cymbal's",
+        "six oscillators",
+        "behave between hits.",
+        "",
+        "Free: as the 808 -",
+        " they never stop,",
+        " so no two hits",
+        " are the same.",
+        "Retrig: as sc808 -",
+        " identical hits."
       ]
     },
     {
@@ -113,9 +164,29 @@
         "gets the Accent",
         "multiplier, on the",
         "Master page.",
-        "Default is 2x, the",
-        "same as 9W9 and",
-        "6W6."
+        "",
+        "On the circuit kick",
+        "and snare it is a",
+        "trigger VOLTAGE, so",
+        "a hard hit is a",
+        "different sound and",
+        "not just a louder."
+      ]
+    },
+    {
+      "title": "Remote panel",
+      "lines": [
+        "A full 808 panel in",
+        "a browser: every",
+        "instrument at once,",
+        "as columns.",
+        "",
+        "Port 7700 then",
+        "/remote-ui, while",
+        "8W8 is the slot's",
+        "synth.",
+        " move.local:7700",
+        " 172.16.254.1:7700"
       ]
     }
   ]

@@ -8,15 +8,16 @@ is the version that reflects the code.
 
 ## 1. The two engines
 
-**Engine A — sc808.** Every voice except the kick is a transcription of one of
-the sixteen SynthDefs in Sonic Pi's `sc808.scd` (MIT, by Yoshinosuke Horiuchi,
+**Engine A — sc808.** Every voice except the kick and the snare is a
+transcription of one of the sixteen SynthDefs in Sonic Pi's `sc808.scd` (MIT, by Yoshinosuke Horiuchi,
 adapted by Sam Aaron). Vendored under `src/vendor/sc808`, transcribed in
 `src/dsp/sc808_voices.h`, and **verified sample-for-sample against
 SuperCollider** by `test/nulltest.sh`.
 
-**Engine B — the circuit.** So far, the bass drum: `sc808_bd_circuit.h`, built
-from Werner, Abel and Smith's DAFx-14 analysis of the real 808 bass drum. It
-is the default kick.
+**Engine B — the circuit.** So far the bass drum (`sc808_bd_circuit.h`, from
+Werner, Abel and Smith's DAFx-14 analysis) and the snare
+(`sc808_sd_circuit.h`, from the service notes' component values via Werner's
+snare analysis). Both are the default for their lane, both switchable.
 
 The split is deliberate and it is the same shape 9W9 uses, where the original
 ER-99 engine is still selectable. Engine A gets a complete, verified kit
@@ -97,6 +98,7 @@ carried between segments. Moving the reference to a newer SC without updating
 | Engine A voices | `test/nulltest.sh` — render twice, subtract |
 | Individual UGens | `test/nulltest.sh --probes` |
 | Circuit kick | `tools/bd_check` — every behaviour the paper asserts |
+| Circuit snare | nothing of its own yet — see "what is left" |
 | Kit balance | `tools/kit_check` — fits trims and headroom, reports the residual |
 | On-device editor | `test/ui_chain.test.mjs` against the real `param_pages` |
 | Editor ↔ DSP agreement | same file — cross-checks the pad tables |
@@ -110,9 +112,9 @@ that cannot fail is not a test.
 ### Measured on the Move
 
 ```
-worst single lane   cymbal, 41x realtime (2.4% of a core)
-busy pattern        18x realtime (5.6% of a core)
-all 15 every 16th   5.4x realtime (18.6% of a core)  [pathological]
+worst single lane   cymbal, 37x realtime (2.7% of a core)
+busy pattern        15x realtime (6.5% of a core)
+all 15 every 16th   5.1x realtime (19.7% of a core)  [pathological]
 ```
 
 6W6 ships at 22% of a core. 8W8 is well inside that.
@@ -141,9 +143,13 @@ what frees the pad Master needs.
 **Trim goes before the drive stage.** With lanes arriving 33 dB apart, a
 post-drive trim leaves Drive 64 meaning something different on every pad.
 
-**Headroom is fitted against the worst realistic case, not the representative
-one.** Fitting a four-voice downbeat left the two-bar pattern clipping,
-because a real pattern also carries the previous bar's tails.
+**Headroom is fitted to the actual two-bar demo pattern**, shared between
+`render` and `kit_check` so they cannot disagree, targeted at −1 dBFS. Two
+cheaper proxies were both wrong: a four-voice downbeat left the pattern
+clipping at +0.7 dBFS, because a real pattern carries the previous bar's tails
+underneath it; a six-voice accented hit went the other way and left it 8.6 dB
+quiet, because no pattern fires six accented voices on one sixteenth. A busy
+simultaneous hit does clip from here, which is the same trade 6W6 makes.
 
 **Defaults are sc808's own declared arguments**, converted to pot positions by
 the generator, so a fresh patch is the sound the null test verified. Three
@@ -155,23 +161,20 @@ mean different things to the two engines.
 
 ## 5. What is left
 
-**Engine B, the rest of it.** On the hardware, the snare, all three toms, all
-three congas, the rim shot, the claves and the cowbell are *all* bridged-T
-networks — the same topology as the kick with different component values. One
-well-built bridged-T voice class already exists; extending it across eleven
-instruments is mostly parameter work.
+**Engine B, the rest of it — and the evidence problem.** On the hardware the
+toms, congas, rim shot and claves are all bridged-T networks too, the same
+topology as the kick and snare. The class exists and extending it is mostly
+parameter work. What does *not* exist is published component values for those
+voices: Werner's papers cover the bass drum and the cymbal, and his snare
+analysis covers the snare. Building the toms from general knowledge would put
+them on much weaker ground than the two that are done, and the header of any
+such voice would have to say so.
 
 The metal voices are the other half: the cymbal paper gives the six
 Schmitt-trigger oscillators (205.3, 369.6, 304.4, 522.7 measured, plus 800 and
 540 on trimpots), the passive mixing network, two bandpasses at ~3440 and
 ~7100 Hz, three swing-type VCAs with fitted nonlinearities and three
 Sallen-Key highpasses.
-
-**Free-running oscillators.** On a real 808 the six Schmitt oscillators never
-stop — the envelopes gate them. sc808 restarts them per note because each note
-is a new synth, which is why its hats are identical hit to hit. Free-running
-them is a small change and a very audible one, and it belongs in Engine B
-because it is a deviation from the transcription.
 
 **The clap** is the widest gap between sc808 and hardware in Engine A: the real
 808 fires three fast bursts before the tail, sc808 uses one immediate and one
