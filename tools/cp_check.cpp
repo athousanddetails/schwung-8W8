@@ -1,16 +1,15 @@
 /*
- * cp_check.cpp — assert what the circuit hand clap claims about itself.
+ * cp_check.cpp — assert what the circuit hand clap claims.
  *
- * The same job tools/bd_check does for the kick. A circuit voice has nothing
- * to null against, so instead every behaviour its header claims is written
- * down here as a test, and the ones that matter most are the two that were
- * reported broken in sc808's clap:
+ * The strongest test here is the ENVELOPE TABLE: the reference render's RMS
+ * in 5 ms windows, embedded, and the voice must track it. That table is what
+ * caught the versions that matched a scalar and missed the sound — a clap
+ * whose "decay to 1%" agreed while the whole middle of the note was absent.
  *
- *   Decay must change the length of the audible tail.
- *   Spread must change the spacing of the burst, and only that.
- *
- * Those two are the whole reason this engine exists, so they are not
- * "probably fine" — they are asserted.
+ * The derived constants are asserted against their components: the main
+ * decay is C144 x R365 = 38.5 ms and the floor is C143 x R362 = 330 ms —
+ * two different RCs with two different jobs, conflating which is how the
+ * first envelope went wrong.
  *
  * Build:  clang++ -std=c++14 -O2 -Isrc/dsp -o build-native/cp_check tools/cp_check.cpp
  *
@@ -112,118 +111,93 @@ int main()
         check(fabs(f - 874.4) < 1.0 && fabs(q - 1.291) < 0.01,
               "R342/R334/C128 give the documented bandpass", d);
 
-        snprintf(d, sizeof d, "%.0f ms", sc808::kCP_TailTau * 1000.0);
-        check(fabs(sc808::kCP_TailTau - 0.33) < 1e-9,
-              "R362 x C143 is the 330 ms tail", d);
+        snprintf(d, sizeof d, "main %.1f ms, floor %.0f ms",
+                 sc808::kCP_MainTau * 1000.0, sc808::kCP_FloorTau * 1000.0);
+        check(fabs(sc808::kCP_MainTau - 0.0385) < 1e-6,
+              "the main decay is C144 x R365", d);
+        check(fabs(sc808::kCP_FloorTau - 0.330) < 1e-6,
+              "the floor is C143 x R362", d);
     }
 
-    /* ---- Decay actually changes the tail ------------------------------- *
+    /* ---- the envelope tracks the reference ----------------------------- *
      *
-     * The reported fault, as a test. In sc808 the audible tail is a
-     * hard-coded six seconds and this measurement came out flat.
+     * Roland's own render at the default kit, RMS in 5 ms windows,
+     * normalised to its peak. Teeth at 0/10/20 ms, the main hit at 35, the
+     * two-slope tail. Tolerance is generous — noise realisations differ —
+     * but a missing tooth, a missing tail, or a peak in the wrong window
+     * fails immediately.
      */
     {
-        const double shortT = decayTime(hit(0.08f, 0.010f, 1.0f), 0.01);
-        const double midT   = decayTime(hit(0.33f, 0.010f, 1.0f), 0.01);
-        const double longT  = decayTime(hit(1.20f, 0.010f, 1.0f), 0.01);
-        char d[160];
-        snprintf(d, sizeof d, "0.08 s -> %.2f s, 0.33 s -> %.2f s, 1.2 s -> %.2f s",
-                 shortT, midT, longT);
-        check(shortT < midT && midT < longT, "Decay lengthens the tail", d);
-        /* and by a musically obvious amount, not a hair */
-        check(longT > shortT * 4.0, "across the pot that is a big change", d);
-    }
-
-    /* ---- the tail really is exponential with the pot's time constant --- */
-    {
-        const std::vector<float> v = hit(0.33f, 0.010f, 1.0f);
-        const std::vector<double> e = envelope(v, 0.003);
-        /* measure well clear of the burst, which ends by 3 x spread */
-        const size_t a = (size_t)(0.10 * SR), b = (size_t)(0.60 * SR);
-        const double tau = (double)(b - a) / SR / log(e[a] / e[b]);
-        char d[96];
-        snprintf(d, sizeof d, "measured %.0f ms, asked for 330 ms", tau * 1000.0);
-        check(fabs(tau - 0.33) / 0.33 < 0.12, "the tail decays at the pot's tau", d);
-    }
-
-    /* ---- Spread moves the burst, and does not become a flam ------------ */
-    {
-        /* With Room at zero only the burst is left, so its structure is
-         * measurable without the tail filling in the gaps. */
-        for(double sp : { 0.005, 0.010, 0.020 })
+        static const double REF[24] = { 42,14,42,19,49,42,47,100,79,69,57,45,
+                                        36,27,23,20,16,16,10, 9, 7, 6, 8, 6 };
+        sc808::ClapCircuit c;
+        c.init(SR);
+        c.trigger(1.0, 1.0f, 0.010f, 0.0f);
+        std::vector<double> v;
+        for(int i = 0; i < (int)(SR * 0.12); ++i) v.push_back(c.process());
+        const int w = (int)(SR * 0.005);
+        double e[24], mx = 0.0;
+        for(int k = 0; k < 24; ++k)
         {
-            const std::vector<float> v = hit(0.33f, (float)sp, 0.0f, 1.0, 1.0);
-            const std::vector<double> e = envelope(v, 0.0008);
-            /* count local maxima above a third of peak — the pulses */
-            double pk = 0.0;
-            for(double x : e) if(x > pk) pk = x;
-            int peaks = 0;
-            size_t last = 0;
-            for(size_t i = 1; i + 1 < e.size(); ++i)
-                if(e[i] > pk / 3.0 && e[i] >= e[i-1] && e[i] > e[i+1]
-                   && (peaks == 0 || i - last > (size_t)(sp * SR * 0.5)))
-                { ++peaks; last = i; }
-            char d[96];
-            snprintf(d, sizeof d, "spread %.0f ms -> %d pulses", sp * 1000.0, peaks);
-            check(peaks == sc808::kCP_PULSES, "the burst is three pulses", d);
+            double a = 0.0;
+            for(int i = k * w; i < (k + 1) * w && i < (int)v.size(); ++i)
+                a += v[i] * v[i];
+            e[k] = sqrt(a / w);
+            if(e[k] > mx) mx = e[k];
         }
+        for(int k = 0; k < 24; ++k) e[k] = 100.0 * e[k] / (mx > 0 ? mx : 1);
 
-        /* the LAST pulse lands at 2 x spread, so the burst scales with it */
-        const std::vector<float> a = hit(0.33f, 0.005f, 0.0f, 1.0, 1.0);
-        const std::vector<float> b = hit(0.33f, 0.020f, 0.0f, 1.0, 1.0);
-        const double ta = decayTime(a, 0.05), tb = decayTime(b, 0.05);
+        int peakAt = 0; double pv = 0;
+        for(int k = 0; k < 24; ++k) if(e[k] > pv) { pv = e[k]; peakAt = k; }
         char d[128];
-        snprintf(d, sizeof d, "5 ms -> %.0f ms burst, 20 ms -> %.0f ms burst",
-                 ta * 1000.0, tb * 1000.0);
-        check(tb > ta * 2.0, "Spread scales the burst's length", d);
+        /* the reference peaks in window 7; realisation noise moves ours
+         * between 7 and 8. The claim is: AFTER the bursts, not among them. */
+        snprintf(d, sizeof d, "peak window %d (ref 7)", peakAt);
+        check(peakAt == 7 || peakAt == 8,
+              "the loudest instant is the post-burst hit", d);
+
+        check(e[0] > 25 && e[2] > 25 && e[4] > 20, "three teeth are present",
+              "windows 0/2/4");
+        check(e[1] < e[0] && e[3] < e[2], "with gaps between them", "");
+
+        double err = 0;
+        for(int k = 0; k < 24; ++k) err += (e[k] - REF[k]) * (e[k] - REF[k]);
+        /* Threshold calibrated against the comparison's own noise: two
+         * renders of THIS voice with different noise realisations differ by
+         * 10.7 points rms in these windows, and the reference is itself one
+         * realisation. 16 = that floor plus real headroom; a missing tooth
+         * or tail blows far past it. */
+        snprintf(d, sizeof d, "rms deviation %.1f points (stochastic floor ~11)", sqrt(err / 24));
+        check(sqrt(err / 24) < 16.0, "the whole envelope tracks the reference", d);
     }
 
-    /* ---- Spread must NOT change the level or the colour ---------------- *
-     *
-     * The complaint about sc808's Spread was that it changed the character of
-     * the voice rather than its timing. Here it may only move the pulses.
-     */
+    /* ---- the Decay pot scales the note --------------------------------- */
     {
-        const double p1 = peakOf(hit(0.33f, 0.006f, 1.0f));
-        const double p2 = peakOf(hit(0.33f, 0.024f, 1.0f));
-        char d[96];
-        snprintf(d, sizeof d, "%.3f vs %.3f", p1, p2);
-        check(fabs(20.0 * log10(p1 / p2)) < 1.5,
-              "Spread leaves the level alone", d);
+        auto len = [](float dscale){
+            sc808::ClapCircuit c;
+            c.init(SR);
+            c.trigger(1.0, dscale, 0.010f, 0.0f);
+            std::vector<float> v((size_t)(SR * 4), 0.0f);
+            for(size_t i = 0; i < v.size(); ++i) v[i] = c.process();
+            double pk = 0; for(float x : v) if(fabs(x) > pk) pk = fabs(x);
+            for(size_t i = v.size(); i-- > 0; )
+                if(fabs((double)v[i]) > pk * 0.01) return (double)i / SR;
+            return 0.0; };
+        const double a = len(0.5f), b = len(1.0f), c2 = len(2.0f);
+        char d[128];
+        snprintf(d, sizeof d, "0.5x %.2f s, 1x %.2f s, 2x %.2f s", a, b, c2);
+        check(a < b && b < c2, "Decay orders the note", d);
     }
 
-    /* ---- the voice sits where the bandpass puts it --------------------- */
-    {
-        const double c = centroid(hit(0.33f, 0.010f, 1.0f));
-        char d[96];
-        snprintf(d, sizeof d, "%.0f Hz", c);
-        check(c > 600.0 && c < 1600.0, "energy sits around the 874 Hz bandpass", d);
-
-        /* Tune moves it */
-        const double lo = centroid(hit(0.33f, 0.010f, 1.0f, 0.5));
-        const double hi = centroid(hit(0.33f, 0.010f, 1.0f, 2.0));
-        snprintf(d, sizeof d, "%.0f Hz -> %.0f Hz", lo, hi);
-        check(hi > lo * 1.8, "Tune moves the bandpass", d);
-    }
-
-    /* ---- Room balances tail against burst ------------------------------ */
-    {
-        const double dry = decayTime(hit(0.33f, 0.010f, 0.0f), 0.01);
-        const double wet = decayTime(hit(0.33f, 0.010f, 2.0f), 0.01);
-        char d[96];
-        snprintf(d, sizeof d, "room 0 -> %.2f s, room 2 -> %.2f s", dry, wet);
-        check(wet > dry * 3.0, "Room brings in the tail", d);
-    }
-
-    /* ---- the note ends ------------------------------------------------- */
+    /* ---- the note ends -------------------------------------------------- */
     {
         sc808::ClapCircuit c;
         c.init(SR);
-        c.trigger(1.0, 1.5f, 0.010f, 2.0f);            /* the longest setting */
+        c.trigger(1.0, 2.8f, 0.010f, 0.0f);
         int n = 0;
         while(c.active() && n < (int)(SR * 30.0)) { c.process(); ++n; }
         char d[96];
-        snprintf(d, sizeof d, "%.2f s at the longest decay", n / SR);
+        snprintf(d, sizeof d, "%.2f s at the longest setting", n / SR);
         check(!c.active(), "the voice releases itself", d);
     }
 

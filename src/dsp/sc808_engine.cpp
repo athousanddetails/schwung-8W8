@@ -117,22 +117,22 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.1970f,   /* bd — the reference: everything else is set against the kick */
-    0.1298f,   /* sd */
-    0.2732f,   /* lt */
-    0.2791f,   /* mt */
-    0.2604f,   /* ht */
-    0.2493f,   /* lc */
-    0.2592f,   /* mc */
-    0.2555f,   /* hc */
-    0.1757f,   /* rs — a click with a crest factor of 11 */
-    1.7287f,   /* cl */
-    0.4083f,   /* ma */
-    5.0396f,   /* cp — the quietest voice in sc808 by a long way */
-    0.4828f,   /* cb */
-    0.3282f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.5988f,   /* oh */
-    0.7061f,   /* cy */
+    0.2766f,   /* bd — the reference: everything else is set against the kick */
+    0.1823f,   /* sd */
+    0.3836f,   /* lt */
+    0.3919f,   /* mt */
+    0.3656f,   /* ht */
+    0.3500f,   /* lc */
+    0.3639f,   /* mc */
+    0.3587f,   /* hc */
+    0.2467f,   /* rs — a click with a crest factor of 11 */
+    2.4271f,   /* cl */
+    0.5732f,   /* ma */
+    3.6997f,   /* cp — the quietest voice in sc808 by a long way */
+    0.6779f,   /* cb */
+    0.4608f,   /* ch — raw peak near 17 before the drive stage catches it */
+    0.8407f,   /* oh */
+    0.9913f,   /* cy */
 };
 
 /*
@@ -593,8 +593,9 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         {
             /* Burst spacing and tail mix are the hardware's, fixed — the
              * panel has Tune and Decay, like the machine had Level alone. */
-            e->cpc.trigger(powf(2.0f, tune / 12.0f), decay, 0.010f,
-                           (float)kCP_TailMix);
+            /* Decay scales the two derived tails together; the burst
+             * spacing stays the hardware's 10 ms. */
+            e->cpc.trigger(powf(2.0f, tune / 12.0f), decay, 0.010f, 0.0f);
         }
         else
         {

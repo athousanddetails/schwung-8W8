@@ -103,13 +103,35 @@ static const double kCP_PulseTau  = 0.0026;  /* per-pulse collapse, by ear  */
 static const double kCP_OutScale = 0.62;
 
 /*
- * The tail's level against the burst, FIXED — the Room pot is gone. Fitted
- * against Roland's own model rendering the default kit: its tail sits about
- * 30 dB under the burst peak, reaching 1% of peak at 0.364 s and 0.1% at
- * 0.98 s. 0.025 reproduces both to within a few percent. The tail is the
- * "ffft" after the smack, not a second clap.
+ * THE ENVELOPE, from the schematic this time.
+ *
+ * Two RC pairs, two different jobs, and the first version had them
+ * conflated:
+ *
+ *   C144 0.47 uF x R365 82k = 38.5 ms   — the MAIN decay. The clap you
+ *       hear: opens right after the comparator chain stops chopping and
+ *       falls on this constant. The reference render decays 100 -> 45 in
+ *       twenty milliseconds, which is exactly this RC.
+ *
+ *   C143 1 uF x R362 330k = 330 ms      — the FLOOR. The quiet "ffft"
+ *       shelf the reference holds at 6-8% of peak out past 100 ms. This is
+ *       the constant the first version used for the WHOLE tail, which is
+ *       why the clap was a smack with nothing behind it at one setting and
+ *       an endless wash at another.
+ *
+ * The AN6912 comparators chop the first three burst-spacings into teeth;
+ * the reference puts the teeth at 47% of the main hit, each falling on a
+ * ~4.5 ms constant, with the main envelope opening half a spacing after
+ * the last tooth. Those three numbers are read off the reference's 5 ms
+ * envelope table; everything else above is component-derived.
+ *
+ * The Decay pot scales BOTH tails together, default 1.0 = the hardware.
  */
-static const double kCP_TailMix = 0.025;
+static const double kCP_MainTau   = 0.0385;   /* C144 x R365, derived   */
+static const double kCP_FloorTau  = 0.330;    /* C143 x R362, derived   */
+static const double kCP_ToothLevel = 0.80;    /* reference envelope (post-BP) */
+static const double kCP_ToothTau  = 0.0045;   /* reference envelope     */
+static const double kCP_FloorMix  = 0.030;    /* reference envelope     */
 
 class ClapCircuit {
 public:
@@ -134,28 +156,33 @@ public:
      *            people failing to clap together, and both are useful.
      * room       level of the tail against the burst.
      */
-    void trigger(const double _tuneRatio, const float _decaySec,
-                 const float _spreadSec, const float _room)
+    void trigger(const double _tuneRatio, const float _decayScale,
+                 const float _spreadSec, const float _unused)
     {
+        (void)_unused;
         setTune(_tuneRatio);
 
-        room_      = (double)_room;
-        tailLevel_ = 1.0;
-        tailDecay_ = exp(-1.0 / (double)(_decaySec > 1.0e-4f ? _decaySec : 1.0e-4f)
-                              / sr_);
+        /* pot centre = the hardware's derived constants; ends halve/double */
+        const double d = (double)(_decayScale < 0.05f ? 0.05f
+                                 : (_decayScale > 4.0f ? 4.0f : _decayScale));
+        mainDecay_  = exp(-1.0 / (kCP_MainTau  * d * sr_));
+        floorDecay_ = exp(-1.0 / (kCP_FloorTau * d * sr_));
+        toothDecay_ = exp(-1.0 / (kCP_ToothTau * sr_));
 
-        spread_    = (int)(_spreadSec * sr_ + 0.5);
+        spread_ = (int)(_spreadSec * sr_ + 0.5);
         if(spread_ < 1) spread_ = 1;
-        pulseDecay_ = exp(-1.0 / (kCP_PulseTau * sr_));
 
-        /*
-         * Fire the first pulse now and schedule the rest. The burst is
-         * counted in samples from the trigger rather than retriggered from
-         * the previous pulse, so a wide Spread does not drift.
-         */
-        pulseLevel_ = 1.0;
-        fired_      = 1;
-        age_        = 0;
+        tooth_     = kCP_ToothLevel;          /* first tooth, now */
+        fired_     = 1;
+        age_       = 0;
+        mainLevel_ = 0.0;
+        mainTarget_= 0.0;
+        floorLevel_= 0.0;
+        /* the main envelope opens as the last tooth ends and charges over
+         * a few milliseconds — the reference rises through window 6 and
+         * peaks in window 7, with no dead gap after the teeth */
+        mainOpen_  = (int)(2.8 * spread_);
+        mainAtk_   = 1.0 - exp(-1.0 / (0.0030 * sr_));
 
         active_ = true;
         quiet_  = 0;
@@ -165,37 +192,36 @@ public:
     {
         if(!active_) return 0.0f;
 
-        /* the burst: three pulses, each an instant open and a fast collapse */
+        /* the teeth */
         if(fired_ < kCP_PULSES && age_ >= fired_ * spread_)
         {
-            pulseLevel_ = 1.0;
+            tooth_ = kCP_ToothLevel;
             ++fired_;
         }
+        if(age_ == mainOpen_) { mainTarget_ = 1.0; floorLevel_ = kCP_FloorMix; }
         ++age_;
 
-        const double ctrl = pulseLevel_ + room_ * tailLevel_;
-        pulseLevel_ *= pulseDecay_;
-        tailLevel_  *= tailDecay_;
+        const double ctrl = tooth_ + mainLevel_ + floorLevel_;
+        tooth_ *= toothDecay_;
+        if(mainTarget_ > 0.0)
+        {
+            mainLevel_ += (mainTarget_ - mainLevel_) * mainAtk_;
+            if(mainLevel_ > 0.98) mainTarget_ = 0.0;    /* attack done */
+        }
+        else mainLevel_ *= mainDecay_;
+        floorLevel_ *= floorDecay_;
 
-        /*
-         * BA662, modelled as Werner models the snare's: half-wave
-         * rectification times the control voltage. Same chip, same treatment,
-         * and it is what gives the clap its slightly hard edge.
-         */
+        /* BA662, as Werner models it: half-wave conduction times the
+         * control voltage */
         const double n   = (double)rng_.frand2();
         const double vca = (n > 0.0 ? n : 0.0) * ctrl;
 
-        /*
-         * VCA first, bandpass second — the order the board has, and the order
-         * that matters: the filter rounds off the chopped edges of the burst,
-         * which is why an 808 clap is a "phhat" and not three hard gates.
-         */
         double y = bp_.process(vca) * kCP_OutScale;
         y = (double)hp_.process((float)y);
 
         const float out = (float)y;
         if(out > 3.2e-5f || out < -3.2e-5f) quiet_ = 0;
-        else if(++quiet_ > 200) active_ = false;
+        else if(++quiet_ > 400) active_ = false;
         return out;
     }
 
@@ -208,10 +234,10 @@ private:
     }
 
     double sr_ = 44100.0;
-    double room_ = 1.0;
-    double pulseLevel_ = 0.0, pulseDecay_ = 0.0;
-    double tailLevel_  = 0.0, tailDecay_  = 0.0;
-    int    spread_ = 441, fired_ = 0, age_ = 0;
+    double tooth_ = 0.0, toothDecay_ = 0.0;
+    double mainLevel_ = 0.0, mainDecay_ = 0.0, mainTarget_ = 0.0, mainAtk_ = 0.0;
+    double floorLevel_ = 0.0, floorDecay_ = 0.0;
+    int    spread_ = 441, fired_ = 0, age_ = 0, mainOpen_ = 0;
     bool   active_ = false;
     int    quiet_  = 0;
 

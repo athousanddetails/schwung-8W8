@@ -249,7 +249,9 @@ PAGES = [
         # circuit's own fixed level; Decay is the tail's time constant, whose
         # default 0.33 s is R362 x C143 straight off the schematic.
         TUNE("cp"),
-        PV("cp_decay",  "Decay",  0.05,  1.5,  EXP, 0.33),
+        # Decay scales BOTH derived tails together (C144x82k main, C143x330k
+        # floor); 1.0 IS the hardware, the ends halve and double it.
+        PV("cp_decay",  "Decay",  0.35,  2.8,  EXP, 1.0),
         E("cp_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("cp"), DTYPE("cp"), LEVEL("cp"),
     ]),

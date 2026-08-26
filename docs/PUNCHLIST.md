@@ -20,16 +20,22 @@ verdict-ed before the next. References on the Desktop: `toms808.wav`
    Engine switch on that lane, tuned to `rim808.wav` (note 92 -> 91.62,
    putting the tock on the reference's 1788 Hz) and Decay in real
    seconds. The circuit rim code is deleted, not left dormant.
-4. **COWBELL.** Worse than before. Fix against AU n56 (543+812 Hz,
+4. **HAND CLAP — deployed, awaiting verdict.** Envelope rebuilt from the
+   schematic's two RCs: C144x82k = 38.5 ms main decay, C143x330k = 330 ms
+   floor (they were conflated before). Teeth at 0/10/20 ms, main hit
+   opening after the last tooth, matching the reference's 5 ms envelope
+   table to within the stochastic floor. cp_check embeds that table as the
+   oracle.
+5. **COWBELL.** Worse than before. Fix against AU n56 (543+812 Hz,
    0.43 s) — the sc808 one was closer in character.
-5. **HATS.** "Disgusting." Both CH and OH. References: 808 clean CH/OH
+6. **HATS.** "Disgusting." Both CH and OH. References: 808 clean CH/OH
    samples + AU. The circuit ladder/VCA needs real work against them.
-6. **SNARE.** User reports a Tone control that does nothing and was to
+7. **SNARE.** User reports a Tone control that does nothing and was to
    be removed. sd_tone IS gone from the DSP — find what they are seeing
    (possibly the panel cache, possibly BD Tone) and kill it properly.
-7. **KICK.** Good. Wants LONGER Decay available (extend the top of the
+8. **KICK.** Good. Wants LONGER Decay available (extend the top of the
    pot's range).
-8. **CYMBAL.** Not called out this round beyond the metal disgust —
+9. **CYMBAL.** Not called out this round beyond the metal disgust —
    re-verdict after hats.
 
 Standing rules: no kit-wide passes; deploy after each instrument;
