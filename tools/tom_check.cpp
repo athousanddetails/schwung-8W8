@@ -116,9 +116,11 @@ int main()
      */
     struct Lane { const char *id; int mode; double note, refDecay, refHz; float pot; };
     const Lane lanes[] = {
-        { "lt", 0, 41.0, 0.391,  87.31, 0.39f },
-        { "mt", 0, 48.0, 0.230, 130.81, 0.23f },
-        { "ht", 0, 55.0, 0.179, 196.00, 0.18f },
+        /* toms: Roland's own render at the default preset, which the
+         * user's toms808.wav matches within a cent */
+        { "lt", 0, 42.02, 0.392,  92.6, 0.39f },
+        { "mt", 0, 48.58, 0.281, 135.3, 0.28f },
+        { "ht", 0, 54.83, 0.258, 183.0, 0.26f },
         { "lc", 1, 55.0, 0.352, 196.00, 0.36f },
         { "mc", 1, 62.0, 0.160, 293.66, 0.16f },
         { "hc", 1, 69.0, 0.145, 440.00, 0.145f },
@@ -140,12 +142,12 @@ int main()
      * twice as long and is struck clean; the tom carries the head.
      */
     {
-        const std::vector<float> tom = circuitHit(0, 196.0, 0.18f);
-        const std::vector<float> cga = circuitHit(1, 196.0, 0.36f);
+        const std::vector<float> tom = circuitHit(0, 190.0, 0.26f);
+        const std::vector<float> cga = circuitHit(1, 190.0, 0.36f);
         const double tt = decayTime(tom, 0.01), tc = decayTime(cga, 0.01);
         char d[128];
         snprintf(d, sizeof d, "tom %.2f s, conga %.2f s", tt, tc);
-        check(tc > tt * 1.6, "the conga rings about twice the tom at one pitch", d);
+        check(tc > tt * 1.25, "the conga still outrings the tom at one pitch", d);
 
         double num = 0.0, dt = 0.0, dc = 0.0;
         const size_t n = tom.size() < cga.size() ? tom.size() : cga.size();
@@ -170,8 +172,8 @@ int main()
          * both drums' first harmonic (392) and inside the head's band — the
          * burst is low-passed at 4 x f0 = 784, so a higher cut would measure
          * the part of the head the filter removed. */
-        std::vector<float> tom = circuitHit(0, 196.0, 0.18f);
-        std::vector<float> cga = circuitHit(1, 196.0, 0.36f);
+        std::vector<float> tom = circuitHit(0, 190.0, 0.26f);
+        std::vector<float> cga = circuitHit(1, 190.0, 0.36f);
         /* whole-note fraction first: the hiss regression guard */
         const double whole = highFraction(tom, 500.0);
         /* then the STRIKE alone — the head is over in ~25 ms, and measuring
@@ -184,17 +186,21 @@ int main()
         snprintf(d, sizeof d, "whole note %.3f%%; first 25 ms: tom %.2f%%, conga %.2f%%",
                  whole * 100.0, ft * 100.0, fc * 100.0);
         check(whole < 0.005, "the tom's head stays under half a percent", d);
-        check(ft > fc * 1.5, "and the strike carries it, tom over conga", d);
+        /* with both strikes soft the margin is thin, but the direction
+         * must hold: only the tom HAS a head */
+        check(ft > fc, "and the strike carries it, tom over conga", d);
     }
 
-    /* ---- the conga blooms, the tom clicks ------------------------------ *
+    /* ---- NOTHING CLICKS: the drum blooms -------------------------------- *
      *
-     * From the samples: every tom peaks inside 1 ms of onset, every conga
-     * at 2 to 5 ms — the switch grounds the pulse node and the strike edge
-     * that reaches the network is soft. Time to peak is the measurement.
+     * The reference renders reach their peak 4 to 20 ms after the trigger —
+     * about a period of the drum — because the strike path is an RC, not an
+     * edge. A version of this voice bled the raw strike to the output and
+     * peaked at zero milliseconds, and the field verdict on that click was
+     * unprintable. Both modes must bloom.
      */
     {
-        const std::vector<float> tom = circuitHit(0, 196.0, 0.18f);
+        const std::vector<float> tom = circuitHit(0, 183.0, 0.26f);
         const std::vector<float> cga = circuitHit(1, 196.0, 0.36f);
         auto tPeak = [](const std::vector<float> &v){
             double pk = 0.0; size_t at = 0;
@@ -204,8 +210,8 @@ int main()
         const double mt = tPeak(tom), mc = tPeak(cga);
         char d[128];
         snprintf(d, sizeof d, "tom %.2f ms, conga %.2f ms", mt, mc);
-        check(mt < 1.5, "the tom peaks inside 1.5 ms", d);
-        check(mc > mt * 1.5, "the conga blooms later", d);
+        check(mt > 2.0, "the tom blooms, no click", d);
+        check(mc > 2.0, "the conga blooms, no click", d);
     }
 
     /* ---- Decay is seconds, and means it -------------------------------- */

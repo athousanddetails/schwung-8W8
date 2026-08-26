@@ -64,9 +64,13 @@ const float kBaseNote[SC808_NUM_VOICES] = {
      * neither sounded right nor overlapped. The sc808 engine is still
      * exactly the transcription — it just gets played at the right pitch.
      */
-    41.0f,   /* lt — F2  87.3 Hz */
-    48.0f,   /* mt — C3 130.8 Hz */
-    55.0f,   /* ht — G3 196.0 Hz */
+    /* Settled fundamentals of Roland's own model at the default preset —
+     * the user's reference render (toms808.wav) matches within a cent. The
+     * earlier F2/C3/G3 came from third-party hardware samples recorded at
+     * other TUNING positions. */
+    42.02f,  /* lt — 92.6 Hz */
+    48.58f,  /* mt — 135.3 Hz */
+    54.83f,  /* ht — 183.0 Hz */
     55.0f,   /* lc — G3, the same channel as ht on the hardware */
     62.0f,   /* mc — D4 293.7 Hz */
     69.0f,   /* hc — A4 440.0 Hz */
@@ -107,12 +111,12 @@ const float kBaseNote[SC808_NUM_VOICES] = {
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
     0.1970f,   /* bd — the reference: everything else is set against the kick */
     0.1298f,   /* sd */
-    0.2624f,   /* lt */
-    0.2955f,   /* mt */
-    0.2878f,   /* ht */
-    0.2399f,   /* lc */
-    0.2541f,   /* mc */
-    0.2536f,   /* hc */
+    0.2564f,   /* lt */
+    0.2859f,   /* mt */
+    0.2463f,   /* ht */
+    0.2633f,   /* lc */
+    0.2794f,   /* mc */
+    0.2776f,   /* hc */
     2.4747f,   /* rs — a click with a crest factor of 11 */
     1.7287f,   /* cl */
     0.4083f,   /* ma */

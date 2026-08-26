@@ -87,12 +87,12 @@ static const double kTOM_SkinTau   = 0.012;  /* the burst, roughly one period */
 static const double kTOM_StrikeTom = 1.0;
 static const double kTOM_StrikeCga = 0.80;
 
-/* Measured: the low tom settles 8.6% under its onset reading, the hi tom
- * only 2.3%, congas under 1% — the sweep SHRINKS as pitch rises, so the tom
- * lift is referenced to the low tom's 87.31 Hz and scaled by 1/f0. */
-static const double kTOM_PitchLiftTom = 0.09;    /* at F2; x 87.31/f0 */
+/* Roland's own render sweeps ~8-9% at onset on EVERY tom lane (LT 100->92.6,
+ * MT 144->135.3, HT 200->183), settling inside ~120 ms — a flat lift, not
+ * the frequency-scaled one an earlier sample set suggested. */
+static const double kTOM_PitchLiftTom = 0.085;
 static const double kTOM_PitchLiftCga = 0.02;
-static const double kTOM_PitchTau     = 0.040;
+static const double kTOM_PitchTau     = 0.045;
 
 /* g = 1 - ln(100) Q / (pi f0 t), from the ring-time pot. The ceiling keeps a
  * detuned-low, decay-high corner from parking the loop at unity. */
@@ -105,26 +105,28 @@ static const double kTOM_GainMax = 0.993;
  * bandwidth-with-f0 dependence; exponent fitted over the six lanes.
  */
 static const double kTOM_FwdRefHz = 120.0;
-static const double kTOM_FwdPower = 0.90;
+/* per mode: the tom's fixed-corner strike RC adds its own frequency slope,
+ * so the tom's compensation is flatter and larger; solved against the
+ * engines-agree measurement in tools/tom_check */
+static const double kTOM_FwdPowerTom = 0.224;
+static const double kTOM_FwdPowerCga = 0.90;
 
 /*
  * Fitted so an unaccented hit at the default pots peaks where the sc808
  * voice does — each lane has ONE trim shared by both engines, and
  * tools/tom_check asserts they still agree.
  */
-static const double kTOM_OutScaleTom = 20.4;
+static const double kTOM_OutScaleTom = 38.6;
 static const double kTOM_OutScaleCga = 25.3;
 
 /*
- * The strike's direct bleed to the output. Every tom sample PEAKS at the
- * strike, 0.5-0.7 ms in, with the ring's own peak a little under it — the
- * click is the loudest instant of the note. Absolute (outside the
- * frequency-dependent forward gain), so the click-to-ring proportion holds
- * across the lanes as it does across the samples. The conga's strike is
- * already rounded soft by the switch, so its bleed is a push, not a click —
- * which is exactly the difference the samples show.
+ * NO direct strike bleed. There was one briefly (0.16, "every tom sample
+ * peaks at the strike") and it was wrong — the samples that peaked inside
+ * a millisecond were processed. The authoritative references, Roland's own
+ * render and the user's toms808.wav, BLOOM: the peak arrives 6-10 ms in,
+ * about one period of the drum, and the field verdict on the click was
+ * unprintable. The strike reaches the output through the resonator alone.
  */
-static const double kTOM_ClickThru = 0.16;
 
 class TomCircuit {
 public:
@@ -184,10 +186,21 @@ public:
         skinCoef_ = exp(-1.0 / (kTOM_SkinTau * sr_));
         /* the burst is coloured toward the drum before it even reaches the
          * resonator — a stick on a skin, not a tweeter */
-        skinLpA_ = exp(-2.0 * kCircPi * (f0_ * 4.0) / sr_);
+        skinLpA_ = exp(-2.0 * kCircPi * (f0_ * 2.0) / sr_);
+        /*
+         * The STRIKE'S own rounding is a fixed corner, not one that follows
+         * f0: the reference renders bloom to their peak in 6-10 MILLISECONDS
+         * on every tom lane, low or high, which is the signature of a fixed
+         * RC on the pulse path, not of the drum's own period. 90 Hz puts the
+         * push's time constant near 3 ms and the peak lands where Roland's
+         * model puts it. (90 Hz after iteration.)
+         */
+        strikeLpA_ = mode_ == 0 ? exp(-2.0 * kCircPi * 90.0 / sr_)
+                                : exp(-2.0 * kCircPi * (f0_ * 2.0) / sr_);
 
-        fwd_ = pow(kTOM_FwdRefHz / f0_, kTOM_FwdPower)
-             * (mode_ == 0 ? kTOM_OutScaleTom : kTOM_OutScaleCga);
+        fwd_ = mode_ == 0
+             ? pow(kTOM_FwdRefHz / f0_, kTOM_FwdPowerTom) * kTOM_OutScaleTom
+             : pow(kTOM_FwdRefHz / f0_, kTOM_FwdPowerCga) * kTOM_OutScaleCga;
 
         coefAge_ = 0;
         active_  = true;
@@ -205,18 +218,13 @@ public:
         double strike = shaper_.process(gate)
                       * (mode_ == 0 ? kTOM_StrikeTom : kTOM_StrikeCga);
         /*
-         * The conga's strike is SOFT: with the switch grounding the pulse
-         * node, the edge that reaches the network is rounded, and the drum
-         * blooms instead of clicking. Measured in the samples as time to
-         * peak — toms inside 1 ms, congas at 2-5 ms — and modelled by
-         * rounding the conga's strike through the same one-pole the tom's
-         * head uses (idle in conga mode, corner 4 x f0).
+         * The strike is SOFT on both sides of the switch — the reference
+         * renders bloom to their peak about one period in, tom and conga
+         * alike. One pole at 2 x f0 rounds the pulse edge; the conga's
+         * softer still (its node is grounded), via the lower strike gain.
          */
-        if(mode_ == 1)
-        {
-            strikeLpZ_ += (strike - strikeLpZ_) * (1.0 - skinLpA_);
-            strike = strikeLpZ_;
-        }
+        strikeLpZ_ += (strike - strikeLpZ_) * (1.0 - strikeLpA_);
+        strike = strikeLpZ_;
 
         /*
          * The head, tom side only: a short burst of noise, LOW-PASSED near
@@ -240,8 +248,7 @@ public:
         if(--coefAge_ <= 0)
         {
             coefAge_ = 16;   /* 0.36 ms, far inside the drop */
-            const double lift = mode_ == 0 ? kTOM_PitchLiftTom * (87.31 / f0_)
-                                           : kTOM_PitchLiftCga;
+            const double lift = mode_ == 0 ? kTOM_PitchLiftTom : kTOM_PitchLiftCga;
             bt_.set(f0_ * (1.0 + lift * pitchEnv_), kTOM_Q, sr_);
         }
 
@@ -252,7 +259,7 @@ public:
         const double y = bt_.process(x);
         fb_ = y;
 
-        double out = y * fwd_ + strike * kTOM_ClickThru;
+        double out = y * fwd_;
 
         /* the output buffer's series capacitor */
         dcZ_ += (out - dcZ_) * kDcCoef;
@@ -285,7 +292,8 @@ private:
     double loopGain_ = 0.9, accentV_ = 8.0, fwd_ = 1.0;
     double pitchEnv_ = 0.0, pitchCoef_ = 0.0;
     double skinEnv_  = 0.0, skinCoef_  = 0.0;
-    double skinLpA_  = 0.0, skinLpZ_   = 0.0, strikeLpZ_ = 0.0;
+    double skinLpA_  = 0.0, skinLpZ_   = 0.0;
+    double strikeLpA_ = 0.0, strikeLpZ_ = 0.0;
     double fb_ = 0.0, dcZ_ = 0.0;
     int    gateSamples_ = 0, coefAge_ = 0;
     bool   active_ = false;

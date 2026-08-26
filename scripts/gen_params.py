@@ -168,22 +168,33 @@ PAGES = [
     #
     # Decay reads as SECONDS on sc808 and as LOOP GAIN on the circuit, from
     # the same knob position; see the circuit kick for why that is deliberate.
-    ("lt", "Low Tom",   [TUNE("lt"), PV("lt_decay", "Decay", 0.06, 2.0, EXP, 0.39),
+    # Tom/conga TUNE is +/-2 SEMITONES, not +/-12: the hardware's TUNING
+    # trimmer, measured on Roland's own model, spans exactly four semitones
+    # lock to lock (LT 84->106 Hz, HT 165->206). The wide pot let one tom
+    # reach its neighbour's pitch, which no 808 can do and which made the
+    # kit's three toms into one tom at three knob positions.
+    ("lt", "Low Tom",   [P("lt_tune", "Tune", -2.0, 2.0, LIN, 64),
+                         PV("lt_decay", "Decay", 0.06, 2.0, EXP, 0.39),
                          E("lt_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("lt"), DTYPE("lt"), LEVEL("lt")]),
-    ("mt", "Mid Tom",   [TUNE("mt"), PV("mt_decay", "Decay", 0.06, 2.0, EXP, 0.23),
+    ("mt", "Mid Tom",   [P("mt_tune", "Tune", -2.0, 2.0, LIN, 64),
+                         PV("mt_decay", "Decay", 0.06, 2.0, EXP, 0.28),
                          E("mt_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("mt"), DTYPE("mt"), LEVEL("mt")]),
-    ("ht", "Hi Tom",    [TUNE("ht"), PV("ht_decay", "Decay", 0.06, 2.0, EXP, 0.18),
+    ("ht", "Hi Tom",    [P("ht_tune", "Tune", -2.0, 2.0, LIN, 64),
+                         PV("ht_decay", "Decay", 0.06, 2.0, EXP, 0.26),
                          E("ht_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("ht"), DTYPE("ht"), LEVEL("ht")]),
-    ("lc", "Low Conga", [TUNE("lc"), PV("lc_decay", "Decay", 0.06, 2.0, EXP, 0.36),
+    ("lc", "Low Conga", [P("lc_tune", "Tune", -2.0, 2.0, LIN, 64),
+                         PV("lc_decay", "Decay", 0.06, 2.0, EXP, 0.36),
                          E("lc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("lc"), DTYPE("lc"), LEVEL("lc")]),
-    ("mc", "Mid Conga", [TUNE("mc"), PV("mc_decay", "Decay", 0.06, 2.0, EXP, 0.16),
+    ("mc", "Mid Conga", [P("mc_tune", "Tune", -2.0, 2.0, LIN, 64),
+                         PV("mc_decay", "Decay", 0.06, 2.0, EXP, 0.16),
                          E("mc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("mc"), DTYPE("mc"), LEVEL("mc")]),
-    ("hc", "Hi Conga",  [TUNE("hc"), PV("hc_decay", "Decay", 0.06, 2.0, EXP, 0.145),
+    ("hc", "Hi Conga",  [P("hc_tune", "Tune", -2.0, 2.0, LIN, 64),
+                         PV("hc_decay", "Decay", 0.06, 2.0, EXP, 0.145),
                          E("hc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("hc"), DTYPE("hc"), LEVEL("hc")]),
     ("rs", "Rim Shot", [

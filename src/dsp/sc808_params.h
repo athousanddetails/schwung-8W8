@@ -40,27 +40,27 @@ static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
     { "sd_snappy",     0.0000f,     1.0000f, SC808_LIN,  89 },
     { "sd_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "sd_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "lt_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
+    { "lt_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
     { "lt_decay",     0.0600f,     2.0000f, SC808_EXP,  68 },
     { "lt_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "lt_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "mt_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "mt_decay",     0.0600f,     2.0000f, SC808_EXP,  49 },
+    { "mt_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
+    { "mt_decay",     0.0600f,     2.0000f, SC808_EXP,  56 },
     { "mt_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "mt_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "ht_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "ht_decay",     0.0600f,     2.0000f, SC808_EXP,  40 },
+    { "ht_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
+    { "ht_decay",     0.0600f,     2.0000f, SC808_EXP,  53 },
     { "ht_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "ht_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "lc_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
+    { "lc_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
     { "lc_decay",     0.0600f,     2.0000f, SC808_EXP,  65 },
     { "lc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "lc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "mc_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
+    { "mc_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
     { "mc_decay",     0.0600f,     2.0000f, SC808_EXP,  36 },
     { "mc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "mc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "hc_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
+    { "hc_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
     { "hc_decay",     0.0600f,     2.0000f, SC808_EXP,  32 },
     { "hc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "hc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
@@ -163,13 +163,13 @@ static const char sc808_chain_params_json[] =
     "t\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"lt_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":"
     "[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"lt_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\""
     "max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"mt_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"m"
-    "ax\":127,\"default\":64},{\"key\":\"mt_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":49},"
+    "ax\":127,\"default\":64},{\"key\":\"mt_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":56},"
     "{\"key\":\"mt_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"mt_"
     "drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"mt_dist_type\",\"name\":\"Dist"
     "ortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"mt_level\",\"name"
     "\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"ht_tune\",\"name"
     "\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"ht_decay\",\"name\":\"Decay\",\"type\":\"int\","
-    "\"min\":0,\"max\":127,\"default\":40},{\"key\":\"ht_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\""
+    "\"min\":0,\"max\":127,\"default\":53},{\"key\":\"ht_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\""
     "sc808\"],\"default\":0},{\"key\":\"ht_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\""
     "key\":\"ht_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"def"
     "ault\":0},{\"key\":\"ht_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":"
