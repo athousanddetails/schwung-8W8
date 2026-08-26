@@ -102,6 +102,15 @@ static const double kCP_PulseTau  = 0.0026;  /* per-pulse collapse, by ear  */
  */
 static const double kCP_OutScale = 0.62;
 
+/*
+ * The tail's level against the burst, FIXED — the Room pot is gone. Fitted
+ * against Roland's own model rendering the default kit: its tail sits about
+ * 30 dB under the burst peak, reaching 1% of peak at 0.364 s and 0.1% at
+ * 0.98 s. 0.025 reproduces both to within a few percent. The tail is the
+ * "ffft" after the smack, not a second clap.
+ */
+static const double kCP_TailMix = 0.025;
+
 class ClapCircuit {
 public:
     void init(const double _sr)

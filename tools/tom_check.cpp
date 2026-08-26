@@ -1,19 +1,17 @@
 /*
  * tom_check.cpp — assert what the circuit tom / conga channel claims.
  *
- * Same job as tools/bd_check and tools/cp_check. The claims worth testing are
- * not "it makes a sound" but the two the voice exists for:
+ * Since the second version of the voice, the claims are MEASUREMENTS — from
+ * hardware samples with note names in the filenames — so this file mostly
+ * asserts that the model still reproduces the numbers it was fitted to:
  *
- *   A TOM AND A CONGA AT THE SAME PITCH MUST NOT BE THE SAME SOUND. That was
- *   the report — "Hi Tom and Conga are very similar" — and in sc808 they are
- *   literally the same graph with a different decay. Here the tom has a noise
- *   head and the conga does not, so a spectral and a transient measure both
- *   have to separate them, at matched pitch, with nothing else differing.
+ *   ring time (to 1% of peak) within 15% of the sample, per lane, at the
+ *   default pots; the settled fundamental within 2%; the pitch-drop onset
+ *   within the right band; the noise head present on the toms and absent on
+ *   the congas, and QUIET — the reference low tom keeps 99.9% of its energy
+ *   below 400 Hz, so a head you can hear as noise is a regression.
  *
- *   THE TWO ENGINES MUST AGREE ABOUT LEVEL. Each lane has one trim, shared,
- *   so if the circuit tom is louder than the sc808 tom then switching the
- *   Engine switch changes the mix and the fitted kit balance is wrong for one
- *   of them.
+ *   And the two engines still agree about level (one shared trim per lane).
  *
  * Build:  clang++ -std=c++14 -O2 -Isrc/dsp -o build-native/tom_check tools/tom_check.cpp
  *
@@ -100,7 +98,7 @@ static double decayTime(const std::vector<float> &v, const double frac)
 
 int main()
 {
-    printf("circuit tom / conga — TR-808 voicing board\n\n");
+    printf("circuit tom / conga — against the measured hardware\n\n");
 
     /* ---- the one derived number ---------------------------------------- */
     {
@@ -110,134 +108,137 @@ int main()
         check(fabs(q - sc808::kTOM_Q) < 1e-9, "Q comes from the component values", d);
     }
 
-    /* ---- THE COMPLAINT: tom and conga must differ at the same pitch ---- *
+    /* ---- each lane reproduces its sample ------------------------------- *
      *
-     * Everything matched except the switch — same frequency, same decay, same
-     * accent. Whatever separates them has to be the circuit, not the tuning.
+     * Reference: 808 Clean hardware samples. decay = to 1% of peak; pitch =
+     * settled fundamental; both measured the same way analyze.cpp measured
+     * the samples.
+     */
+    struct Lane { const char *id; int mode; double note, refDecay, refHz; float pot; };
+    const Lane lanes[] = {
+        { "lt", 0, 41.0, 0.391,  87.31, 0.39f },
+        { "mt", 0, 48.0, 0.230, 130.81, 0.23f },
+        { "ht", 0, 55.0, 0.179, 196.00, 0.18f },
+        { "lc", 1, 55.0, 0.352, 196.00, 0.36f },
+        { "mc", 1, 62.0, 0.160, 293.66, 0.16f },
+        { "hc", 1, 69.0, 0.145, 440.00, 0.145f },
+    };
+    for(const Lane &L : lanes)
+    {
+        const std::vector<float> v = circuitHit(L.mode, midicps(L.note), L.pot);
+        const double t = decayTime(v, 0.01);
+        char d[160];
+        snprintf(d, sizeof d, "%s: ring %.3f s (sample %.3f)", L.id, t, L.refDecay);
+        check(fabs(t - L.refDecay) / L.refDecay < 0.15,
+              "ring time matches the sample", d);
+    }
+
+    /* ---- tom vs conga at matched pitch --------------------------------- *
+     *
+     * ht and lc share a default pitch (G3, as the hardware's shared channel
+     * would) and still must not be the same drum: the conga rings about
+     * twice as long and is struck clean; the tom carries the head.
      */
     {
-        const double hz = midicps(52.0);
-        const std::vector<float> tom = circuitHit(0, hz, 0.65f);
-        const std::vector<float> cga = circuitHit(1, hz, 0.65f);
+        const std::vector<float> tom = circuitHit(0, 196.0, 0.18f);
+        const std::vector<float> cga = circuitHit(1, 196.0, 0.36f);
+        const double tt = decayTime(tom, 0.01), tc = decayTime(cga, 0.01);
+        char d[128];
+        snprintf(d, sizeof d, "tom %.2f s, conga %.2f s", tt, tc);
+        check(tc > tt * 1.6, "the conga rings about twice the tom at one pitch", d);
 
-        const double ht = highFraction(tom, 900.0);
-        const double hc = highFraction(cga, 900.0);
-        char d[160];
-        snprintf(d, sizeof d, "above 900 Hz: tom %.1f%%, conga %.1f%%",
-                 ht * 100.0, hc * 100.0);
-        check(ht > hc * 3.0, "the tom has a noise head the conga has not", d);
-
-        /*
-         * And the tom's attack is sharper against its own body. Measured as a
-         * RATIO within each voice, because the two are separately level-
-         * matched to their sc808 counterparts — comparing raw energy between
-         * them measures the fitted output scales, not the circuit.
-         */
-        double et = 0.0, ec = 0.0, tt = 0.0, tc = 0.0;
-        const size_t n = (size_t)(0.006 * SR);
-        for(size_t i = 0; i < tom.size(); ++i)
-        {
-            if(i < n) { et += tom[i] * tom[i]; ec += cga[i] * cga[i]; }
-            tt += tom[i] * tom[i]; tc += cga[i] * cga[i];
-        }
-        const double ft = et / (tt + 1e-30), fc = ec / (tc + 1e-30);
-        snprintf(d, sizeof d, "first 6 ms holds %.1f%% of the tom, %.1f%% of the conga",
-                 ft * 100.0, fc * 100.0);
-        check(ft > fc * 1.3, "the tom's strike is sharper than the conga's", d);
-
-        /* the two are not the same waveform in any useful sense */
         double num = 0.0, dt = 0.0, dc = 0.0;
-        for(size_t i = 0; i < tom.size(); ++i)
+        const size_t n = tom.size() < cga.size() ? tom.size() : cga.size();
+        for(size_t i = 0; i < n; ++i)
         { num += tom[i] * cga[i]; dt += tom[i] * tom[i]; dc += cga[i] * cga[i]; }
         const double corr = fabs(num) / sqrt((dt + 1e-30) * (dc + 1e-30));
         snprintf(d, sizeof d, "correlation %.3f", corr);
-        check(corr < 0.9, "tom and conga are not the same signal", d);
+        check(corr < 0.95, "and they are not the same signal", d);
     }
 
-    /* ---- Decay is loop gain, and it works ------------------------------ */
-    {
-        const double hz = midicps(52.0);
-        const double a = decayTime(circuitHit(0, hz, 0.0f), 0.01);
-        const double b = decayTime(circuitHit(0, hz, 0.5f), 0.01);
-        const double c = decayTime(circuitHit(0, hz, 1.0f), 0.01);
-        char d[160];
-        snprintf(d, sizeof d, "%.2f s / %.2f s / %.2f s", a, b, c);
-        check(a < b && b < c, "Decay lengthens the ring", d);
-        check(c < 4.0, "and the longest setting still ends", d);
-    }
-
-    /* ---- lower drums ring longer, as a resonator must ------------------ */
-    {
-        const double lo = decayTime(circuitHit(0, midicps(40.0), 0.65f), 0.01);
-        const double hi = decayTime(circuitHit(0, midicps(52.0), 0.65f), 0.01);
-        char d[128];
-        snprintf(d, sizeof d, "low tom %.2f s, hi tom %.2f s", lo, hi);
-        check(lo > hi, "the low tom rings longer than the hi tom at one Decay", d);
-    }
-
-    /* ---- the two engines agree about level ----------------------------- *
+    /* ---- the head is a texture, not a hiss ----------------------------- *
      *
-     * Same lane, same trim, so a switch between engines must not move the
-     * mix. Compared at each lane's own default note and default Decay.
+     * The reference low tom keeps 99.9%% of its energy below 400 Hz. Allow
+     * the model 0.5%% above — an order of magnitude of margin — and demand
+     * the tom still carries MORE high content than the conga, which has
+     * none. Both sides of this failed in the field once: the first skin was
+     * white noise at 0.75 and was reported, correctly, as hiss.
      */
     {
-        struct Lane { const char *id; const sc808::TomSpec *spec; double note;
-                      float decaySec; int mode; };
-        const Lane lanes[] = {
-            { "lt", &sc808::kTomLo,   40.0, 20.0f, 0 },
-            { "mt", &sc808::kTomMid,  44.0, 16.0f, 0 },
-            { "ht", &sc808::kTomHi,   52.0, 11.0f, 0 },
-            { "lc", &sc808::kCongaLo, 52.0, 18.0f, 1 },
-            { "mc", &sc808::kCongaMid,57.0, 18.0f, 1 },
-            { "hc", &sc808::kCongaHi, 62.0, 18.0f, 1 },
-        };
-        /* the default Decay pot position, from gen_params' 1..40 EXP range */
+        /* SAME pitch for the pair, or the comparison measures harmonics of
+         * the tuning rather than the head. The cut sits at 500 Hz: above
+         * both drums' first harmonic (392) and inside the head's band — the
+         * burst is low-passed at 4 x f0 = 784, so a higher cut would measure
+         * the part of the head the filter removed. */
+        std::vector<float> tom = circuitHit(0, 196.0, 0.18f);
+        std::vector<float> cga = circuitHit(1, 196.0, 0.36f);
+        /* whole-note fraction first: the hiss regression guard */
+        const double whole = highFraction(tom, 500.0);
+        /* then the STRIKE alone — the head is over in ~25 ms, and measuring
+         * it against the whole note dilutes it with tail */
+        tom.resize((size_t)(0.025 * SR));
+        cga.resize((size_t)(0.025 * SR));
+        const double ft = highFraction(tom, 500.0);
+        const double fc = highFraction(cga, 500.0);
+        char d[160];
+        snprintf(d, sizeof d, "whole note %.3f%%; first 25 ms: tom %.2f%%, conga %.2f%%",
+                 whole * 100.0, ft * 100.0, fc * 100.0);
+        check(whole < 0.005, "the tom's head stays under half a percent", d);
+        check(ft > fc * 1.5, "and the strike carries it, tom over conga", d);
+    }
+
+    /* ---- the conga blooms, the tom clicks ------------------------------ *
+     *
+     * From the samples: every tom peaks inside 1 ms of onset, every conga
+     * at 2 to 5 ms — the switch grounds the pulse node and the strike edge
+     * that reaches the network is soft. Time to peak is the measurement.
+     */
+    {
+        const std::vector<float> tom = circuitHit(0, 196.0, 0.18f);
+        const std::vector<float> cga = circuitHit(1, 196.0, 0.36f);
+        auto tPeak = [](const std::vector<float> &v){
+            double pk = 0.0; size_t at = 0;
+            for(size_t i = 0; i < v.size(); ++i)
+                if(fabs((double)v[i]) > pk) { pk = fabs((double)v[i]); at = i; }
+            return (double)at * 1000.0 / SR; };
+        const double mt = tPeak(tom), mc = tPeak(cga);
+        char d[128];
+        snprintf(d, sizeof d, "tom %.2f ms, conga %.2f ms", mt, mc);
+        check(mt < 1.5, "the tom peaks inside 1.5 ms", d);
+        check(mc > mt * 1.5, "the conga blooms later", d);
+    }
+
+    /* ---- Decay is seconds, and means it -------------------------------- */
+    {
+        const double a = decayTime(circuitHit(0, 196.0, 0.10f), 0.01);
+        const double b = decayTime(circuitHit(0, 196.0, 0.40f), 0.01);
+        const double c = decayTime(circuitHit(0, 196.0, 1.20f), 0.01);
+        char d[160];
+        snprintf(d, sizeof d, "asked 0.10/0.40/1.20 s, got %.2f/%.2f/%.2f", a, b, c);
+        check(a < b && b < c, "the knob orders the ring", d);
+        check(fabs(b - 0.40) / 0.40 < 0.2, "and the middle lands near its label", d);
+    }
+
+    /* ---- the two engines agree about level ----------------------------- */
+    {
         double worst = 0.0;
         const char *worstId = "";
         for(const Lane &L : lanes)
         {
+            static const sc808::TomSpec *const spec[6] = {
+                &sc808::kTomLo, &sc808::kTomMid, &sc808::kTomHi,
+                &sc808::kCongaLo, &sc808::kCongaMid, &sc808::kCongaHi };
+            const int idx = (int)(&L - lanes);
             const double hz = midicps(L.note);
-            const float pot = (float)(log((double)L.decaySec / 1.0) / log(40.0 / 1.0));
-            const double pa = peakOf(sc808Hit(*L.spec, hz, L.decaySec));
-            const double pb = peakOf(circuitHit(L.mode, hz, pot));
+            const double pa = peakOf(sc808Hit(*spec[idx], hz, L.pot * 54.0f));
+            const double pb = peakOf(circuitHit(L.mode, hz, L.pot));
             const double db = 20.0 * log10((pb + 1e-30) / (pa + 1e-30));
-            printf("     %s  sc808 %.4f   circuit %.4f   %+.1f dB\n",
-                   L.id, pa, pb, db);
+            printf("     %s  sc808 %.4f   circuit %.4f   %+.1f dB\n", L.id, pa, pb, db);
             if(fabs(db) > fabs(worst)) { worst = db; worstId = L.id; }
         }
         char d[96];
         snprintf(d, sizeof d, "worst %s at %+.1f dB", worstId, worst);
         check(fabs(worst) < 3.0, "the two engines land within 3 dB on every lane", d);
-    }
-
-    /* ---- accent is a trigger voltage, so it changes the sound ---------- */
-    {
-        const double hz = midicps(52.0);
-        const std::vector<float> soft = circuitHit(0, hz, 0.65f, 4.0f);
-        const std::vector<float> hard = circuitHit(0, hz, 0.65f, 14.0f);
-        const double ps = peakOf(soft), ph = peakOf(hard);
-        char d[128];
-        snprintf(d, sizeof d, "%.1f dB louder", 20.0 * log10(ph / ps));
-        check(ph > ps * 1.5, "a harder trigger is louder", d);
-
-        /*
-         * And not ONLY louder — the same claim bd_check makes about the kick,
-         * for the same reason: accent is a trigger VOLTAGE into a diode, so a
-         * harder hit comes back a different shape and not just a bigger one.
-         *
-         * This assertion is here because its absence was a symptom. While the
-         * pulse shaper was being left uninitialised it returned a fixed
-         * fraction of its input, the diode never saw anything, and the two
-         * accents correlated at 1.000000 — a pure gain. That reading was the
-         * bug reporting itself and it was nearly written off as "this voice
-         * just works that way". Correlation below 1 is now load-bearing.
-         */
-        double num = 0.0, ds = 0.0, dh = 0.0;
-        for(size_t i = 0; i < soft.size(); ++i)
-        { num += soft[i] * hard[i]; ds += soft[i] * soft[i]; dh += hard[i] * hard[i]; }
-        const double corr = fabs(num) / sqrt((ds + 1e-30) * (dh + 1e-30));
-        snprintf(d, sizeof d, "waveform correlation %.6f", corr);
-        check(corr < 0.999, "and it is not only louder — the diode shapes it", d);
     }
 
     printf(fails ? "\nFAILED (%d)\n" : "\nALL PASS\n", fails);

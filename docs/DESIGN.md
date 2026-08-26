@@ -181,6 +181,33 @@ mean different things to the two engines.
 
 ---
 
+## 4b. The measurement round
+
+The first circuit voices beyond kick and snare were built from the schematic
+plus guesses, and the guesses were wrong in every place they were guesses —
+tuning, noise level, pitch-drop depth, which of tom/conga is the dry one. The
+round that fixed them established the reference workflow:
+
+- **Hardware samples** (808 Clean, note names in the filenames) measured by
+  autocorrelation and Goertzel: fundamentals, ring times to 1% of peak,
+  band energies, time-to-peak.
+- **Roland's own plugin rendered offline** — an AudioUnit host harness
+  (scratchpad `aurender.m`) that loads the user's default preset, fires each
+  note, and writes WAVs — for the voices with no samples: claves 2518 Hz,
+  cowbell 543+812 Hz, clap tail 30 dB under the burst, metal decay times.
+- The results live in the voices as **named constants with the measurement
+  beside them**, and `tools/tom_check` asserts the model still reproduces
+  the numbers it was fitted to.
+
+Two control-surface cuts from field testing, both one-way doors taken
+deliberately: the snare's Tone pot (balance fixed at centre; "Tune is
+enough") and the clap's Spread and Room (burst spacing and tail mix fixed at
+the hardware's own values). The drive stage was rewritten around "0 is a
+bit-exact bypass and the default": the old tanh normalisation hid up to
++18 dB of clean gain that clipped the master sum, which players heard as
+crackle and reported, accurately, as the knob doing nothing and then
+breaking.
+
 ## 5. What is left
 
 **One engine, eventually.** 8W8 is to settle on Circuit alone, the way 9W9

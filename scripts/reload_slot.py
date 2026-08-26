@@ -64,10 +64,22 @@ def main():
 
     send(sock, {"type": "subscribe", "slot": slot})
     time.sleep(0.3)
+    #
+    # BOUNCE, do not just set. Setting synth:module to the value it already
+    # has is a no-op — the chain host sees no change and keeps the old
+    # dlopen'd inode. That exact trap shipped a deploy where the UI files
+    # were new and the DSP was yesterday's, and the md5 check in deploy.sh
+    # could not catch it because the file ON DISK was correct; only the
+    # RUNNING copy was stale. Loading a different module first forces the
+    # unload — "linein" is the cheapest thing in the store (no DSP of its
+    # own) and ships with every Schwung install.
+    #
+    send(sock, {"type": "set_param", "slot": slot, "key": "synth:module", "value": "linein"})
+    time.sleep(1.2)
     send(sock, {"type": "set_param", "slot": slot, "key": "synth:module", "value": module})
     time.sleep(1.5)
     sock.close()
-    print("reload: asked slot %d to re-load '%s' — the new dsp.so is now the running one" % (slot, module))
+    print("reload: bounced slot %d to '%s' — the new dsp.so is now the running one" % (slot, module))
     return 0
 
 if __name__ == "__main__":

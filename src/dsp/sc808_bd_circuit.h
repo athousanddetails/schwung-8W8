@@ -237,6 +237,15 @@ public:
          * paper is explicit that this is NOT heard as a pitch — it is six
          * milliseconds, less than one period at the higher frequency — but
          * that it is what makes the attack punchy and crisp.
+         *
+         * AND THE SHIFT ALONE IS NOT A KNOB. Field report: "Attack does
+         * nothing" — and at 50 Hz it can't: six milliseconds is under a
+         * third of one period, and a resonator cannot express a frequency
+         * change faster than it oscillates. What a player hears as attack is
+         * the BEATER — the strike spike itself reaching the output through
+         * the forward path. So the pot also meters the shaped pulse directly
+         * into the output (pre-Tone, so Tone still darkens it), which is the
+         * click. Zero is the round thump, full is the punchy front.
          */
         attackEnv_ = 1.0;
         attackCoef_ = exp(-1.0 / (0.006 * sr_));
@@ -305,7 +314,9 @@ public:
         fb_ = y;
 
         /* ---- output stage ---- */
-        toneZ_ += (y - toneZ_) * (1.0 - toneA_);
+        /* the beater click: the strike spike, metered by Attack. */
+        const double click = vplus * attackAmount_ * kClickLevel;
+        toneZ_ += ((y + click) - toneZ_) * (1.0 - toneA_);
         /* The output buffer's series capacitor: a fixed high-pass that keeps
          * the sigh's DC wander out of the mix. */
         dcZ_ += (toneZ_ - dcZ_) * kDcCoef;
@@ -333,6 +344,11 @@ private:
      * normalise the sigh so its depth is a property of the circuit rather
      * than of the gain staging. */
     static constexpr double kNominalPeak = 1.35;
+    /* Click into the output at full Attack, relative to the resonator's
+     * volts. Fitted so full Attack puts the click AT the body's peak — the
+     * reference kick peaks at its body, 21.7 ms in, so even a hard beater
+     * must not triple the note the way the first value (0.55) did. */
+    static constexpr double kClickLevel  = 0.16;
     /*
      * Set so an UNACCENTED hit at the default pots peaks at 1.0 — the same
      * place the sc808 kick lands. The two engines share one per-lane trim, so

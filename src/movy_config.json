@@ -113,14 +113,6 @@
             "max": 127
           },
           {
-            "key": "sd_tone",
-            "short": "TONE",
-            "full": "Tone",
-            "type": "int",
-            "min": 0,
-            "max": 127
-          },
-          {
             "key": "sd_engine",
             "short": "ENGIN",
             "full": "Engine",
@@ -157,7 +149,8 @@
             "type": "int",
             "min": 0,
             "max": 127
-          }
+          },
+          null
         ]
       ]
     },
@@ -729,22 +722,6 @@
             "max": 127
           },
           {
-            "key": "cp_spread",
-            "short": "SPRD",
-            "full": "Spread",
-            "type": "int",
-            "min": 0,
-            "max": 127
-          },
-          {
-            "key": "cp_room",
-            "short": "ROOM",
-            "full": "Room",
-            "type": "int",
-            "min": 0,
-            "max": 127
-          },
-          {
             "key": "cp_engine",
             "short": "ENGIN",
             "full": "Engine",
@@ -781,7 +758,9 @@
             "type": "int",
             "min": 0,
             "max": 127
-          }
+          },
+          null,
+          null
         ]
       ]
     },

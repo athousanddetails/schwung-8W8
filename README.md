@@ -18,20 +18,24 @@ with every other page.
 |---|---|
 | Bass Drum | **Circuit** — a bridged-T network in an op-amp feedback loop, where Decay is loop gain and the pitch sighs because the circuit makes it. Or **sc808**, switchable |
 | Snare | **Circuit** — two bridged-T shells at 173 and 336 Hz from the service notes' component values, so Tone balances two ringing shells and Snappy sets the noise's length as well as its level. Or **sc808**, switchable |
-| Low / Mid / Hi Tom | **Circuit** — a bridged-T at Q 10.8 ringing in a feedback loop, plus the noise head the 808 feeds its toms from the pink-noise bus. Or **sc808**, switchable |
-| Low / Mid / Hi Conga | The same channel with the switch the other way: struck clean, no head, all shell — which is what separates a conga from a tom on the hardware and now here. Or **sc808** |
+| Low / Mid / Hi Tom | **Circuit** — a bridged-T at Q 10.8 ringing in a feedback loop, tuned and timed to hardware samples: F2/C3/G3, ring 0.39/0.23/0.18 s, the head a quiet texture on the strike. Or **sc808**, switchable |
+| Low / Mid / Hi Conga | The same channel with the switch the other way: struck soft (it blooms at 2–5 ms where a tom clicks inside 1), no head, ringing twice as long at the same pitch, and tuned an octave-plus above its tom — G3/D4/A4, as measured. Or **sc808** |
 | Rim Shot | A triangle and an 80% pulse through a fat +8 dB peak at 464 Hz — that peak is the "tock" |
 | Claves | One sine, one envelope. The simplest voice in the kit, and its own pad |
 | Maracas | Noise, a 5.6 kHz highpass, and a 27 ms ramp up that is the rattle |
-| Hand Clap | **Circuit** — three noise bursts about 10 ms apart and a 330 ms tail, through the 874 Hz bandpass R342/R334/C128 make. Or **sc808**, switchable |
+| Hand Clap | **Circuit** — three noise bursts about 10 ms apart and a 330 ms tail (R362 × C143), through the 874 Hz bandpass R342/R334/C128 make. One knob: Decay, the tail. Burst spacing and tail mix are the hardware's, fixed. Or **sc808**, switchable |
 | Cowbell | Two pulse oscillators at 811 and 539 Hz — numbers 5 and 6 of the metal bank, exactly as the hardware wires them |
 | Closed / Open Hat | The six Schmitt-trigger oscillators through two filter paths. **Free-running** by default, as on the hardware, so no two hits are the same |
 | Cymbal | The same six through **three** parallel chains and four envelopes |
 
 Every drum has **Tune, Decay, Drive, a Distortion type** (Diode / Hard Clip /
 Wavefolder / Bitcrush) and **Level**, plus a **Master Drive / Distortion**
-across the kit. Every continuous control is a **0–127 pot**. **Hat choke is a
-switch**: Off, CH cuts OH (the hardware's shared metal source), or Mutual.
+across the kit. **Drive at 0 — the default — is a bit-exact bypass**: the 808
+had no drive stage, so a fresh patch has none, and the knob adds saturation
+without adding level. Every continuous control is a **0–127 pot**. **Hat choke
+is a switch**: Off, CH cuts OH (the hardware's shared metal source), or
+Mutual. On the tom and conga lanes **Decay is seconds of ring**, solved into
+loop gain at whatever pitch Tune has chosen.
 
 Defaults are not pot centre. Where sc808 is the engine they are sc808's own
 declared arguments, which is what the null test verifies. Where a circuit

@@ -1,14 +1,32 @@
 /*
  * sc808_shape.h — the post-voice drive stage.
  *
- * Identical maths to 9W9's er99_circuit.h and 6W6's sd606_shape.h, on purpose:
- * the three kits should respond the same way to the same knob, so a player who
- * knows what Fold at 90 does on the 606 knows what it does here.
+ * REWRITTEN after field testing, and deliberately no longer the maths 9W9 and
+ * 6W6 ship. The old stage was tanh(k*x)/tanh(k) with k straight off the pot,
+ * and that normalisation is a trap: it pins the PEAK at unity and hands the
+ * small-signal range a gain of k/tanh(k) — up to +18 dB of clean-sounding
+ * loudness that then slams the master sum into the wrapper's hard clip. What
+ * the player reported is exactly what it was: "0 to 55 nothing happens"
+ * (below unity input a gentle tanh barely bends) "and then it crackles" (the
+ * boost clipping downstream, not the diode shaping anything).
  *
- * The 808 voices have their own internal nonlinearities — the bass drum's
- * op-amp clip, the cymbal's swing-VCA diodes — and those live in the voices
- * where the circuit puts them. This file is the panel's Drive/Distortion,
- * which the hardware never had.
+ * The contract now:
+ *
+ *   - Drive 0 is a BIT-EXACT bypass. Not "nearly linear" — the sample goes
+ *     through untouched, and it is the default. The 808 had no drive stage;
+ *     a fresh patch should not have one either.
+ *
+ *   - The knob adds SATURATION, not level. Each curve is normalised at half
+ *     scale, where the trims put a voice's body: a signal at 0.5 keeps its
+ *     peak, everything above compresses, and the tail below lifts gently the
+ *     way any compressed drum's tail does. Net loudness stays close enough
+ *     to flat that the master sum no longer walks into the clip.
+ *
+ *   - The effect starts moving from the first few pot ticks, because k is
+ *     LINEAR in the pot. The old exponential map spent half its throw between
+ *     0.2 and 1.0 where a tanh has nothing to say.
+ *
+ * `_drive` arrives as the pot's engineering value, 0..10, from gen_params.
  *
  * GPL-3.0.
  */
@@ -17,46 +35,49 @@
 
 #include <math.h>
 
-/*
- * Back-to-back diode rounding. Sharp peaks are what make a raw oscillator
- * sound buzzy; the diodes conduct near the peaks and round them off. A tanh
- * soft-clip is the standard model of that pair, normalised so unity drive
- * leaves the level alone.
- */
-static inline float sc808_diode_round(const float _x, const float _drive)
+/* Below this the stage is a wire. Explicit, so "0 means off" is a promise
+ * about the code and not about float behaviour. */
+#define SC808_DRIVE_BYPASS 1.0e-3f
+
+static inline float sc808_diode_round(const float _x, const float _k)
 {
-    const float k = _drive > 0.01f ? _drive : 0.01f;
-    return tanhf(k * _x) / tanhf(k);
+    if(_k < SC808_DRIVE_BYPASS) return _x;
+    /* Normalised at x = 0.5: tanh(k*0.5) * 0.5/tanh(0.5k) == 0.5. */
+    return tanhf(_k * _x) * (0.5f / tanhf(0.5f * _k));
 }
 
 /* 0 diode, 1 hard clip, 2 wavefolder, 3 bitcrush. */
 static inline float sc808_shape(const float _x, const float _drive, const int _type)
 {
-    const float k = _drive > 0.01f ? _drive : 0.01f;
+    if(_drive < SC808_DRIVE_BYPASS) return _x;
     switch(_type)
     {
     case 1: {   /* hard clip — aggressive, square-ish */
-        float v = _x * k;
+        const float g = 1.0f + _drive;
+        float v = _x * g;
         if(v >  1.0f) v =  1.0f;
         if(v < -1.0f) v = -1.0f;
-        return v;
+        /* partial makeup: full 1/g would cancel the loudness a clip is
+         * bought for, none at all is the old crackle. */
+        return v / powf(g, 0.6f);
     }
     case 2: {   /* wavefolder — metallic, odd harmonics rise with drive */
-        float v = _x * k;
+        const float g = 1.0f + _drive;
+        float v = _x * g;
         for(int i = 0; i < 3; ++i)
         {
             if(v >  1.0f) v =  2.0f - v;
             if(v < -1.0f) v = -2.0f - v;
         }
-        return v;
+        return v / powf(g, 0.5f);
     }
-    case 3: {   /* bitcrush / decimate — lo-fi grit */
-        const float steps = 2.0f + 30.0f / k;
+    case 3: {   /* bitcrush — lo-fi grit; steps fall as the knob rises */
+        const float steps = 2.0f + 240.0f / _drive;
         return floorf(_x * steps + 0.5f) / steps;
     }
     case 0:
     default:
-        return sc808_diode_round(_x, k);
+        return sc808_diode_round(_x, _drive);
     }
 }
 

@@ -52,16 +52,25 @@ constexpr const char *kVoiceIds[SC808_NUM_VOICES] = {
 const float kBaseNote[SC808_NUM_VOICES] = {
     34.0f,   /* bd */
     65.0f,   /* sd */
-    40.0f,   /* lt */
-    44.0f,   /* mt */
-    52.0f,   /* ht */
-    52.0f,   /* lc */
-    57.0f,   /* mc */
-    62.0f,   /* hc — see above */
+    /*
+     * The six tom/conga notes are MEASURED, not sc808's. Hardware samples
+     * with note names in the filenames, fundamentals confirmed by
+     * autocorrelation: toms F2 / C3 / G3, congas G3 / D4 / A4 — seven
+     * semitones between neighbours, congas more than an octave above their
+     * toms. sc808's declared notes (40/44/52 and 52/57/62) are both mistuned
+     * and wrongly spaced against the real machine, which is why the lanes
+     * neither sounded right nor overlapped. The sc808 engine is still
+     * exactly the transcription — it just gets played at the right pitch.
+     */
+    41.0f,   /* lt — F2  87.3 Hz */
+    48.0f,   /* mt — C3 130.8 Hz */
+    55.0f,   /* ht — G3 196.0 Hz */
+    55.0f,   /* lc — G3, the same channel as ht on the hardware */
+    62.0f,   /* mc — D4 293.7 Hz */
+    69.0f,   /* hc — A4 440.0 Hz */
     92.0f,   /* rs */
-    99.0f,   /* cl — sc808's own note for the claves; when rim and clave
-              *      shared a lane this was the rim's note plus 7 semitones,
-              *      which is the same pitch by a longer road */
+    99.2f,   /* cl — MEASURED: Roland's own model pings at 2518 Hz, which is
+              *      99.2; sc808's 99 (2489 Hz) sat 20 cents flat */
    113.0f,   /* ma — the highpass corner, this voice has no oscillator */
     71.0f,   /* cp — the highpass corner */
      0.0f, 0.0f, 0.0f, 0.0f    /* cb, ch, oh, cy: ratio-tuned */
@@ -94,21 +103,21 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.1725f,   /* bd — the reference: everything else is set against the kick */
-    0.1465f,   /* sd */
-    0.6596f,   /* lt */
-    0.6917f,   /* mt */
-    0.5326f,   /* ht */
-    0.2928f,   /* lc */
-    0.2371f,   /* mc */
-    0.1954f,   /* hc */
-    0.2385f,   /* rs — a click with a crest factor of 11 */
-    0.2080f,   /* cl */
-    0.0932f,   /* ma */
-    2.0872f,   /* cp — the quietest voice in sc808 by a long way */
-    0.2073f,   /* cb */
-    0.0120f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.2767f,   /* oh */
+    0.2268f,   /* bd — the reference: everything else is set against the kick */
+    0.1495f,   /* sd */
+    0.3021f,   /* lt */
+    0.3401f,   /* mt */
+    0.3312f,   /* ht */
+    0.2762f,   /* lc */
+    0.2925f,   /* mc */
+    0.2919f,   /* hc */
+    0.2403f,   /* rs — a click with a crest factor of 11 */
+    0.1985f,   /* cl */
+    0.0960f,   /* ma */
+    5.8009f,   /* cp — the quietest voice in sc808 by a long way */
+    0.2121f,   /* cb */
+    0.0118f,   /* ch — raw peak near 17 before the drive stage catches it */
+    0.3198f,   /* oh */
     0.2432f,   /* cy */
 };
 
@@ -191,8 +200,8 @@ struct sc808_engine {
     VoiceRt    rt[SC808_NUM_VOICES];
 
     /* Voice-specific extras that only some lanes have. */
-    int bd_attack, bd_tone, sd_snappy, sd_tone;
-    int ma_attack, cp_spread, cp_room, cy_tone;
+    int bd_attack, bd_tone, sd_snappy;
+    int ma_attack, cy_tone;
     /* Globals. */
     int e_master_dist, e_choke, e_note_map, e_bd_engine, e_metal_run, e_sd_engine;
     int e_cp_engine;
@@ -285,10 +294,7 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->bd_attack = find_pot("bd_attack");
     e->bd_tone   = find_pot("bd_tone");
     e->sd_snappy = find_pot("sd_snappy");
-    e->sd_tone   = find_pot("sd_tone");
     e->ma_attack = find_pot("ma_attack");
-    e->cp_spread = find_pot("cp_spread");
-    e->cp_room   = find_pot("cp_room");
     e->cy_tone   = find_pot("cy_tone");
     e->p_master_drive = find_pot("master_drive");
     e->p_volume       = find_pot("volume");
@@ -434,22 +440,25 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
              * Snappy is a divider on the trigger rather than a mix. Tune is
              * a ratio on both shells' component-derived frequencies. */
             const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            /* Shell balance fixed at centre — the Tone pot is gone ("Tune
+             * is enough"), and centre is where its default sat. */
             e->sdc.trigger(powf(2.0f, tune / 12.0f),
                            (float)e->pot[e->slot[voice].decay] / 127.0f,
-                           (float)e->pot[e->sd_tone]   / 127.0f,
+                           0.5f,
                            (float)e->pot[e->sd_snappy] / 127.0f,
                            av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
             e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
         }
         else
         {
-            /* detune -11 semitones on the second shell oscillator; the noise
-             * highpass stays at sc808's 93 while Tone moves the lowpass. */
+            /* detune -11 semitones on the second shell oscillator; noise
+             * highpass at sc808's 93, lowpass fixed at its old default 121
+             * now that the Tone pot is gone. */
             e->sd.trigger(lane_hz(voice, tune),
                           lane_hz(voice, tune - 11.0f),
                           decay, e->potv[e->sd_snappy],
                           (double)midicps(93.0f),
-                          (double)midicps(e->potv[e->sd_tone]),
+                          (double)midicps(121.0f),
                           0.999f);
         }
         break;
@@ -470,8 +479,9 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
             TomCircuit *const tc[6] = { &e->ltc, &e->mtc, &e->htc,
                                         &e->lcc, &e->mcc, &e->hcc };
             const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
-            tc[i]->trigger(lane_hz(voice, tune),
-                           (float)e->pot[e->slot[voice].decay] / 127.0f,
+            /* Decay is RING TIME IN SECONDS — the circuit solves the loop
+             * gain that produces it at the current pitch. */
+            tc[i]->trigger(lane_hz(voice, tune), decay,
                            av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
             e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
         }
@@ -480,7 +490,14 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
             static const TomSpec *const spec[6] = { &kTomLo,   &kTomMid,  &kTomHi,
                                                     &kCongaLo, &kCongaMid, &kCongaHi };
             Tom *const t[6] = { &e->lt, &e->mt, &e->ht, &e->lc, &e->mc, &e->hc };
-            t[i]->trigger(*spec[i], lane_hz(voice, tune), decay);
+            /*
+             * One knob, both engines, one meaning: seconds of audible ring.
+             * sc808's envelope runs at curve -250, where the audible part is
+             * the first ln(100)/250 = 1.8% of the declared duration — so its
+             * "20 seconds" was always about 0.37 s of tom. 54 converts real
+             * seconds into the seconds that envelope wants.
+             */
+            t[i]->trigger(*spec[i], lane_hz(voice, tune), decay * 54.0f);
         }
         break;
     }
@@ -512,15 +529,18 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
              * three-pulse burst, and Tune is a RATIO on the 874 Hz bandpass
              * rather than a note, because this voice has no note.
              */
-            e->cpc.trigger(powf(2.0f, tune / 12.0f), decay,
-                           e->potv[e->cp_spread], e->potv[e->cp_room]);
+            /* Burst spacing and tail mix are the hardware's, fixed — the
+             * panel has Tune and Decay, like the machine had Level alone. */
+            e->cpc.trigger(powf(2.0f, tune / 12.0f), decay, 0.010f,
+                           (float)kCP_TailMix);
         }
         else
         {
-            /* hpf note 71, bandpass note 84; Tune moves both together. */
+            /* hpf note 71, bandpass note 84; Tune moves both together.
+             * Spread fixed at sc808's own 26 ms, rev at its default 1. */
             e->cp.trigger(lane_hz(voice, tune),
                           (double)midicps(84.0f + tune),
-                          0.5f, decay, e->potv[e->cp_spread], e->potv[e->cp_room]);
+                          0.5f, decay, 0.026f, 1.0f);
         }
         break;
     case SC808_CB:

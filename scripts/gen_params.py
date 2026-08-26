@@ -75,7 +75,13 @@ def PV(key, label, lo, hi, curve, value):
 DIST = ["Diode", "Clip", "Fold", "Crush"]
 
 
-def DRIVE(v):  return P(f"{v}_drive", "Drive", 0.2, 8.0, EXP, 55)   # pot 55 == 1.0
+# Drive is LINEAR 0..10 and DEFAULTS TO 0, which sc808_shape.h treats as a
+# bit-exact bypass. It was 0.2..8.0 EXP defaulting to 1.0, and that shipped
+# two faults at once: half the throw did nothing (a tanh below unity input is
+# nearly straight) and the normalisation added up to +18 dB of hidden gain
+# that clipped the master sum. The 808 had no drive stage; a fresh patch gets
+# none either.
+def DRIVE(v):  return P(f"{v}_drive", "Drive", 0.0, 10.0, LIN, 0)
 def DTYPE(v):  return E(f"{v}_dist_type", "Distortion", DIST)
 def LEVEL(v):  return P(f"{v}_level", "Level", 0.0, 2.0, LIN, 64)   # pot 64 == 1.0
 
@@ -112,13 +118,14 @@ PAGES = [
         # squashed onto a single slot with an empty knob beside it. Guarded by
         # test/ui_chain.test.mjs.
         #
-        # The one pot whose default is NOT sc808's argument, and deliberately.
-        # To the circuit engine this is the attack-time frequency and Q jump,
-        # which on the hardware is not a control at all — it simply happens,
-        # every hit. Since Circuit is the default engine, the default pot is
-        # what the circuit does. The sc808 engine reads the same pot as its
-        # `click` pre-level, whose own default would be pot 14.
-        P("bd_attack", "Attack", 0.0, 1.0, LIN, 100),
+        # To the circuit engine Attack is the beater: the strike's click bled
+        # into the output, plus the attack-time frequency jump the paper
+        # describes. The default is LOW because the reference kick peaks at
+        # its body (21.7 ms in), not at a click — the pot 100 that made sense
+        # when Attack was only the inaudible frequency jump would now put a
+        # beater on every fresh patch. The sc808 engine reads the same pot as
+        # its `click` pre-level.
+        P("bd_attack", "Attack", 0.0, 1.0, LIN, 24),
         PV("bd_decay",  "Decay",   0.1,  8.0, EXP,  2.0),
         PV("bd_tone",   "Tone",    0.0,  6.0, LIN,  2.0),
         # Which kick. "Circuit" is the bridged-T model from Werner et al.'s
@@ -140,38 +147,43 @@ PAGES = [
         TUNE("sd"),   # semitone offset, see bd_tune
         PV("sd_decay",  "Decay",   0.1,  8.0, EXP,  4.2),
         PV("sd_snappy", "Snappy",  0.0,  1.0, LIN,  0.7),
-        PV("sd_tone",   "Tone",  109.0,133.0, LIN,121.0),   # noise lowpass, MIDI
+        # No Tone pot. Field verdict: "Tune is enough" — and it was doing
+        # little: the circuit's shell balance sits at its centre, the sc808
+        # lowpass at its default, both now fixed in the engine. The freed
+        # slot is banked for what the single-engine plan will need.
         # Which snare. "Circ" is two bridged-T networks at 173 and 336 Hz,
         # derived from the service notes' component values, with a swing-type
-        # VCA on the noise — so Tone balances two ringing shells rather than
-        # moving a filter, and Snappy divides the trigger into the noise
+        # VCA on the noise; Snappy divides the trigger into the noise
         # envelope rather than mixing a level. "sc808" is the transcription.
         E("sd_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("sd"), DTYPE("sd"), LEVEL("sd"),
     ]),
-    # The six tom / conga lanes. Each gets an Engine switch of its own, like
+    # The six tom / conga lanes. Decay is RING TIME IN SECONDS (to 1% of
+    # peak) — defaults are the measured hardware times, and the engine
+    # converts for whichever engine is loaded, so the knob means the same
+    # thing on both. Each gets an Engine switch of its own, like
     # the kick and the snare — on the hardware there is ONE tom/conga switch
     # for the whole machine, but there tom and conga are the same channel and
     # cannot sound together, while here they are six pads that can.
     #
     # Decay reads as SECONDS on sc808 and as LOOP GAIN on the circuit, from
     # the same knob position; see the circuit kick for why that is deliberate.
-    ("lt", "Low Tom",   [TUNE("lt"), PV("lt_decay", "Decay", 1.0, 40.0, EXP, 20.0),
+    ("lt", "Low Tom",   [TUNE("lt"), PV("lt_decay", "Decay", 0.06, 2.0, EXP, 0.39),
                          E("lt_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("lt"), DTYPE("lt"), LEVEL("lt")]),
-    ("mt", "Mid Tom",   [TUNE("mt"), PV("mt_decay", "Decay", 1.0, 40.0, EXP, 16.0),
+    ("mt", "Mid Tom",   [TUNE("mt"), PV("mt_decay", "Decay", 0.06, 2.0, EXP, 0.23),
                          E("mt_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("mt"), DTYPE("mt"), LEVEL("mt")]),
-    ("ht", "Hi Tom",    [TUNE("ht"), PV("ht_decay", "Decay", 1.0, 40.0, EXP, 11.0),
+    ("ht", "Hi Tom",    [TUNE("ht"), PV("ht_decay", "Decay", 0.06, 2.0, EXP, 0.18),
                          E("ht_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("ht"), DTYPE("ht"), LEVEL("ht")]),
-    ("lc", "Low Conga", [TUNE("lc"), PV("lc_decay", "Decay", 1.0, 40.0, EXP, 18.0),
+    ("lc", "Low Conga", [TUNE("lc"), PV("lc_decay", "Decay", 0.06, 2.0, EXP, 0.36),
                          E("lc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("lc"), DTYPE("lc"), LEVEL("lc")]),
-    ("mc", "Mid Conga", [TUNE("mc"), PV("mc_decay", "Decay", 1.0, 40.0, EXP, 18.0),
+    ("mc", "Mid Conga", [TUNE("mc"), PV("mc_decay", "Decay", 0.06, 2.0, EXP, 0.16),
                          E("mc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("mc"), DTYPE("mc"), LEVEL("mc")]),
-    ("hc", "Hi Conga",  [TUNE("hc"), PV("hc_decay", "Decay", 1.0, 40.0, EXP, 18.0),
+    ("hc", "Hi Conga",  [TUNE("hc"), PV("hc_decay", "Decay", 0.06, 2.0, EXP, 0.145),
                          E("hc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("hc"), DTYPE("hc"), LEVEL("hc")]),
     ("rs", "Rim Shot", [
@@ -179,6 +191,9 @@ PAGES = [
         PV("rs_decay", "Decay", 0.01, 0.5, EXP, 0.07),
         DRIVE("rs"), DTYPE("rs"), LEVEL("rs"),
     ]),
+    # Claves: Roland's own model pings at 2518 Hz; note 99 is 2489, so the
+    # base moves to 99.2 in the engine's kBaseNote. Decay measured the same
+    # way. The metal decays (cb/ch/oh/cy) are set from the same renders.
     ("cl", "Claves", [
         # A pad of their own. On the hardware the claves share the rim shot's
         # channel behind an RS/CL selector, and 8W8 ran them as one lane with
@@ -186,7 +201,7 @@ PAGES = [
         # SynthDefs, wanting both in one pattern is normal, and sixteen voices
         # is exactly what the pad block holds.
         TUNE("cl"),
-        PV("cl_decay", "Decay", 0.01, 0.5, EXP, 0.10),
+        PV("cl_decay", "Decay", 0.01, 0.5, EXP, 0.125),
         DRIVE("cl"), DTYPE("cl"), LEVEL("cl"),
     ]),
     ("ma", "Maracas", [
@@ -205,20 +220,17 @@ PAGES = [
         DRIVE("ma"), DTYPE("ma"), LEVEL("ma"),
     ]),
     ("cp", "Hand Clap", [
-        # sc808's args: hpf 71, lpf 84, click 0.5, decay 0.3, rev 1.
+        # Tune and ONE Decay, like the hardware (which has only Level).
         #
-        # The defaults below are the CIRCUIT's, because Circuit is the default
-        # engine — the same rule the kick and the snare follow.
-        #
-        # Decay 0.33 is R362 x C143 off the schematic, so the knob at its
-        # default IS the hardware's tail. Spread 0.010 is the burst spacing;
-        # its old 5..100 ms range is what made it "odd", because 100 ms of gap
-        # between two bursts is a flam and not a clap. 3..30 ms is a clap that
-        # is tight at one end and a roomful of people at the other.
+        # Spread and Room existed briefly and were cut on field verdict:
+        # Spread turned the burst into a flam at the range extremes, and Room
+        # against Decay was two knobs for one audible thing — with Room at
+        # zero, Decay had nothing left to act on. The burst spacing is fixed
+        # at the hardware's ~10 ms inside the voice; the tail mix is the
+        # circuit's own fixed level; Decay is the tail's time constant, whose
+        # default 0.33 s is R362 x C143 straight off the schematic.
         TUNE("cp"),
         PV("cp_decay",  "Decay",  0.05,  1.5,  EXP, 0.33),
-        PV("cp_spread", "Spread", 0.003, 0.03, EXP, 0.010),
-        PV("cp_room",   "Room",   0.0,   2.0,  LIN, 1.0),
         E("cp_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("cp"), DTYPE("cp"), LEVEL("cp"),
     ]),
@@ -226,12 +238,12 @@ PAGES = [
         # Two oscillators at 811.4 and 538.7 Hz — numbers 5 and 6 of the metal
         # bank, exactly as the hardware wires them — so Tune is a ratio.
         RATIO("cb"),
-        PV("cb_decay", "Decay", 0.5, 20.0, EXP, 9.5),
+        PV("cb_decay", "Decay", 0.5, 20.0, EXP, 12.5),
         DRIVE("cb"), DTYPE("cb"), LEVEL("cb"),
     ]),
     ("ch", "Closed Hat", [
         RATIO("ch"),
-        PV("ch_decay", "Decay", 0.02, 1.5, EXP, 0.42),
+        PV("ch_decay", "Decay", 0.02, 1.5, EXP, 0.50),
         DRIVE("ch"), DTYPE("ch"), LEVEL("ch"),
         # Lives here as well as on Master: this is where you are standing when
         # you want it. The 808 shares one metal source between CH and OH, so
@@ -240,12 +252,12 @@ PAGES = [
     ]),
     ("oh", "Open Hat", [
         RATIO("oh"),
-        PV("oh_decay", "Decay", 0.05, 4.0, EXP, 0.5),
+        PV("oh_decay", "Decay", 0.05, 4.0, EXP, 0.37),
         DRIVE("oh"), DTYPE("oh"), LEVEL("oh"),
     ]),
     ("cy", "Cymbal", [
         RATIO("cy"),
-        PV("cy_decay", "Decay", 0.2, 10.0, EXP, 2.0),
+        PV("cy_decay", "Decay", 0.2, 10.0, EXP, 2.6),
         # sc808 multiplies `tone` by 0.008 before use, so this is really "how
         # much low band" and even at maximum it is a whisper next to the
         # 7 kHz band. That is correct: an 808 cymbal is mostly 7 kHz.
@@ -256,7 +268,7 @@ PAGES = [
 
 GLOBALS = [
     E("master_dist", "Master Dist", ["Off"] + DIST),
-    P("master_drive", "Master Drive", 0.2, 8.0, EXP, 55),
+    P("master_drive", "Master Drive", 0.0, 10.0, LIN, 0),   # 0 = bypass, see DRIVE
     # The absolute level lives in the per-lane trims (see kit_check), not
     # here, so Volume sits high with room in both directions rather than
     # being the thing that stops the kit clipping.
