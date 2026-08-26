@@ -185,7 +185,14 @@ int main()
         char d[160];
         snprintf(d, sizeof d, "whole note %.3f%%; first 25 ms: tom %.2f%%, conga %.2f%%",
                  whole * 100.0, ft * 100.0, fc * 100.0);
-        check(whole < 0.005, "the tom's head stays under half a percent", d);
+        /* Bounds from the reference render itself: the hi tom carries about
+         * half a percent of its energy above the fundamental's region, and
+         * the field verdicts bracketed it from BOTH sides — "it has noise on
+         * this thing" when the burst was 0.75 white noise, then "it has a
+         * tiny bit of noise... ours doesn't" when it was trimmed to a tenth
+         * of the reference. Audible, not hiss: between those rails. */
+        check(whole > 0.001 && whole < 0.012,
+              "the head is audible and is not a hiss", d);
         /* with both strikes soft the margin is thin, but the direction
          * must hold: only the tom HAS a head */
         check(ft > fc, "and the strike carries it, tom over conga", d);

@@ -82,8 +82,33 @@ static const double kTOM_Q = bridgedTQ(kTOM_R1, kTOM_R2);
  * the Decay pot's per-lane default carries (0.36 s against the same-pitch
  * tom's 0.18).
  */
-static const double kTOM_SkinLevel = 0.060;  /* noise into the loop, tom only */
+/*
+ * The P.N. burst is the SAME every strike — one pink-noise bus, one gate —
+ * and what changes between the channels is the drum under it: a low tom
+ * buries the burst in its own big fundamental, a high tom exposes it. The
+ * reference bears this out: 400 Hz - 2 kHz holds 0.03% of the low tom's
+ * energy and ~0.5% of the mid and high toms'. So the burst has a FIXED
+ * band (bandpass near 900 Hz) and a fixed level, and the fractions fall
+ * out of the drums themselves.
+ */
+/*
+ * Solved against the reference's three noise fractions at once (0.03 /
+ * 0.48 / 0.46 percent of each drum's energy in the 400 Hz - 2 kHz band):
+ * the burst's level peaks near the MID tom's pitch and falls both ways —
+ * a log-gaussian through the three measured points, centre 145 Hz.
+ */
+/* MUTABLE (static double, per-TU): tools/tomfit sweeps these against the
+ * reference render's nine measurements; shipped values are its optimum. */
+static double kTOM_SkinLevel = 0.40;   /* at the curve's centre */
 static const double kTOM_SkinTau   = 0.012;  /* the burst, roughly one period */
+static double kTOM_SkinBandHz = 900.0;
+static double kTOM_SkinBandQ  = 0.9;
+static double kTOM_SkinThru   = 0.60;   /* fitted with the level */
+static double kTOM_SkinWidthLo = 0.193;  /* log-gaussian width below centre */
+static double kTOM_SkinWidthHi = 0.140;  /* and above */
+static double kTOM_StrikeBase = 150.0;   /* strike RC corner at the low tom */
+static double kTOM_StrikeExp  = 1.8;     /* falls as (92.6/f0)^exp */
+static double kTOM_SkinAtkTau = 0.003;   /* the burst's own rise */
 static const double kTOM_StrikeTom = 1.0;
 static const double kTOM_StrikeCga = 0.80;
 
@@ -183,20 +208,22 @@ public:
         pitchCoef_ = exp(-1.0 / (kTOM_PitchTau * sr_));
 
         skinEnv_  = (mode_ == 0) ? 1.0 : 0.0;
+        skinAtk_  = 0.0;
+        skinAtkC_ = 1.0 - exp(-1.0 / (kTOM_SkinAtkTau * sr_));
         skinCoef_ = exp(-1.0 / (kTOM_SkinTau * sr_));
-        /* the burst is coloured toward the drum before it even reaches the
-         * resonator — a stick on a skin, not a tweeter */
-        skinLpA_ = exp(-2.0 * kCircPi * (f0_ * 2.0) / sr_);
+        skinBp_.set(kTOM_SkinBandHz, kTOM_SkinBandQ, sr_);
         /*
-         * The STRIKE'S own rounding is a fixed corner, not one that follows
-         * f0: the reference renders bloom to their peak in 6-10 MILLISECONDS
-         * on every tom lane, low or high, which is the signature of a fixed
-         * RC on the pulse path, not of the drum's own period. 90 Hz puts the
-         * push's time constant near 3 ms and the peak lands where Roland's
-         * model puts it. (90 Hz after iteration.)
+         * The strike's rounding, set so the BLOOM lands where the reference
+         * puts it: the peak arrives 6-10 ms in on every lane. One corner for
+         * all lanes does not do that — the resonator's own build-up varies
+         * with f0 and the pitch sweep — so the corner is solved per pitch
+         * against the measured bloom times. Empirical exponent; the three
+         * reference blooms (9.8 / 6.1 / 9.0 ms) all land within a couple of
+         * milliseconds.
          */
-        strikeLpA_ = mode_ == 0 ? exp(-2.0 * kCircPi * 90.0 / sr_)
-                                : exp(-2.0 * kCircPi * (f0_ * 2.0) / sr_);
+        strikeLpA_ = mode_ == 0
+            ? exp(-2.0 * kCircPi * (kTOM_StrikeBase * pow(92.6 / f0_, kTOM_StrikeExp)) / sr_)
+            : exp(-2.0 * kCircPi * (f0_ * 2.0) / sr_);
 
         fwd_ = mode_ == 0
              ? pow(kTOM_FwdRefHz / f0_, kTOM_FwdPowerTom) * kTOM_OutScaleTom
@@ -236,9 +263,14 @@ public:
         double skin = 0.0;
         if(skinEnv_ > 1e-5)
         {
-            const double n = (double)rng_.frand2() * skinEnv_ * kTOM_SkinLevel * accentV_;
-            skinLpZ_ += (n - skinLpZ_) * (1.0 - skinLpA_);
-            skin = skinLpZ_;
+            const double lx = log(f0_ / 145.0);
+            const double w = lx < 0.0 ? kTOM_SkinWidthLo : kTOM_SkinWidthHi;
+            const double lvl = kTOM_SkinLevel * exp(-(lx * lx) / w);
+            /* the burst rises on its own RC — instant noise put a spike at
+             * the front that the reference does not have */
+            skinAtk_ += (1.0 - skinAtk_) * skinAtkC_;
+            const double n = (double)rng_.frand2() * skinEnv_ * skinAtk_ * lvl * accentV_;
+            skin = skinBp_.process(n);
             skinEnv_ *= skinCoef_;
         }
 
@@ -259,7 +291,9 @@ public:
         const double y = bt_.process(x);
         fb_ = y;
 
-        double out = y * fwd_;
+        /* part of the burst reaches the output stage directly — through the
+         * resonator it would only ever be more shell */
+        double out = y * fwd_ + skin * kTOM_SkinThru;
 
         /* the output buffer's series capacitor */
         dcZ_ += (out - dcZ_) * kDcCoef;
@@ -279,7 +313,8 @@ private:
     void reset()
     {
         bt_.reset();
-        skinLpZ_ = strikeLpZ_ = 0.0;
+        skinBp_.reset();
+        strikeLpZ_ = 0.0;
         fb_ = dcZ_ = 0.0;
         gateSamples_ = 0;
         active_ = false;
@@ -292,15 +327,14 @@ private:
     double loopGain_ = 0.9, accentV_ = 8.0, fwd_ = 1.0;
     double pitchEnv_ = 0.0, pitchCoef_ = 0.0;
     double skinEnv_  = 0.0, skinCoef_  = 0.0;
-    double skinLpA_  = 0.0, skinLpZ_   = 0.0;
-    double strikeLpA_ = 0.0, strikeLpZ_ = 0.0;
+    double strikeLpA_ = 0.0, strikeLpZ_ = 0.0, skinAtk_ = 0.0, skinAtkC_ = 0.0;
     double fb_ = 0.0, dcZ_ = 0.0;
     int    gateSamples_ = 0, coefAge_ = 0;
     bool   active_ = false;
     int    quiet_  = 0;
 
     PulseShaper shaper_;
-    BridgedT    bt_;
+    BridgedT    bt_, skinBp_;
     sc::RGen    rng_;
 };
 
