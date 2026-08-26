@@ -111,9 +111,9 @@ const float kBaseNote[SC808_NUM_VOICES] = {
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
     0.1970f,   /* bd — the reference: everything else is set against the kick */
     0.1298f,   /* sd */
-    0.2157f,   /* lt */
-    0.2746f,   /* mt */
-    0.4065f,   /* ht */
+    0.2398f,   /* lt */
+    0.3041f,   /* mt */
+    0.2405f,   /* ht */
     0.2633f,   /* lc */
     0.2794f,   /* mc */
     0.2776f,   /* hc */
