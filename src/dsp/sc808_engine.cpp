@@ -14,6 +14,8 @@
 #include "sc808_cp_circuit.h"
 #include "sc808_sd_circuit.h"
 #include "sc808_tom_circuit.h"
+#include "sc808_mt_circuit.h"
+#include "sc808_rs_circuit.h"
 #include "sc808_engine.h"
 #include "sc808_params.h"
 #include "sc808_shape.h"
@@ -103,22 +105,22 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.2268f,   /* bd — the reference: everything else is set against the kick */
-    0.1495f,   /* sd */
-    0.3021f,   /* lt */
-    0.3401f,   /* mt */
-    0.3312f,   /* ht */
-    0.2762f,   /* lc */
-    0.2925f,   /* mc */
-    0.2919f,   /* hc */
-    0.2403f,   /* rs — a click with a crest factor of 11 */
-    0.1985f,   /* cl */
-    0.0960f,   /* ma */
-    5.8009f,   /* cp — the quietest voice in sc808 by a long way */
-    0.2121f,   /* cb */
-    0.0118f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.3198f,   /* oh */
-    0.2432f,   /* cy */
+    0.1970f,   /* bd — the reference: everything else is set against the kick */
+    0.1298f,   /* sd */
+    0.2624f,   /* lt */
+    0.2955f,   /* mt */
+    0.2878f,   /* ht */
+    0.2399f,   /* lc */
+    0.2541f,   /* mc */
+    0.2536f,   /* hc */
+    2.4747f,   /* rs — a click with a crest factor of 11 */
+    1.7287f,   /* cl */
+    0.4083f,   /* ma */
+    5.0396f,   /* cp — the quietest voice in sc808 by a long way */
+    0.4828f,   /* cb */
+    0.3282f,   /* ch — raw peak near 17 before the drive stage catches it */
+    0.5988f,   /* oh */
+    0.7061f,   /* cy */
 };
 
 /*
@@ -205,7 +207,10 @@ struct sc808_engine {
     /* Globals. */
     int e_master_dist, e_choke, e_note_map, e_bd_engine, e_metal_run, e_sd_engine;
     int e_cp_engine;
-    int e_tom_engine[6];   /* lt mt ht lc mc hc, in lane order */
+    /* lt mt ht lc mc hc, then rs cl ma — the lanes SC808_TOM_LANE serves */
+    int e_tom_engine[9];
+    int e_rs_engine, e_cl_engine, e_ma_engine, e_cb_engine;
+    int e_ch_engine, e_oh_engine, e_cy_engine;
     int p_master_drive, p_volume, p_accent;
 
     unsigned mutes;
@@ -218,6 +223,15 @@ struct sc808_engine {
     /* Six copies of one channel, three struck as toms and three as
      * congas — which is what the switch on the real board does. */
     TomCircuit      ltc, mtc, htc, lcc, mcc, hcc;
+    /* The metal circuit: ONE free-running bank feeding the cymbal, both
+     * hats and the cowbell, exactly as the hardware wires half an HD14584.
+     * The engine ticks the bank once per sample; see SchmittBank::tick. */
+    SchmittBank     mbank;
+    CymbalCircuit   cyc;
+    HatCircuit      chc, ohc;
+    CowbellCircuit  cbc;
+    RimClaveCircuit rsc, clc;
+    MaracasCircuit  mac;
     Tom       lt, mt, ht, lc, mc, hc;
     RimClave  rs;
     RimClave  cl;          /* the same circuit, mode fixed to Clave */
@@ -315,6 +329,13 @@ sc808_engine_t *sc808_create(float sample_rate)
             e->e_tom_engine[i] = find_enum(k);
         }
     }
+    e->e_rs_engine = e->e_tom_engine[6] = find_enum("rs_engine");
+    e->e_cl_engine = e->e_tom_engine[7] = find_enum("cl_engine");
+    e->e_ma_engine = e->e_tom_engine[8] = find_enum("ma_engine");
+    e->e_cb_engine = find_enum("cb_engine");
+    e->e_ch_engine = find_enum("ch_engine");
+    e->e_oh_engine = find_enum("oh_engine");
+    e->e_cy_engine = find_enum("cy_engine");
 
     const double sr = e->sample_rate;
     e->bd.init(sr);
@@ -327,6 +348,14 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->cpc.init(sr);
     e->ltc.init(sr, 0); e->mtc.init(sr, 0); e->htc.init(sr, 0);
     e->lcc.init(sr, 1); e->mcc.init(sr, 1); e->hcc.init(sr, 1);
+    e->mbank.init(sr);
+    e->cyc.init(sr, &e->mbank);
+    e->chc.init(sr, &e->mbank, 0);
+    e->ohc.init(sr, &e->mbank, 1);
+    e->cbc.init(sr, &e->mbank);
+    e->rsc.init(sr, 0);
+    e->clc.init(sr, 1);
+    e->mac.init(sr);
     e->lt.init(sr); e->mt.init(sr); e->ht.init(sr);
     e->lc.init(sr); e->mc.init(sr); e->hc.init(sr);
     e->rs.init(sr); e->cl.init(sr); e->ma.init(sr); e->cp.init(sr); e->cb.init(sr);
@@ -395,8 +424,8 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
      * on the hardware it shares the same oscillators, but nobody wants a
      * hi-hat swallowing their crash. */
     const int choke = e->env[e->e_choke];
-    if(voice == SC808_CH && choke >= 1) choke_voice(e, SC808_OH);
-    if(voice == SC808_OH && choke == 2) choke_voice(e, SC808_CH);
+    if(voice == SC808_CH && choke >= 1) { choke_voice(e, SC808_OH); e->ohc.choke(); }
+    if(voice == SC808_OH && choke == 2) { choke_voice(e, SC808_CH); e->chc.choke(); }
 
     switch(voice)
     {
@@ -502,33 +531,61 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         break;
     }
     case SC808_RS:
-        /* The rim shot's band filters follow Tune. sc808 pins them at 63 and
-         * 118, which is fine when the note never moves and sounds broken once
-         * it does — a rim shot tuned down an octave through a fixed 311 Hz
-         * highpass is all click and no body. */
-        e->rs.trigger(0, lane_hz(voice, tune), decay,
-                      (double)midicps(63.0f + tune),
-                      (double)midicps(118.0f + tune));
+        if(e->env[e->e_rs_engine] == 0)
+        {
+            /* Decay is the RING STRETCH pot: raw 0..1, centre = the
+             * measured hardware. Accent is trigger volts, as everywhere. */
+            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            e->rsc.trigger(powf(2.0f, tune / 12.0f),
+                           (float)e->pot[e->slot[voice].decay] / 127.0f,
+                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+            e->rt[voice].hit_gain = 1.0f;
+        }
+        else
+        {
+            /* The rim shot's band filters follow Tune. sc808 pins them at 63
+             * and 118, which sounds broken once the note moves. The sc808
+             * path reads the stretch pot as its old seconds range. */
+            e->rs.trigger(0, lane_hz(voice, tune),
+                          0.01f + ((float)e->pot[e->slot[voice].decay] / 127.0f) * 0.13f,
+                          (double)midicps(63.0f + tune),
+                          (double)midicps(118.0f + tune));
+        }
         break;
     case SC808_CL:
-        /* Mode 1. The claves are one sine and one envelope, so the filter
-         * arguments go unread — they are passed for the shared signature. */
-        e->cl.trigger(1, lane_hz(voice, tune), decay, 0.0, 0.0);
+        if(e->env[e->e_cl_engine] == 0)
+        {
+            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            e->clc.trigger(powf(2.0f, tune / 12.0f),
+                           (float)e->pot[e->slot[voice].decay] / 127.0f,
+                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+            e->rt[voice].hit_gain = 1.0f;
+        }
+        else
+        {
+            e->cl.trigger(1, lane_hz(voice, tune),
+                          0.01f + ((float)e->pot[e->slot[voice].decay] / 127.0f) * 0.24f,
+                          0.0, 0.0);
+        }
         break;
     case SC808_MA:
-        e->ma.trigger(lane_hz(voice, tune), e->potv[e->ma_attack], decay);
+        if(e->env[e->e_ma_engine] == 0)
+        {
+            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            e->mac.trigger(powf(2.0f, tune / 12.0f), decay,
+                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+            e->rt[voice].hit_gain = 1.0f;
+        }
+        else
+        {
+            /* sc808's decay envelope reads ~1.8x long against the meter */
+            e->ma.trigger(lane_hz(voice, tune), e->potv[e->ma_attack],
+                          decay * 1.8f);
+        }
         break;
     case SC808_CP:
         if(e->env[e->e_cp_engine] == 0)
         {
-            /*
-             * The circuit clap. Every pot keeps its meaning here, which is
-             * the point of it — in sc808 Decay set an envelope nobody could
-             * hear and Spread set the gap before a single second burst. Here
-             * Decay is the tail's time constant, Spread is the spacing of the
-             * three-pulse burst, and Tune is a RATIO on the 874 Hz bandpass
-             * rather than a note, because this voice has no note.
-             */
             /* Burst spacing and tail mix are the hardware's, fixed — the
              * panel has Tune and Decay, like the machine had Level alone. */
             e->cpc.trigger(powf(2.0f, tune / 12.0f), decay, 0.010f,
@@ -544,20 +601,63 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         }
         break;
     case SC808_CB:
-        e->cb.trigger((double)tune, decay,
-                      (double)midicps(59.0f), (double)midicps(109.0f));
+        if(e->env[e->e_cb_engine] == 0)
+        {
+            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            e->mbank.setRatio((double)tune);
+            e->cbc.trigger(decay, av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+            e->rt[voice].hit_gain = 1.0f;
+        }
+        else
+        {
+            /* seconds -> sc808's envPerc argument: its curve makes the
+             * audible part about 1/29th of the declared duration */
+            e->cb.trigger((double)tune, decay * 29.0f,
+                          (double)midicps(59.0f), (double)midicps(109.0f));
+        }
         break;
     case SC808_CH:
-        e->ch.trigger((double)tune, decay,
-                      (double)midicps(121.25219487074914f),
-                      (double)midicps(121.05875888638981f));
+        if(e->env[e->e_ch_engine] == 0)
+        {
+            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            e->mbank.setRatio((double)tune);
+            e->chc.trigger(decay, av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+            e->rt[voice].hit_gain = 1.0f;
+        }
+        else
+        {
+            e->ch.trigger((double)tune, decay * 5.9f,
+                          (double)midicps(121.25219487074914f),
+                          (double)midicps(121.05875888638981f));
+        }
         break;
     case SC808_OH:
-        e->oh.trigger((double)tune, decay,
-                      (double)midicps(118.551f), (double)midicps(107.213f));
+        if(e->env[e->e_oh_engine] == 0)
+        {
+            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            e->mbank.setRatio((double)tune);
+            e->ohc.trigger(decay, av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+            e->rt[voice].hit_gain = 1.0f;
+        }
+        else
+        {
+            e->oh.trigger((double)tune, decay * 0.925f,
+                          (double)midicps(118.551f), (double)midicps(107.213f));
+        }
         break;
     case SC808_CY:
-        e->cy.trigger((double)tune, decay, e->potv[e->cy_tone]);
+        if(e->env[e->e_cy_engine] == 0)
+        {
+            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            e->mbank.setRatio((double)tune);
+            e->cyc.trigger(decay, e->potv[e->cy_tone],
+                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+            e->rt[voice].hit_gain = 1.0f;
+        }
+        else
+        {
+            e->cy.trigger((double)tune, decay * 1.453f, e->potv[e->cy_tone]);
+        }
         break;
     default: break;
     }
@@ -634,9 +734,9 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
         SC808_TOM_LANE(SC808_LC, 3, lcc, lc);
         SC808_TOM_LANE(SC808_MC, 4, mcc, mc);
         SC808_TOM_LANE(SC808_HC, 5, hcc, hc);
-        SC808_LANE(SC808_RS, rs);
-        SC808_LANE(SC808_CL, cl);
-        SC808_LANE(SC808_MA, ma);
+        SC808_TOM_LANE(SC808_RS, 6, rsc, rs);
+        SC808_TOM_LANE(SC808_CL, 7, clc, cl);
+        SC808_TOM_LANE(SC808_MA, 8, mac, ma);
         if(e->rt[SC808_CP].choke_gain > 0.0f)
         {
             if(e->env[e->e_cp_engine] == 0)
@@ -644,7 +744,20 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
             else
             { if(e->cp.active())  mix += voice_sample(e, SC808_CP, e->cp.process()); }
         }
-        SC808_LANE(SC808_CB, cb);
+        /*
+         * The shared bank ticks ONCE per sample, always — free-running is
+         * only true if the oscillators advance while nothing is sounding,
+         * and a single tick keeps all four circuit metal voices reading the
+         * same bus, as the hardware's one HD14584 does.
+         */
+        const double mbus = e->mbank.tick();
+        if(e->rt[SC808_CB].choke_gain > 0.0f)
+        {
+            if(e->env[e->e_cb_engine] == 0)
+            { if(e->cbc.active()) mix += voice_sample(e, SC808_CB, e->cbc.process()); }
+            else if(e->cb.active())
+            { mix += voice_sample(e, SC808_CB, e->cb.process()); }
+        }
         /*
          * The metal lanes, with their oscillator banks free-running.
          *
@@ -654,13 +767,17 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
          * thing this is here to avoid. idle() is six naive pulse oscillators
          * and no filters, so a silent lane costs almost nothing.
          */
-#define SC808_METAL(vid, obj) \
-        do { if(e->rt[vid].choke_gain > 0.0f && e->obj.active()) \
-                 mix += voice_sample(e, vid, e->obj.process()); \
-             else e->obj.idle(); } while(0)
-        SC808_METAL(SC808_CH, ch);
-        SC808_METAL(SC808_OH, oh);
-        SC808_METAL(SC808_CY, cy);
+#define SC808_METAL(vid, idx_enum, circ, sc) \
+        do { if(e->env[idx_enum] == 0) { \
+                 e->sc.idle(); \
+                 if(e->rt[vid].choke_gain > 0.0f && e->circ.active()) \
+                     mix += voice_sample(e, vid, e->circ.process(mbus)); \
+             } else if(e->rt[vid].choke_gain > 0.0f && e->sc.active()) { \
+                 mix += voice_sample(e, vid, e->sc.process()); \
+             } else e->sc.idle(); } while(0)
+        SC808_METAL(SC808_CH, e->e_ch_engine, chc, ch);
+        SC808_METAL(SC808_OH, e->e_oh_engine, ohc, oh);
+        SC808_METAL(SC808_CY, e->e_cy_engine, cyc, cy);
 #undef SC808_METAL
 
         /* Master stage. Option 0 is Off, so the kit can be left alone. */

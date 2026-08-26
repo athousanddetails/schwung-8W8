@@ -188,7 +188,10 @@ PAGES = [
                          DRIVE("hc"), DTYPE("hc"), LEVEL("hc")]),
     ("rs", "Rim Shot", [
         TUNE("rs"),
-        PV("rs_decay", "Decay", 0.01, 0.5, EXP, 0.07),
+        # ring stretch: pot centre IS the measured hardware ring; the ends
+        # halve and double it inside the circuit voice
+        P("rs_decay", "Decay", 0.0, 1.0, LIN, 64),
+        E("rs_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("rs"), DTYPE("rs"), LEVEL("rs"),
     ]),
     # Claves: Roland's own model pings at 2518 Hz; note 99 is 2489, so the
@@ -201,7 +204,8 @@ PAGES = [
         # SynthDefs, wanting both in one pattern is normal, and sixteen voices
         # is exactly what the pad block holds.
         TUNE("cl"),
-        PV("cl_decay", "Decay", 0.01, 0.5, EXP, 0.125),
+        P("cl_decay", "Decay", 0.0, 1.0, LIN, 64),   # ring stretch, see rs
+        E("cl_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("cl"), DTYPE("cl"), LEVEL("cl"),
     ]),
     ("ma", "Maracas", [
@@ -216,7 +220,8 @@ PAGES = [
         # Decay with Attack blank beside it.
         TUNE("ma"),
         PV("ma_attack", "Attack", 0.0,  0.1, LIN, 0.027),
-        PV("ma_decay",  "Decay",  0.01, 0.5, EXP, 0.07),
+        PV("ma_decay",  "Decay",  0.01, 0.3, EXP, 0.039),   # AU: 39 ms to 1%
+        E("ma_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("ma"), DTYPE("ma"), LEVEL("ma"),
     ]),
     ("cp", "Hand Clap", [
@@ -238,12 +243,14 @@ PAGES = [
         # Two oscillators at 811.4 and 538.7 Hz — numbers 5 and 6 of the metal
         # bank, exactly as the hardware wires them — so Tune is a ratio.
         RATIO("cb"),
-        PV("cb_decay", "Decay", 0.5, 20.0, EXP, 12.5),
+        PV("cb_decay", "Decay", 0.1, 2.0, EXP, 0.43),   # seconds; AU: 0.43
+        E("cb_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("cb"), DTYPE("cb"), LEVEL("cb"),
     ]),
     ("ch", "Closed Hat", [
         RATIO("ch"),
-        PV("ch_decay", "Decay", 0.02, 1.5, EXP, 0.50),
+        PV("ch_decay", "Decay", 0.03, 0.5, EXP, 0.085),   # seconds; sample: 85 ms
+        E("ch_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("ch"), DTYPE("ch"), LEVEL("ch"),
         # Lives here as well as on Master: this is where you are standing when
         # you want it. The 808 shares one metal source between CH and OH, so
@@ -252,12 +259,14 @@ PAGES = [
     ]),
     ("oh", "Open Hat", [
         RATIO("oh"),
-        PV("oh_decay", "Decay", 0.05, 4.0, EXP, 0.37),
+        PV("oh_decay", "Decay", 0.08, 1.5, EXP, 0.40),   # seconds; AU: 0.40
+        E("oh_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("oh"), DTYPE("oh"), LEVEL("oh"),
     ]),
     ("cy", "Cymbal", [
         RATIO("cy"),
-        PV("cy_decay", "Decay", 0.2, 10.0, EXP, 2.6),
+        PV("cy_decay", "Decay", 0.4, 6.0, EXP, 1.79),   # seconds; AU: 1.79
+        E("cy_engine", "Engine", ["Circ", "sc808"]),
         # sc808 multiplies `tone` by 0.008 before use, so this is really "how
         # much low band" and even at maximum it is a whisper next to the
         # 7 kHz band. That is correct: an 808 cymbal is mostly 7 kHz.

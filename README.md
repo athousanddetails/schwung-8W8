@@ -20,13 +20,13 @@ with every other page.
 | Snare | **Circuit** — two bridged-T shells at 173 and 336 Hz from the service notes' component values, so Tone balances two ringing shells and Snappy sets the noise's length as well as its level. Or **sc808**, switchable |
 | Low / Mid / Hi Tom | **Circuit** — a bridged-T at Q 10.8 ringing in a feedback loop, tuned and timed to hardware samples: F2/C3/G3, ring 0.39/0.23/0.18 s, the head a quiet texture on the strike. Or **sc808**, switchable |
 | Low / Mid / Hi Conga | The same channel with the switch the other way: struck soft (it blooms at 2–5 ms where a tom clicks inside 1), no head, ringing twice as long at the same pitch, and tuned an octave-plus above its tom — G3/D4/A4, as measured. Or **sc808** |
-| Rim Shot | A triangle and an 80% pulse through a fat +8 dB peak at 464 Hz — that peak is the "tock" |
-| Claves | One sine, one envelope. The simplest voice in the kit, and its own pad |
-| Maracas | Noise, a 5.6 kHz highpass, and a 27 ms ramp up that is the rattle |
+| Rim Shot | **Circuit** — the two bridged-Ts off the schematic: 5.6k/1M/4.7n = 452 Hz and 820k/2.2n over the switch's ~2k = 1785 Hz, the body and the "tock". Or **sc808** |
+| Claves | **Circuit** — the same second network with the switch's 1k shunt: 2524 Hz at Q 14, ringing 30 ms as Roland's own model does. Or **sc808** |
+| Maracas | **Circuit** — bus noise high-passed hard, 39 ms to silence, fitted to Roland's render with the kit switch flipped to MA. Or **sc808** |
 | Hand Clap | **Circuit** — three noise bursts about 10 ms apart and a 330 ms tail (R362 × C143), through the 874 Hz bandpass R342/R334/C128 make. One knob: Decay, the tail. Burst spacing and tail mix are the hardware's, fixed. Or **sc808**, switchable |
-| Cowbell | Two pulse oscillators at 811 and 539 Hz — numbers 5 and 6 of the metal bank, exactly as the hardware wires them |
-| Closed / Open Hat | The six Schmitt-trigger oscillators through two filter paths. **Free-running** by default, as on the hardware, so no two hits are the same |
-| Cymbal | The same six through **three** parallel chains and four envelopes |
+| Cowbell | **Circuit** — oscillators 5 and 6 of the ONE shared free-running Schmitt bank, exactly as the hardware wires them. Or **sc808** |
+| Closed / Open Hat | **Circuit** — the shared bank through each hat's C-R ladder (1.5 nF open, 1.0 nF closed — the closed hat is high-passed higher, which is why it is the thinner voice), a swing VCA whose diode gates the tail dead, and the 470 pF output coupling that keeps rectification out of the mix. Or **sc808** |
+| Cymbal | **Circuit** — Werner's analysis end to end: the bank through both band passes (3440 and 7100 Hz from the paper's own transfer functions), three envelopes, three swing VCAs, and the Sallen-Key high passes with the 10.5 kHz resonance the sizzle lives in. Or **sc808** |
 
 Every drum has **Tune, Decay, Drive, a Distortion type** (Diode / Hard Clip /
 Wavefolder / Bitcrush) and **Level**, plus a **Master Drive / Distortion**
@@ -45,12 +45,10 @@ always the sound that was checked, whichever engine checked it.
 
 ## The circuit voices
 
-Nine of the sixteen lanes have a circuit model as well as the sc808
-transcription, and every one of them is switchable per patch, so nothing is
-lost — the verified transcription is always one knob away.
-
-The seven that do not yet have one are the rim shot, the claves, the maracas,
-the cowbell, the two hats and the cymbal.
+All sixteen lanes now have a circuit model as the default engine, with the
+sc808 transcription one switch away on every page — kept while the circuit
+voices are being judged on hardware, and destined to be removed once they
+pass, which frees a knob slot on every instrument.
 
 ### The two kicks
 
@@ -224,9 +222,11 @@ shipped `dsp.so` exactly as Schwung's chain host does.
 `./test/all.sh` runs all of it. Steps whose tooling is missing report **SKIP**
 and say so in the summary, rather than passing quietly.
 
-CPU, measured on the Move: a busy pattern is **6.3% of one core**, against
-6W6's 22%. The worst single lane is the cymbal at 2.9%; all sixteen retriggered
-every sixteenth — which no pattern does — is 22.9%.
+CPU, measured on the Move with every lane on its circuit engine: a busy
+pattern is **2.5% of one core**, against 6W6's 22%. The pathological
+all-sixteen-every-16th case is 10.8%. The circuit voices are cheaper than the
+transcriptions they replace — a bridged-T in a loop is a handful of
+multiplies, and the sc808 graphs were not.
 
 ## Install
 

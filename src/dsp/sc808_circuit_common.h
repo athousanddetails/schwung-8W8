@@ -144,6 +144,18 @@ static inline double bridgedTQ(const double _r1, const double _r2)
     return 0.5 * sqrt(_r2 / _r1);
 }
 
+/* one-pole high pass */
+class OnePoleHP {
+public:
+    void set(const double _f, const double _sr)
+    { a_ = exp(-2.0 * kCircPi * _f / _sr); z_ = y_ = 0.0; }
+    double process(const double _x)
+    { y_ = a_ * (y_ + _x - z_); z_ = _x; return y_; }
+    void reset() { z_ = y_ = 0.0; }
+private:
+    double a_ = 0, z_ = 0, y_ = 0;
+};
+
 /*
  * A multiple-feedback (Deliyannis) bandpass, from its component values.
  *

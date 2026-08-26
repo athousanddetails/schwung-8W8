@@ -75,9 +75,10 @@ def main():
     # own) and ships with every Schwung install.
     #
     send(sock, {"type": "set_param", "slot": slot, "key": "synth:module", "value": "linein"})
-    time.sleep(1.2)
+    time.sleep(2.5)   # let the intermediate module actually LOAD — a set that
+                      # arrives mid-load is dropped, and 1.2 s was not enough
     send(sock, {"type": "set_param", "slot": slot, "key": "synth:module", "value": module})
-    time.sleep(1.5)
+    time.sleep(2.5)
     sock.close()
     print("reload: bounced slot %d to '%s' — the new dsp.so is now the running one" % (slot, module))
     return 0

@@ -553,6 +553,16 @@
             "max": 127
           },
           {
+            "key": "rs_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
+          },
+          {
             "key": "rs_drive",
             "short": "DRIVE",
             "full": "Drive",
@@ -581,7 +591,6 @@
             "max": 127
           },
           null,
-          null,
           null
         ]
       ]
@@ -605,6 +614,16 @@
             "type": "int",
             "min": 0,
             "max": 127
+          },
+          {
+            "key": "cl_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
           },
           {
             "key": "cl_drive",
@@ -634,7 +653,6 @@
             "min": 0,
             "max": 127
           },
-          null,
           null,
           null
         ]
@@ -669,6 +687,16 @@
             "max": 127
           },
           {
+            "key": "ma_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
+          },
+          {
             "key": "ma_drive",
             "short": "DRIVE",
             "full": "Drive",
@@ -696,7 +724,6 @@
             "min": 0,
             "max": 127
           },
-          null,
           null
         ]
       ]
@@ -785,6 +812,16 @@
             "max": 127
           },
           {
+            "key": "cb_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
+          },
+          {
             "key": "cb_drive",
             "short": "DRIVE",
             "full": "Drive",
@@ -813,7 +850,6 @@
             "max": 127
           },
           null,
-          null,
           null
         ]
       ]
@@ -837,6 +873,16 @@
             "type": "int",
             "min": 0,
             "max": 127
+          },
+          {
+            "key": "ch_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
           },
           {
             "key": "ch_drive",
@@ -877,7 +923,6 @@
               "Mutual"
             ]
           },
-          null,
           null
         ]
       ]
@@ -901,6 +946,16 @@
             "type": "int",
             "min": 0,
             "max": 127
+          },
+          {
+            "key": "oh_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
           },
           {
             "key": "oh_drive",
@@ -931,7 +986,6 @@
             "max": 127
           },
           null,
-          null,
           null
         ]
       ]
@@ -955,6 +1009,16 @@
             "type": "int",
             "min": 0,
             "max": 127
+          },
+          {
+            "key": "cy_engine",
+            "short": "ENGIN",
+            "full": "Engine",
+            "type": "enum",
+            "options": [
+              "Circ",
+              "sc808"
+            ]
           },
           {
             "key": "cy_tone",
@@ -992,7 +1056,6 @@
             "min": 0,
             "max": 127
           },
-          null,
           null
         ]
       ]

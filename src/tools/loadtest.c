@@ -503,6 +503,10 @@ int main(int argc, char **argv)
     printf("\nfree-running metal\n");
     {
         fresh(api, &inst);
+        /* Free/Retrig is a property of the sc808 metal engine — the circuit
+         * bank free-runs, full stop, as the hardware's does. Select the
+         * sc808 engine on the hat lane for this pair of tests. */
+        api->set_param(inst, "ch_engine", "1");
         api->set_param(inst, "metal_run", "1");        /* Retrig, i.e. sc808 */
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 0);
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 1);
@@ -513,6 +517,7 @@ int main(int argc, char **argv)
         }
 
         fresh(api, &inst);
+        api->set_param(inst, "ch_engine", "1");
         api->set_param(inst, "metal_run", "0");        /* Free, i.e. hardware */
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 0);
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 1);
