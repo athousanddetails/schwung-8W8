@@ -14,7 +14,7 @@ adapted by Sam Aaron). Vendored under `src/vendor/sc808`, transcribed in
 `src/dsp/sc808_voices.h`, and **verified sample-for-sample against
 SuperCollider** by `test/nulltest.sh`.
 
-**Engine B — the circuit.** Eleven of the sixteen lanes now have one, all
+**Engine B — the circuit.** Nine of the sixteen lanes now have one, all
 default and all switchable:
 
 | Voice | File | Built from |
@@ -128,7 +128,7 @@ all 16 every 16th    4.4x realtime (22.9% of a core)  [pathological]
 ```
 
 6W6 ships at 22% of a core. 8W8 is well inside that — and note that the busy
-pattern did not get *more* expensive when eleven lanes moved to circuit
+pattern did not get *more* expensive when nine lanes moved to circuit
 models. A bridged-T in a loop is two biquad-ish updates and a clip; sc808's
 voices are envelopes and oscillators. The pathological case rose from 19.7%
 because there are sixteen lanes now instead of fifteen.
@@ -182,6 +182,22 @@ mean different things to the two engines.
 ---
 
 ## 5. What is left
+
+**One engine, eventually.** 8W8 is to settle on Circuit alone, the way 9W9
+settled on one engine, and the per-lane `Engine` switch is to go — that frees
+a knob slot on every instrument page, and those slots are wanted.
+
+This is deliberately the LAST step, not the next one. Both engines stay while
+the circuit voices are being judged against the transcription on hardware, and
+seven lanes do not have a circuit model at all yet: rim shot, claves, maracas,
+cowbell, both hats and the cymbal. Nine have one.
+
+Two things not to lose when the switch goes. The sc808 transcription stays in
+the tree regardless — it is what `test/nulltest.sh` verifies against
+SuperCollider, and that null test is the strongest correctness claim this
+project has. And `tools/tom_check` and the loadtest currently assert that the
+two engines on a lane agree about level, which is a real check on the fitted
+output scales; it needs replacing rather than deleting.
 
 **Engine B, the rest of it.** The rim shot and the claves are bridged-T
 networks on the hardware too, the same topology as everything else here, and

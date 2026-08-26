@@ -1,7 +1,7 @@
 # 8W8 — Rhythm Composer for Ableton Move
 
 A TR-808 style drum machine for [Schwung](https://github.com/charlesvestal/schwung)
-on Ableton Move. Sixteen voices, all synthesised, no samples. Eleven of them
+on Ableton Move. Sixteen voices, all synthesised, no samples. Nine of them
 are models of the 808's actual circuits, built from the service notes; the
 rest of the kit is a transcription of Sonic Pi's sc808, verified
 sample-for-sample against SuperCollider.
@@ -41,9 +41,12 @@ always the sound that was checked, whichever engine checked it.
 
 ## The circuit voices
 
-Eleven of the sixteen are models of the real circuit rather than
-transcriptions of sc808, and every one of them is switchable per patch, so
-nothing is lost — the verified transcription is always one knob away.
+Nine of the sixteen lanes have a circuit model as well as the sc808
+transcription, and every one of them is switchable per patch, so nothing is
+lost — the verified transcription is always one knob away.
+
+The seven that do not yet have one are the rim shot, the claves, the maracas,
+the cowbell, the two hats and the cymbal.
 
 ### The two kicks
 
