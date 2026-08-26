@@ -275,7 +275,7 @@ PAGES = [
     ]),
     ("oh", "Open Hat", [
         RATIO("oh"),
-        PV("oh_decay", "Decay", 0.08, 1.5, EXP, 0.40),   # seconds; AU: 0.40
+        PV("oh_decay", "Decay", 0.08, 1.5, EXP, 0.44),   # seconds; AU note ends ~0.40 after the gate
         E("oh_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("oh"), DTYPE("oh"), LEVEL("oh"),
     ]),

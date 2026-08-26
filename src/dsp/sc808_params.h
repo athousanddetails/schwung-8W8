@@ -90,7 +90,7 @@ static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
     { "ch_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "ch_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "oh_tune",     0.5000f,     2.0000f, SC808_EXP,  64 },
-    { "oh_decay",     0.0800f,     1.5000f, SC808_EXP,  70 },
+    { "oh_decay",     0.0800f,     1.5000f, SC808_EXP,  74 },
     { "oh_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "oh_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "cy_tune",     0.5000f,     2.0000f, SC808_EXP,  64 },
@@ -222,7 +222,7 @@ static const char sc808_chain_params_json[] =
     "evel\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"hh_"
     "choke\",\"name\":\"Choke\",\"type\":\"enum\",\"options\":[\"Off\",\"CH>OH\",\"Mutual\"],\"default\":1},{\"key\":\"oh_tune\""
     ",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"oh_decay\",\"name\":\"Decay\",\"type\":"
-    "\"int\",\"min\":0,\"max\":127,\"default\":70},{\"key\":\"oh_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"C"
+    "\"int\",\"min\":0,\"max\":127,\"default\":74},{\"key\":\"oh_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"C"
     "irc\",\"sc808\"],\"default\":0},{\"key\":\"oh_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\""
     ":0},{\"key\":\"oh_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\""
     "],\"default\":0},{\"key\":\"oh_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\""

@@ -430,10 +430,16 @@ public:
          * its Q-bump restores the 4.5-6.5 kHz the reference keeps flat;
          * skB below it does the junk rejection */
         if(_mode == 0) { skA_.set(5200.0, 1.6, 1.0, _sr); skB_.set(2700.0, 0.75, 1.0, _sr); }
-        else           { skA_.set(3100.0, 1.25, 1.0, _sr); skB_.set(1800.0, 0.75, 1.0, _sr); }
-        /* the top: the naive squares' aliased edges, pulled flat */
-        lpTopA_ = exp(-2.0 * kCircPi * 10500.0 / _sr);
-        lpTopZ_ = 0.0;
+        else           { skA_.set(6200.0, 0.9, 1.0, _sr); skB_.set(5200.0, 0.8, 1.0, _sr); }
+        /*
+         * The top. Closed: one pole at 10.5 kHz flattening the aliased
+         * edges — the CH is the BRIGHT hat. Open: the references (Roland's
+         * render and the player's, in exact agreement) peak at 4.5-6.5 kHz
+         * and FALL -4 / -9.6 / -12 dB up the octave bands — the OH is the
+         * DARK hat. Two poles above the peak build that fall.
+         */
+        lpTopA_ = exp(-2.0 * kCircPi * (_mode == 1 ? 5900.0 : 10500.0) / _sr);
+        for(int k = 0; k < 5; ++k) lpZ_[k] = 0.0;
         env_.init(_sr);
         dc_.set(200.0, _sr);
         outScale_ = _mode == 1 ? 5.0 : 8.0;
@@ -446,11 +452,33 @@ public:
     {
         const double a = (double)_accentV / 8.0;
         const double t = _decaySec > 0.02f ? (double)_decaySec : 0.02;
-        env_.trigger(8.0 * a, t / 2.0);
+        if(mode_ == 1)
+        {
+            /*
+             * The open hat's envelope is a LINEAR discharge, not an
+             * exponential: every reference holds a near-flat plateau and
+             * then collapses — C62 discharging through the decay pot into
+             * the diode's cut. An exponential here decays audibly from the
+             * first millisecond and reads as a completely different
+             * instrument, which the field confirmed in those words.
+             */
+            /* hold flat for a third of the note, then discharge — the
+             * reference's plateau-then-ramp, C62 held up by the follower
+             * before the pot wins */
+            linLevel_ = 8.0 * a;
+            linHold_  = (int)(0.30 * t * sr_);
+            linStep_  = linLevel_ / (0.70 * t * sr_);
+            linear_   = true;
+        }
+        else
+        {
+            env_.trigger(8.0 * a, t / 2.0);
+            linear_ = false;
+        }
         active_ = true; quiet_ = 0;
     }
 
-    void choke() { env_.kill(); }
+    void choke() { env_.kill(); linLevel_ = 0.0; }
 
     float process(const double _bus)
     {
@@ -466,7 +494,18 @@ public:
          * rectification of a six-square cluster mints broadband difference
          * tones no coupling can reject without killing the mids.
          */
-        const double e = env_.tick();
+        double e;
+        if(linear_)
+        {
+            e = linLevel_;
+            if(linHold_ > 0) --linHold_;
+            else
+            {
+                linLevel_ -= linStep_;
+                if(linLevel_ < 0.0) linLevel_ = 0.0;
+            }
+        }
+        else e = env_.tick();
         const double over = e - kMT_DiodeVon;
         double drive;
         const double knee = 1.2;
@@ -475,12 +514,20 @@ public:
         else drive = over - knee * 0.5;
 
         double v = skB_.process(skA_.process(hp * drive));
-        lpTopZ_ += (v - lpTopZ_) * (1.0 - lpTopA_);
-        const double y = dc_.process(lpTopZ_ * outScale_);
+        /* closed: one flattening pole; open: FOUR poles — the fall has to
+         * beat the differentiators' +11.5 dB/octave tilt and then some */
+        const int npoles = mode_ == 1 ? 5 : 1;
+        for(int k = 0; k < npoles; ++k)
+        {
+            lpZ_[k] += (v - lpZ_[k]) * (1.0 - lpTopA_);
+            v = lpZ_[k];
+        }
+        const double y = dc_.process(v * outScale_);
 
         const float o = (float)y;
         if(o > 3.2e-5f || o < -3.2e-5f) quiet_ = 0;
-        else if(++quiet_ > 400 && env_.dead()) active_ = false;
+        else if(++quiet_ > 400 && (linear_ ? linLevel_ <= 0.0 : env_.dead()))
+            active_ = false;
         return o;
     }
 
@@ -492,7 +539,10 @@ private:
     SKHighpass skA_, skB_;
     MetalEnv env_;
     double d1_ = 0, d2_ = 0;
-    double lpTopA_ = 0, lpTopZ_ = 0;
+    double lpTopA_ = 0, lpZ_[5] = {0, 0, 0, 0, 0};
+    double linLevel_ = 0, linStep_ = 0;
+    int    linHold_ = 0;
+    bool   linear_ = false;
     double outScale_ = 1.0;
     bool active_ = false;
     int  quiet_ = 0;
