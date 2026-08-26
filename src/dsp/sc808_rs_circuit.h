@@ -57,14 +57,27 @@ static const double kRS_ShuntCL = 1.0e3;   /* SW11 in CL: R312 alone      */
  * and a ping, and it is what the extra feedback resistor in the CL position
  * of the real switch buys.
  */
-static const double kRS_LoopRim1  = 0.10;   /* 452 Hz network, rim mode  */
-static const double kRS_LoopRim2  = 0.42;   /* 1785 Hz network, rim mode */
+static double kRS_LoopRim1  = 0.48;   /* 452 Hz network, rim mode  */
+static const double kRS_LoopRim2  = 0.0;    /* 1785 Hz network, rim mode:
+    NO regeneration — the reference's tock is 19 dB down six milliseconds
+    in, which is the network's own Q and nothing more. The loop only serves
+    the claves position. */
 static const double kRS_LoopClave = 0.74;   /* 2524 Hz network, CL mode  */
 
-/* balance of the two networks in rim mode — the AU reference has them
- * within half a dB of each other */
-static const double kRS_MixBody = 1.0;
-static const double kRS_MixTock = 1.55;
+/*
+ * Rim mode balance and the CRACK, fitted to rim808.wav's two windows:
+ * in the first four milliseconds the 1788 Hz network dominates with a
+ * WIDEBAND snap over it (content to 15 kHz — the trigger edge through the
+ * Q61/Q62/Q63 output stage, a path the first version ignored entirely and
+ * the reason it sounded like a polite plink); from six milliseconds the
+ * 468 Hz body carries the note alone. MUTABLE for the fit harness.
+ */
+static double kRS_MixBody   = 0.60;
+static double kRS_MixTock   = 1.55;
+static double kRS_CrackLvl  = 0.65;    /* the edge, HP'd, into the output */
+static double kRS_CrackTau  = 0.0010;  /* over inside two milliseconds */
+static double kRS_CrackHPHz = 5000.0;
+static double kRS_CrackNoise = 0.35;   /* hit-to-hit life on the edge */
 
 /* fitted so a default hit peaks near 1.0 into the shared lane trim */
 static const double kRS_OutRim   = 0.40;
@@ -77,6 +90,7 @@ public:
     {
         sr_ = _sr; mode_ = _mode;
         shaper_.init(_sr);
+        rng_.seed(_mode == 0 ? 0x808012Du : 0x808C1AEu);
         reset();
     }
 
@@ -102,7 +116,9 @@ public:
 
         if(mode_ == 0)
         {
-            const double f1 = bridgedTFreq(kRS_R315, kRS_R316, kRS_C1, kRS_C1) * r;
+            /* x1.03: component tolerance — the derivation gives 452.5, and
+             * both Roland's render and rim808.wav put the body at 461-468 */
+            const double f1 = bridgedTFreq(kRS_R315, kRS_R316, kRS_C1, kRS_C1) * 1.03 * r;
             const double f2 = bridgedTFreq(kRS_ShuntRS, kRS_R308, kRS_C2, kRS_C2) * r;
             bt1_.set(f1, bridgedTQ(kRS_R315, kRS_R316), sr_);
             bt2_.set(f2, bridgedTQ(kRS_ShuntRS, kRS_R308), sr_);
@@ -122,6 +138,10 @@ public:
 
         accentV_     = (double)_accentV;
         gateSamples_ = (int)(0.001 * sr_);
+        crackEnv_    = mode_ == 0 ? 1.0 : 0.0;
+        crackCoef_   = exp(-1.0 / (kRS_CrackTau * sr_));
+        crackHp_.set(kRS_CrackHPHz, sr_);
+        outHp_.set(280.0, sr_);
         active_ = true;
         quiet_  = 0;
     }
@@ -140,7 +160,19 @@ public:
             const double y1 = bt1_.process(strike + g1_ * opampClip(fb1_));
             const double y2 = bt2_.process(strike + g2_ * opampClip(fb2_));
             fb1_ = y1; fb2_ = y2;
-            y = (y1 * kRS_MixBody + y2 * kRS_MixTock) * kRS_OutRim;
+            /* the crack: the strike edge itself, high-passed, brief, with a
+             * little noise riding it so no two hits are identical */
+            double crack = 0.0;
+            if(crackEnv_ > 1e-4)
+            {
+                const double edge = strike * (1.0 + kRS_CrackNoise * (double)rng_.frand2());
+                crack = crackHp_.process(edge) * crackEnv_ * kRS_CrackLvl;
+                crackEnv_ *= crackCoef_;
+            }
+            y = (y1 * kRS_MixBody + y2 * kRS_MixTock + crack) * kRS_OutRim;
+            /* the output coupling (C112 into R304, ~150 Hz, plus the smaller
+             * inter-stage caps) — keeps the strike's low plateau out */
+            y = outHp_.process(y);
         }
         else
         {
@@ -173,8 +205,11 @@ private:
     bool   active_ = false;
     int    quiet_ = 0;
 
+    double crackEnv_ = 0.0, crackCoef_ = 0.0;
     PulseShaper shaper_;
     BridgedT    bt1_, bt2_;
+    OnePoleHP   crackHp_, outHp_;
+    sc::RGen    rng_;
 };
 
 /*
