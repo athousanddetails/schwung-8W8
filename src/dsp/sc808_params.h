@@ -26,7 +26,7 @@ typedef struct {
 } sc808_enum_t;
 
 #define SC808_NUM_POTS  72
-#define SC808_NUM_ENUMS 36
+#define SC808_NUM_ENUMS 35
 
 static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
     { "bd_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
@@ -65,7 +65,7 @@ static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
     { "hc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "hc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "rs_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "rs_decay",     0.0000f,     1.0000f, SC808_LIN,  64 },
+    { "rs_decay",     0.0050f,     0.2000f, SC808_EXP,  40 },
     { "rs_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "rs_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "cl_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
@@ -120,7 +120,6 @@ static const sc808_enum_t g_sc808_enums[SC808_NUM_ENUMS] = {
     { "mc_dist_type",  4,  0 },
     { "hc_engine",  2,  0 },
     { "hc_dist_type",  4,  0 },
-    { "rs_engine",  2,  0 },
     { "rs_dist_type",  4,  0 },
     { "cl_engine",  2,  0 },
     { "cl_dist_type",  4,  0 },
@@ -142,7 +141,7 @@ static const sc808_enum_t g_sc808_enums[SC808_NUM_ENUMS] = {
     { "metal_run",  2,  0 },
 };
 
-#define SC808_CHAIN_PARAMS_LEN 9727
+#define SC808_CHAIN_PARAMS_LEN 9638
 static const char sc808_chain_params_json[] =
     "[{\"key\":\"bd_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"bd_attack\",\"nam"
     "e\":\"Attack\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":24,\"viz\":false},{\"key\":\"bd_decay\",\"name\":\"Decay"
@@ -190,60 +189,59 @@ static const char sc808_chain_params_json[] =
     ":\"hc_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default"
     "\":0},{\"key\":\"hc_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fad"
     "er\"}},{\"key\":\"rs_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"rs_decay\","
-    "\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"rs_engine\",\"name\":\"Engine\",\"type"
-    "\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"rs_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\""
-    ":0,\"max\":127,\"default\":0},{\"key\":\"rs_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\""
-    ",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"rs_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127"
-    ",\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"cl_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,"
-    "\"default\":64},{\"key\":\"cl_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\""
-    "cl_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"cl_drive\",\""
-    "name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"cl_dist_type\",\"name\":\"Distortion\","
-    "\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"cl_level\",\"name\":\"Level"
-    "\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"ma_tune\",\"name\":\"Tune\""
-    ",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"ma_attack\",\"name\":\"Attack\",\"type\":\"int\",\"min\":"
-    "0,\"max\":127,\"default\":34},{\"key\":\"ma_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":"
-    "51},{\"key\":\"ma_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":"
-    "\"ma_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"ma_dist_type\",\"name\":\""
-    "Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"ma_level\",\""
-    "name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"cp_tune\",\""
-    "name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"cp_decay\",\"name\":\"Decay\",\"type\":\"i"
-    "nt\",\"min\":0,\"max\":127,\"default\":70},{\"key\":\"cp_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Cir"
-    "c\",\"sc808\"],\"default\":0},{\"key\":\"cp_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0"
-    "},{\"key\":\"cp_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],"
-    "\"default\":0},{\"key\":\"cp_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"ki"
-    "nd\":\"fader\"}},{\"key\":\"cb_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"cb"
-    "_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":62},{\"key\":\"cb_engine\",\"name\":\"Engin"
-    "e\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"cb_drive\",\"name\":\"Drive\",\"type\":\"in"
-    "t\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"cb_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":"
-    "[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"cb_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\""
-    "max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"ch_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"m"
-    "ax\":127,\"default\":64},{\"key\":\"ch_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":47},"
-    "{\"key\":\"ch_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"ch_"
-    "drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"ch_dist_type\",\"name\":\"Dist"
-    "ortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"ch_level\",\"name"
-    "\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"hh_choke\",\"nam"
-    "e\":\"Choke\",\"type\":\"enum\",\"options\":[\"Off\",\"CH>OH\",\"Mutual\"],\"default\":1},{\"key\":\"oh_tune\",\"name\":\"Tu"
-    "ne\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"oh_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\""
-    ":0,\"max\":127,\"default\":70},{\"key\":\"oh_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808"
-    "\"],\"default\":0},{\"key\":\"oh_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":"
-    "\"oh_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\""
-    ":0},{\"key\":\"oh_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fade"
-    "r\"}},{\"key\":\"cy_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"cy_decay\",\""
-    "name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":70},{\"key\":\"cy_engine\",\"name\":\"Engine\",\"type\""
-    ":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"cy_tone\",\"name\":\"Tone\",\"type\":\"int\",\"min\":0,"
-    "\"max\":127,\"default\":32},{\"key\":\"cy_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0}"
-    ",{\"key\":\"cy_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\""
-    "default\":0},{\"key\":\"cy_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kin"
-    "d\":\"fader\"}},{\"key\":\"master_dist\",\"name\":\"Master Dist\",\"type\":\"enum\",\"options\":[\"Off\",\"Diode\",\"Clip\""
-    ",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"master_drive\",\"name\":\"Master Drive\",\"type\":\"int\",\"min\":0,\"max\""
-    ":127,\"default\":0},{\"key\":\"volume\",\"name\":\"Volume\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":100,\"viz\""
-    ":{\"kind\":\"fader\"}},{\"key\":\"accent\",\"name\":\"Accent\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":42},{\"ke"
-    "y\":\"note_map\",\"name\":\"Note Map\",\"type\":\"enum\",\"options\":[\"Rack 36\",\"GM\"],\"default\":0},{\"key\":\"metal_"
-    "run\",\"name\":\"Metal\",\"type\":\"enum\",\"options\":[\"Free\",\"Retrig\"],\"default\":0},{\"key\":\"ui_focus\",\"name\":"
-    "\"Focus\",\"type\":\"int\",\"min\":0,\"max\":16,\"default\":0},{\"key\":\"mutes\",\"name\":\"Mutes\",\"type\":\"int\",\"min\":"
-    "0,\"max\":65535,\"default\":0}]";
+    "\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":40},{\"key\":\"rs_drive\",\"name\":\"Drive\",\"type\":"
+    "\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"rs_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"option"
+    "s\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"rs_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":"
+    "0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"cl_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0"
+    ",\"max\":127,\"default\":64},{\"key\":\"cl_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":6"
+    "4},{\"key\":\"cl_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\""
+    "cl_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"cl_dist_type\",\"name\":\"D"
+    "istortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"cl_level\",\"n"
+    "ame\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"ma_tune\",\"n"
+    "ame\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"ma_attack\",\"name\":\"Attack\",\"type\":\""
+    "int\",\"min\":0,\"max\":127,\"default\":34},{\"key\":\"ma_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127"
+    ",\"default\":51},{\"key\":\"ma_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\""
+    ":0},{\"key\":\"ma_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"ma_dist_typ"
+    "e\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\""
+    "ma_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":"
+    "\"cp_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"cp_decay\",\"name\":\"Decay"
+    "\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":70},{\"key\":\"cp_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"opt"
+    "ions\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"cp_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,"
+    "\"default\":0},{\"key\":\"cp_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold"
+    "\",\"Crush\"],\"default\":0},{\"key\":\"cp_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64"
+    ",\"viz\":{\"kind\":\"fader\"}},{\"key\":\"cb_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64}"
+    ",{\"key\":\"cb_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":62},{\"key\":\"cb_engine\",\"n"
+    "ame\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"cb_drive\",\"name\":\"Drive\""
+    ",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"cb_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\""
+    ",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"cb_level\",\"name\":\"Level\",\"type\":\"int"
+    "\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"ch_tune\",\"name\":\"Tune\",\"type\":\"int\""
+    ",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"ch_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"de"
+    "fault\":47},{\"key\":\"ch_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},"
+    "{\"key\":\"ch_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"ch_dist_type\",\""
+    "name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"ch_l"
+    "evel\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"hh_"
+    "choke\",\"name\":\"Choke\",\"type\":\"enum\",\"options\":[\"Off\",\"CH>OH\",\"Mutual\"],\"default\":1},{\"key\":\"oh_tune\""
+    ",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"oh_decay\",\"name\":\"Decay\",\"type\":"
+    "\"int\",\"min\":0,\"max\":127,\"default\":70},{\"key\":\"oh_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"C"
+    "irc\",\"sc808\"],\"default\":0},{\"key\":\"oh_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\""
+    ":0},{\"key\":\"oh_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\""
+    "],\"default\":0},{\"key\":\"oh_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\""
+    "kind\":\"fader\"}},{\"key\":\"cy_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\""
+    "cy_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":70},{\"key\":\"cy_engine\",\"name\":\"Eng"
+    "ine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"cy_tone\",\"name\":\"Tone\",\"type\":\"in"
+    "t\",\"min\":0,\"max\":127,\"default\":32},{\"key\":\"cy_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\""
+    "default\":0},{\"key\":\"cy_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\""
+    ",\"Crush\"],\"default\":0},{\"key\":\"cy_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,"
+    "\"viz\":{\"kind\":\"fader\"}},{\"key\":\"master_dist\",\"name\":\"Master Dist\",\"type\":\"enum\",\"options\":[\"Off\",\"Di"
+    "ode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"master_drive\",\"name\":\"Master Drive\",\"type\":\"int\",\"m"
+    "in\":0,\"max\":127,\"default\":0},{\"key\":\"volume\",\"name\":\"Volume\",\"type\":\"int\",\"min\":0,\"max\":127,\"default"
+    "\":100,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"accent\",\"name\":\"Accent\",\"type\":\"int\",\"min\":0,\"max\":127,\"defaul"
+    "t\":42},{\"key\":\"note_map\",\"name\":\"Note Map\",\"type\":\"enum\",\"options\":[\"Rack 36\",\"GM\"],\"default\":0},{\"k"
+    "ey\":\"metal_run\",\"name\":\"Metal\",\"type\":\"enum\",\"options\":[\"Free\",\"Retrig\"],\"default\":0},{\"key\":\"ui_foc"
+    "us\",\"name\":\"Focus\",\"type\":\"int\",\"min\":0,\"max\":16,\"default\":0},{\"key\":\"mutes\",\"name\":\"Mutes\",\"type\":\""
+    "int\",\"min\":0,\"max\":65535,\"default\":0}]";
 
-#define SC808_UI_PAGES_LEN 6429
+#define SC808_UI_PAGES_LEN 6381
 static const char sc808_ui_pages_json[] =
     "{\"levels\":{\"bd\":{\"name\":\"Bass Drum\",\"knobs\":[\"bd_tune\",\"bd_attack\",\"bd_decay\",\"bd_tone\",\"bd_engine\","
     "\"bd_drive\",\"bd_dist_type\",\"bd_level\"],\"params\":[{\"key\":\"bd_tune\",\"name\":\"Tune\"},{\"key\":\"bd_attack\",\""
@@ -273,42 +271,41 @@ static const char sc808_ui_pages_json[] =
     "\",\"hc_engine\",\"hc_drive\",\"hc_dist_type\",\"hc_level\"],\"params\":[{\"key\":\"hc_tune\",\"name\":\"Tune\"},{\"key\""
     ":\"hc_decay\",\"name\":\"Decay\"},{\"key\":\"hc_engine\",\"name\":\"Engine\"},{\"key\":\"hc_drive\",\"name\":\"Drive\"},{\""
     "key\":\"hc_dist_type\",\"name\":\"Distortion\"},{\"key\":\"hc_level\",\"name\":\"Level\"}]},\"rs\":{\"name\":\"Rim Shot\""
-    ",\"knobs\":[\"rs_tune\",\"rs_decay\",\"rs_engine\",\"rs_drive\",\"rs_dist_type\",\"rs_level\"],\"params\":[{\"key\":\"r"
-    "s_tune\",\"name\":\"Tune\"},{\"key\":\"rs_decay\",\"name\":\"Decay\"},{\"key\":\"rs_engine\",\"name\":\"Engine\"},{\"key\":"
-    "\"rs_drive\",\"name\":\"Drive\"},{\"key\":\"rs_dist_type\",\"name\":\"Distortion\"},{\"key\":\"rs_level\",\"name\":\"Leve"
-    "l\"}]},\"cl\":{\"name\":\"Claves\",\"knobs\":[\"cl_tune\",\"cl_decay\",\"cl_engine\",\"cl_drive\",\"cl_dist_type\",\"cl_"
-    "level\"],\"params\":[{\"key\":\"cl_tune\",\"name\":\"Tune\"},{\"key\":\"cl_decay\",\"name\":\"Decay\"},{\"key\":\"cl_engin"
-    "e\",\"name\":\"Engine\"},{\"key\":\"cl_drive\",\"name\":\"Drive\"},{\"key\":\"cl_dist_type\",\"name\":\"Distortion\"},{\"k"
-    "ey\":\"cl_level\",\"name\":\"Level\"}]},\"ma\":{\"name\":\"Maracas\",\"knobs\":[\"ma_tune\",\"ma_attack\",\"ma_decay\",\"m"
-    "a_engine\",\"ma_drive\",\"ma_dist_type\",\"ma_level\"],\"params\":[{\"key\":\"ma_tune\",\"name\":\"Tune\"},{\"key\":\"ma"
-    "_attack\",\"name\":\"Attack\"},{\"key\":\"ma_decay\",\"name\":\"Decay\"},{\"key\":\"ma_engine\",\"name\":\"Engine\"},{\"ke"
-    "y\":\"ma_drive\",\"name\":\"Drive\"},{\"key\":\"ma_dist_type\",\"name\":\"Distortion\"},{\"key\":\"ma_level\",\"name\":\"L"
-    "evel\"}]},\"cp\":{\"name\":\"Hand Clap\",\"knobs\":[\"cp_tune\",\"cp_decay\",\"cp_engine\",\"cp_drive\",\"cp_dist_type"
-    "\",\"cp_level\"],\"params\":[{\"key\":\"cp_tune\",\"name\":\"Tune\"},{\"key\":\"cp_decay\",\"name\":\"Decay\"},{\"key\":\"cp"
-    "_engine\",\"name\":\"Engine\"},{\"key\":\"cp_drive\",\"name\":\"Drive\"},{\"key\":\"cp_dist_type\",\"name\":\"Distortion"
-    "\"},{\"key\":\"cp_level\",\"name\":\"Level\"}]},\"cb\":{\"name\":\"Cowbell\",\"knobs\":[\"cb_tune\",\"cb_decay\",\"cb_engi"
-    "ne\",\"cb_drive\",\"cb_dist_type\",\"cb_level\"],\"params\":[{\"key\":\"cb_tune\",\"name\":\"Tune\"},{\"key\":\"cb_decay"
-    "\",\"name\":\"Decay\"},{\"key\":\"cb_engine\",\"name\":\"Engine\"},{\"key\":\"cb_drive\",\"name\":\"Drive\"},{\"key\":\"cb_d"
-    "ist_type\",\"name\":\"Distortion\"},{\"key\":\"cb_level\",\"name\":\"Level\"}]},\"ch\":{\"name\":\"Closed Hat\",\"knobs\""
-    ":[\"ch_tune\",\"ch_decay\",\"ch_engine\",\"ch_drive\",\"ch_dist_type\",\"ch_level\",\"hh_choke\"],\"params\":[{\"key\""
-    ":\"ch_tune\",\"name\":\"Tune\"},{\"key\":\"ch_decay\",\"name\":\"Decay\"},{\"key\":\"ch_engine\",\"name\":\"Engine\"},{\"ke"
-    "y\":\"ch_drive\",\"name\":\"Drive\"},{\"key\":\"ch_dist_type\",\"name\":\"Distortion\"},{\"key\":\"ch_level\",\"name\":\"L"
-    "evel\"},{\"key\":\"hh_choke\",\"name\":\"Choke\"}]},\"oh\":{\"name\":\"Open Hat\",\"knobs\":[\"oh_tune\",\"oh_decay\",\"oh"
-    "_engine\",\"oh_drive\",\"oh_dist_type\",\"oh_level\"],\"params\":[{\"key\":\"oh_tune\",\"name\":\"Tune\"},{\"key\":\"oh_"
-    "decay\",\"name\":\"Decay\"},{\"key\":\"oh_engine\",\"name\":\"Engine\"},{\"key\":\"oh_drive\",\"name\":\"Drive\"},{\"key\":"
-    "\"oh_dist_type\",\"name\":\"Distortion\"},{\"key\":\"oh_level\",\"name\":\"Level\"}]},\"cy\":{\"name\":\"Cymbal\",\"knobs"
-    "\":[\"cy_tune\",\"cy_decay\",\"cy_engine\",\"cy_tone\",\"cy_drive\",\"cy_dist_type\",\"cy_level\"],\"params\":[{\"key\""
-    ":\"cy_tune\",\"name\":\"Tune\"},{\"key\":\"cy_decay\",\"name\":\"Decay\"},{\"key\":\"cy_engine\",\"name\":\"Engine\"},{\"ke"
-    "y\":\"cy_tone\",\"name\":\"Tone\"},{\"key\":\"cy_drive\",\"name\":\"Drive\"},{\"key\":\"cy_dist_type\",\"name\":\"Distorti"
-    "on\"},{\"key\":\"cy_level\",\"name\":\"Level\"}]},\"root\":{\"name\":\"8W8\",\"knobs\":[\"master_dist\",\"master_drive\","
-    "\"volume\",\"accent\"],\"params\":[{\"level\":\"bd\",\"label\":\"Bass Drum\"},{\"level\":\"sd\",\"label\":\"Snare\"},{\"lev"
-    "el\":\"lt\",\"label\":\"Low Tom\"},{\"level\":\"mt\",\"label\":\"Mid Tom\"},{\"level\":\"ht\",\"label\":\"Hi Tom\"},{\"level"
-    "\":\"lc\",\"label\":\"Low Conga\"},{\"level\":\"mc\",\"label\":\"Mid Conga\"},{\"level\":\"hc\",\"label\":\"Hi Conga\"},{\"l"
-    "evel\":\"rs\",\"label\":\"Rim Shot\"},{\"level\":\"cl\",\"label\":\"Claves\"},{\"level\":\"ma\",\"label\":\"Maracas\"},{\"le"
-    "vel\":\"cp\",\"label\":\"Hand Clap\"},{\"level\":\"cb\",\"label\":\"Cowbell\"},{\"level\":\"ch\",\"label\":\"Closed Hat\"},"
-    "{\"level\":\"oh\",\"label\":\"Open Hat\"},{\"level\":\"cy\",\"label\":\"Cymbal\"},{\"key\":\"master_dist\",\"name\":\"Maste"
-    "r Dist\"},{\"key\":\"master_drive\",\"name\":\"Master Drive\"},{\"key\":\"volume\",\"name\":\"Volume\"},{\"key\":\"accen"
-    "t\",\"name\":\"Accent\"},{\"key\":\"hh_choke\",\"name\":\"Choke\"},{\"key\":\"note_map\",\"name\":\"Note Map\"},{\"key\":\"m"
-    "etal_run\",\"name\":\"Metal\"}]}}}";
+    ",\"knobs\":[\"rs_tune\",\"rs_decay\",\"rs_drive\",\"rs_dist_type\",\"rs_level\"],\"params\":[{\"key\":\"rs_tune\",\"nam"
+    "e\":\"Tune\"},{\"key\":\"rs_decay\",\"name\":\"Decay\"},{\"key\":\"rs_drive\",\"name\":\"Drive\"},{\"key\":\"rs_dist_type\""
+    ",\"name\":\"Distortion\"},{\"key\":\"rs_level\",\"name\":\"Level\"}]},\"cl\":{\"name\":\"Claves\",\"knobs\":[\"cl_tune\",\""
+    "cl_decay\",\"cl_engine\",\"cl_drive\",\"cl_dist_type\",\"cl_level\"],\"params\":[{\"key\":\"cl_tune\",\"name\":\"Tune\""
+    "},{\"key\":\"cl_decay\",\"name\":\"Decay\"},{\"key\":\"cl_engine\",\"name\":\"Engine\"},{\"key\":\"cl_drive\",\"name\":\"Dr"
+    "ive\"},{\"key\":\"cl_dist_type\",\"name\":\"Distortion\"},{\"key\":\"cl_level\",\"name\":\"Level\"}]},\"ma\":{\"name\":\"M"
+    "aracas\",\"knobs\":[\"ma_tune\",\"ma_attack\",\"ma_decay\",\"ma_engine\",\"ma_drive\",\"ma_dist_type\",\"ma_level\"],"
+    "\"params\":[{\"key\":\"ma_tune\",\"name\":\"Tune\"},{\"key\":\"ma_attack\",\"name\":\"Attack\"},{\"key\":\"ma_decay\",\"nam"
+    "e\":\"Decay\"},{\"key\":\"ma_engine\",\"name\":\"Engine\"},{\"key\":\"ma_drive\",\"name\":\"Drive\"},{\"key\":\"ma_dist_ty"
+    "pe\",\"name\":\"Distortion\"},{\"key\":\"ma_level\",\"name\":\"Level\"}]},\"cp\":{\"name\":\"Hand Clap\",\"knobs\":[\"cp_t"
+    "une\",\"cp_decay\",\"cp_engine\",\"cp_drive\",\"cp_dist_type\",\"cp_level\"],\"params\":[{\"key\":\"cp_tune\",\"name\":"
+    "\"Tune\"},{\"key\":\"cp_decay\",\"name\":\"Decay\"},{\"key\":\"cp_engine\",\"name\":\"Engine\"},{\"key\":\"cp_drive\",\"nam"
+    "e\":\"Drive\"},{\"key\":\"cp_dist_type\",\"name\":\"Distortion\"},{\"key\":\"cp_level\",\"name\":\"Level\"}]},\"cb\":{\"na"
+    "me\":\"Cowbell\",\"knobs\":[\"cb_tune\",\"cb_decay\",\"cb_engine\",\"cb_drive\",\"cb_dist_type\",\"cb_level\"],\"param"
+    "s\":[{\"key\":\"cb_tune\",\"name\":\"Tune\"},{\"key\":\"cb_decay\",\"name\":\"Decay\"},{\"key\":\"cb_engine\",\"name\":\"Eng"
+    "ine\"},{\"key\":\"cb_drive\",\"name\":\"Drive\"},{\"key\":\"cb_dist_type\",\"name\":\"Distortion\"},{\"key\":\"cb_level\""
+    ",\"name\":\"Level\"}]},\"ch\":{\"name\":\"Closed Hat\",\"knobs\":[\"ch_tune\",\"ch_decay\",\"ch_engine\",\"ch_drive\",\"c"
+    "h_dist_type\",\"ch_level\",\"hh_choke\"],\"params\":[{\"key\":\"ch_tune\",\"name\":\"Tune\"},{\"key\":\"ch_decay\",\"nam"
+    "e\":\"Decay\"},{\"key\":\"ch_engine\",\"name\":\"Engine\"},{\"key\":\"ch_drive\",\"name\":\"Drive\"},{\"key\":\"ch_dist_ty"
+    "pe\",\"name\":\"Distortion\"},{\"key\":\"ch_level\",\"name\":\"Level\"},{\"key\":\"hh_choke\",\"name\":\"Choke\"}]},\"oh\":"
+    "{\"name\":\"Open Hat\",\"knobs\":[\"oh_tune\",\"oh_decay\",\"oh_engine\",\"oh_drive\",\"oh_dist_type\",\"oh_level\"],\""
+    "params\":[{\"key\":\"oh_tune\",\"name\":\"Tune\"},{\"key\":\"oh_decay\",\"name\":\"Decay\"},{\"key\":\"oh_engine\",\"name\""
+    ":\"Engine\"},{\"key\":\"oh_drive\",\"name\":\"Drive\"},{\"key\":\"oh_dist_type\",\"name\":\"Distortion\"},{\"key\":\"oh_l"
+    "evel\",\"name\":\"Level\"}]},\"cy\":{\"name\":\"Cymbal\",\"knobs\":[\"cy_tune\",\"cy_decay\",\"cy_engine\",\"cy_tone\",\"c"
+    "y_drive\",\"cy_dist_type\",\"cy_level\"],\"params\":[{\"key\":\"cy_tune\",\"name\":\"Tune\"},{\"key\":\"cy_decay\",\"nam"
+    "e\":\"Decay\"},{\"key\":\"cy_engine\",\"name\":\"Engine\"},{\"key\":\"cy_tone\",\"name\":\"Tone\"},{\"key\":\"cy_drive\",\"n"
+    "ame\":\"Drive\"},{\"key\":\"cy_dist_type\",\"name\":\"Distortion\"},{\"key\":\"cy_level\",\"name\":\"Level\"}]},\"root\":"
+    "{\"name\":\"8W8\",\"knobs\":[\"master_dist\",\"master_drive\",\"volume\",\"accent\"],\"params\":[{\"level\":\"bd\",\"labe"
+    "l\":\"Bass Drum\"},{\"level\":\"sd\",\"label\":\"Snare\"},{\"level\":\"lt\",\"label\":\"Low Tom\"},{\"level\":\"mt\",\"label"
+    "\":\"Mid Tom\"},{\"level\":\"ht\",\"label\":\"Hi Tom\"},{\"level\":\"lc\",\"label\":\"Low Conga\"},{\"level\":\"mc\",\"label"
+    "\":\"Mid Conga\"},{\"level\":\"hc\",\"label\":\"Hi Conga\"},{\"level\":\"rs\",\"label\":\"Rim Shot\"},{\"level\":\"cl\",\"la"
+    "bel\":\"Claves\"},{\"level\":\"ma\",\"label\":\"Maracas\"},{\"level\":\"cp\",\"label\":\"Hand Clap\"},{\"level\":\"cb\",\"la"
+    "bel\":\"Cowbell\"},{\"level\":\"ch\",\"label\":\"Closed Hat\"},{\"level\":\"oh\",\"label\":\"Open Hat\"},{\"level\":\"cy\","
+    "\"label\":\"Cymbal\"},{\"key\":\"master_dist\",\"name\":\"Master Dist\"},{\"key\":\"master_drive\",\"name\":\"Master Dr"
+    "ive\"},{\"key\":\"volume\",\"name\":\"Volume\"},{\"key\":\"accent\",\"name\":\"Accent\"},{\"key\":\"hh_choke\",\"name\":\"Ch"
+    "oke\"},{\"key\":\"note_map\",\"name\":\"Note Map\"},{\"key\":\"metal_run\",\"name\":\"Metal\"}]}}}";
 
 #endif /* SC808_PARAMS_H */

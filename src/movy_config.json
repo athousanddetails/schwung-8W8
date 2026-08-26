@@ -553,16 +553,6 @@
             "max": 127
           },
           {
-            "key": "rs_engine",
-            "short": "ENGIN",
-            "full": "Engine",
-            "type": "enum",
-            "options": [
-              "Circ",
-              "sc808"
-            ]
-          },
-          {
             "key": "rs_drive",
             "short": "DRIVE",
             "full": "Drive",
@@ -590,6 +580,7 @@
             "min": 0,
             "max": 127
           },
+          null,
           null,
           null
         ]

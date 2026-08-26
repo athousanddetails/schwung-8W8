@@ -78,7 +78,11 @@ const float kBaseNote[SC808_NUM_VOICES] = {
     55.88f,  /* lc — 206.1 Hz */
     62.49f,  /* mc — 302.1 Hz */
     67.55f,  /* hc — 404.6 Hz */
-    92.0f,   /* rs */
+    /* MEASURED from rim808.wav: the tock sits at 1788 Hz and sc808 puts it
+     * at note x 1.1, so the note is 91.62 — its declared 92 landed the rim
+     * a third of a semitone sharp, which is the "needs better tuning on the
+     * default" from the first field report. */
+    91.62f,  /* rs */
     99.2f,   /* cl — MEASURED: Roland's own model pings at 2518 Hz, which is
               *      99.2; sc808's 99 (2489 Hz) sat 20 cents flat */
    113.0f,   /* ma — the highpass corner, this voice has no oscillator */
@@ -113,22 +117,22 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.1536f,   /* bd — the reference: everything else is set against the kick */
-    0.1013f,   /* sd */
-    0.2131f,   /* lt */
-    0.2177f,   /* mt */
-    0.2030f,   /* ht */
-    0.1944f,   /* lc */
-    0.2021f,   /* mc */
-    0.1992f,   /* hc */
-    2.7021f,   /* rs — a click with a crest factor of 11 */
-    1.3480f,   /* cl */
-    0.3184f,   /* ma */
-    3.9298f,   /* cp — the quietest voice in sc808 by a long way */
-    0.3765f,   /* cb */
-    0.2559f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.4669f,   /* oh */
-    0.5506f,   /* cy */
+    0.1970f,   /* bd — the reference: everything else is set against the kick */
+    0.1298f,   /* sd */
+    0.2732f,   /* lt */
+    0.2791f,   /* mt */
+    0.2604f,   /* ht */
+    0.2493f,   /* lc */
+    0.2592f,   /* mc */
+    0.2555f,   /* hc */
+    0.1757f,   /* rs — a click with a crest factor of 11 */
+    1.7287f,   /* cl */
+    0.4083f,   /* ma */
+    5.0396f,   /* cp — the quietest voice in sc808 by a long way */
+    0.4828f,   /* cb */
+    0.3282f,   /* ch — raw peak near 17 before the drive stage catches it */
+    0.5988f,   /* oh */
+    0.7061f,   /* cy */
 };
 
 /*
@@ -215,9 +219,10 @@ struct sc808_engine {
     /* Globals. */
     int e_master_dist, e_choke, e_note_map, e_bd_engine, e_metal_run, e_sd_engine;
     int e_cp_engine;
-    /* lt mt ht lc mc hc, then rs cl ma — the lanes SC808_TOM_LANE serves */
-    int e_tom_engine[9];
-    int e_rs_engine, e_cl_engine, e_ma_engine, e_cb_engine;
+    /* lt mt ht lc mc hc, then cl ma — the lanes SC808_TOM_LANE serves.
+     * The rim shot left this list when its switch went. */
+    int e_tom_engine[8];
+    int e_cl_engine, e_ma_engine, e_cb_engine;
     int e_ch_engine, e_oh_engine, e_cy_engine;
     int p_master_drive, p_volume, p_accent;
 
@@ -238,7 +243,7 @@ struct sc808_engine {
     CymbalCircuit   cyc;
     HatCircuit      chc, ohc;
     CowbellCircuit  cbc;
-    RimClaveCircuit rsc, clc;
+    ClaveCircuit    clc;
     MaracasCircuit  mac;
     Tom       lt, mt, ht, lc, mc, hc;
     RimClave  rs;
@@ -337,9 +342,8 @@ sc808_engine_t *sc808_create(float sample_rate)
             e->e_tom_engine[i] = find_enum(k);
         }
     }
-    e->e_rs_engine = e->e_tom_engine[6] = find_enum("rs_engine");
-    e->e_cl_engine = e->e_tom_engine[7] = find_enum("cl_engine");
-    e->e_ma_engine = e->e_tom_engine[8] = find_enum("ma_engine");
+    e->e_cl_engine = e->e_tom_engine[6] = find_enum("cl_engine");
+    e->e_ma_engine = e->e_tom_engine[7] = find_enum("ma_engine");
     e->e_cb_engine = find_enum("cb_engine");
     e->e_ch_engine = find_enum("ch_engine");
     e->e_oh_engine = find_enum("oh_engine");
@@ -361,8 +365,7 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->chc.init(sr, &e->mbank, 0);
     e->ohc.init(sr, &e->mbank, 1);
     e->cbc.init(sr, &e->mbank);
-    e->rsc.init(sr, 0);
-    e->clc.init(sr, 1);
+    e->clc.init(sr);
     e->mac.init(sr);
     e->lt.init(sr); e->mt.init(sr); e->ht.init(sr);
     e->lc.init(sr); e->mc.init(sr); e->hc.init(sr);
@@ -539,26 +542,20 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         break;
     }
     case SC808_RS:
-        if(e->env[e->e_rs_engine] == 0)
-        {
-            /* Decay is the RING STRETCH pot: raw 0..1, centre = the
-             * measured hardware. Accent is trigger volts, as everywhere. */
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
-            e->rsc.trigger(powf(2.0f, tune / 12.0f),
-                           (float)e->pot[e->slot[voice].decay] / 127.0f,
-                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            e->rt[voice].hit_gain = 1.0f;
-        }
-        else
-        {
-            /* The rim shot's band filters follow Tune. sc808 pins them at 63
-             * and 118, which sounds broken once the note moves. The sc808
-             * path reads the stretch pot as its old seconds range. */
-            e->rs.trigger(0, lane_hz(voice, tune),
-                          0.01f + ((float)e->pot[e->slot[voice].decay] / 127.0f) * 0.13f,
-                          (double)midicps(63.0f + tune),
-                          (double)midicps(118.0f + tune));
-        }
+        /*
+         * ONE VOICE, no switch: the sc808 rim, which beat two circuit
+         * builds on hardware. Decay arrives as SECONDS of audible ring and
+         * is converted here — sc808's envelope runs at curve -42, so the
+         * part above 1% of peak is ln(100)/42 = 11% of the declared
+         * duration.
+         *
+         * The band filters follow Tune. sc808 pins them at 63 and 118,
+         * which is fine while the note never moves and sounds broken once
+         * it does.
+         */
+        e->rs.trigger(0, lane_hz(voice, tune), decay * 9.12f,
+                      (double)midicps(63.0f + tune),
+                      (double)midicps(118.0f + tune));
         break;
     case SC808_CL:
         if(e->env[e->e_cl_engine] == 0)
@@ -742,9 +739,9 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
         SC808_TOM_LANE(SC808_LC, 3, lcc, lc);
         SC808_TOM_LANE(SC808_MC, 4, mcc, mc);
         SC808_TOM_LANE(SC808_HC, 5, hcc, hc);
-        SC808_TOM_LANE(SC808_RS, 6, rsc, rs);
-        SC808_TOM_LANE(SC808_CL, 7, clc, cl);
-        SC808_TOM_LANE(SC808_MA, 8, mac, ma);
+        SC808_LANE(SC808_RS, rs);           /* one voice, see the trigger */
+        SC808_TOM_LANE(SC808_CL, 6, clc, cl);
+        SC808_TOM_LANE(SC808_MA, 7, mac, ma);
         if(e->rt[SC808_CP].choke_gain > 0.0f)
         {
             if(e->env[e->e_cp_engine] == 0)

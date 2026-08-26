@@ -15,9 +15,11 @@ verdict-ed before the next. References on the Desktop: `toms808.wav`
 2. **CONGAS.** "Congas = toms" — not distinct enough. Flip the AU kit
    switch (channel instrument ids) to render REAL congas as reference.
    Same no-click rule applies.
-3. **RIM SHOT.** Circuit version is WORSE than the old sc808 one.
-   Reference: `rim808.wav`. Fix against it or default the lane back to
-   sc808 until the circuit is right.
+3. **RIM SHOT — DONE.** Two circuit builds, both worse than sc808 on
+   hardware. Resolution the player chose: the sc808 rim IS the rim, no
+   Engine switch on that lane, tuned to `rim808.wav` (note 92 -> 91.62,
+   putting the tock on the reference's 1788 Hz) and Decay in real
+   seconds. The circuit rim code is deleted, not left dormant.
 4. **COWBELL.** Worse than before. Fix against AU n56 (543+812 Hz,
    0.43 s) — the sc808 one was closer in character.
 5. **HATS.** "Disgusting." Both CH and OH. References: 808 clean CH/OH

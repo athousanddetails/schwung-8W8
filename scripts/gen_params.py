@@ -199,10 +199,13 @@ PAGES = [
                          DRIVE("hc"), DTYPE("hc"), LEVEL("hc")]),
     ("rs", "Rim Shot", [
         TUNE("rs"),
-        # ring stretch: pot centre IS the measured hardware ring; the ends
-        # halve and double it inside the circuit voice
-        P("rs_decay", "Decay", 0.0, 1.0, LIN, 64),
-        E("rs_engine", "Engine", ["Circ", "sc808"]),
+        # NO Engine switch on this lane. Two circuit rim shots were built
+        # from the schematic and both lost to the sc808 algorithm on
+        # hardware — the second badly enough that the verdict was "not good
+        # at all, I prefer sc808". So the sc808 rim IS the rim here, tuned
+        # to rim808.wav, and the lane has one voice like every lane will
+        # once the switches go. Decay is SECONDS of audible ring.
+        PV("rs_decay", "Decay", 0.005, 0.20, EXP, 0.016),
         DRIVE("rs"), DTYPE("rs"), LEVEL("rs"),
     ]),
     # Claves: Roland's own model pings at 2518 Hz; note 99 is 2489, so the
