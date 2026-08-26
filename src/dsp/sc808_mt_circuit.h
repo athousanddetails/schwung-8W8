@@ -235,21 +235,24 @@ private:
  */
 static const double kMT_DiodeVon = 0.5899;   /* Werner's least-squares fit */
 
-static inline double swingVCA(const double _x, const double _env)
+static inline double swingVCA(const double _x, const double _env,
+                              const double _knee = 0.35)
 {
     /*
      * The gate has a KNEE, not an edge. Werner fits the VCA's lower edge as
      * a sum of stretched exponentials — the diode comes out of conduction
      * over a region, not at a point — and a hard cut here measured as the
-     * whole tail ending 40 dB early. Quadratic through the last 0.35 V of
+     * whole tail ending 40 dB early. Quadratic through the knee's span of
      * approach reproduces the soft landing without the curve-fit costs.
+     * The knee is per voice: the hats' references glide through a one-to-
+     * two-percent tail for twenty milliseconds after the note has died,
+     * and the narrow default cut that glide off.
      */
     const double over = _env - kMT_DiodeVon;
     double drive;
-    const double knee = 0.35;
     if(over <= 0.0) return 0.0;
-    else if(over < knee) drive = over * over / knee;
-    else drive = over - knee * 0.5;
+    else if(over < _knee) drive = over * over / _knee;
+    else drive = over - _knee * 0.5;
     const double hw = _x > 0.0 ? _x : 0.0;        /* half-wave conduction */
     return hw * drive;
 }
@@ -422,9 +425,18 @@ public:
          * without this the hats measured centred at one kilohertz. The
          * derived corner is what makes a hat a hat.
          */
-        hpOut_.set(_mode == 1 ? 8700.0 : 10200.0, _sr);
+        /* TWO poles: the 470 pF into the amp is one, the amp's own input
+         * network the other. One pole left the VCA's rectification junk at
+         * 2-3 kHz only 12 dB down where every reference has it at 22. */
+        hpOutA_.set(_mode == 1 ? 8700.0 : 10200.0, _sr);
+        hpOutB_.set(_mode == 1 ? 5200.0 : 6000.0, _sr);
         env_.init(_sr);
         dc_.set(200.0, _sr);
+        /* the naive squares put extra energy above 12.5 kHz (aliased edge
+         * content the analog references do not have); one pole at 10.5 kHz
+         * flattens the top the way both references measure flat */
+        lpTopA_ = exp(-2.0 * kCircPi * 10500.0 / _sr);
+        lpTopZ_ = 0.0;
         outScale_ = _mode == 1 ? 5.5 : 22.0;
         active_ = false; quiet_ = 0;
     }
@@ -436,7 +448,7 @@ public:
         const double a = (double)_accentV / 8.0;
         const double t = _decaySec > 0.02f ? (double)_decaySec : 0.02;
         /* peak ~8 V on the envelope bus; decay pot is seconds to 1% */
-        env_.trigger(8.0 * a, t / 2.3);   /* tau: see the cymbal note */
+        env_.trigger(8.0 * a, t / 2.0);   /* tau: see the cymbal note */
         active_ = true; quiet_ = 0;
     }
 
@@ -448,7 +460,10 @@ public:
     {
         if(!active_) return 0.0f;
         const double hp = hpB_.process(hpA_.process(_bus));
-        const double v  = hpOut_.process(swingVCA(hp, env_.tick()));
+        double v = hpOutB_.process(hpOutA_.process(
+                       swingVCA(hp, env_.tick(), 1.2)));
+        lpTopZ_ += (v - lpTopZ_) * (1.0 - lpTopA_);
+        v = lpTopZ_;
         const double y = dc_.process(v * outScale_);
 
         const float o = (float)y;
@@ -465,7 +480,8 @@ private:
     double sr_ = 44100.0;
     int    mode_ = 0;
     SchmittBank *bank_ = nullptr;
-    OnePoleHP hpA_, hpB_, hpOut_, dc_;
+    OnePoleHP hpA_, hpB_, hpOutA_, hpOutB_, dc_;
+    double lpTopA_ = 0.0, lpTopZ_ = 0.0;
     MetalEnv env_;
     bool active_ = false;
     int  quiet_ = 0;

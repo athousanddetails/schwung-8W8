@@ -117,22 +117,22 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.2775f,   /* bd — the reference: everything else is set against the kick */
-    0.1829f,   /* sd */
-    0.3849f,   /* lt */
-    0.3932f,   /* mt */
-    0.3667f,   /* ht */
-    0.3511f,   /* lc */
-    0.3651f,   /* mc */
-    0.3599f,   /* hc */
-    0.2475f,   /* rs — a click with a crest factor of 11 */
-    2.4350f,   /* cl */
-    0.5751f,   /* ma */
-    3.7117f,   /* cp — the quietest voice in sc808 by a long way */
-    0.1132f,   /* cb */
-    0.4623f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.8434f,   /* oh */
-    0.9946f,   /* cy */
+    0.2194f,   /* bd — the reference: everything else is set against the kick */
+    0.1446f,   /* sd */
+    0.3042f,   /* lt */
+    0.3108f,   /* mt */
+    0.2899f,   /* ht */
+    0.2776f,   /* lc */
+    0.2886f,   /* mc */
+    0.2845f,   /* hc */
+    0.1956f,   /* rs — a click with a crest factor of 11 */
+    1.9247f,   /* cl */
+    0.4546f,   /* ma */
+    2.9338f,   /* cp — the quietest voice in sc808 by a long way */
+    0.0895f,   /* cb */
+    1.0709f,   /* ch — raw peak near 17 before the drive stage catches it */
+    1.7689f,   /* oh */
+    0.7861f,   /* cy */
 };
 
 /*
