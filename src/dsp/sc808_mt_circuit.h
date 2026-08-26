@@ -494,7 +494,7 @@ private:
  */
 static const double kCB_BandQ    = 5.5;
 static const double kCB_ClankTau = 0.015;
-static const double kCB_BodyTau  = 0.140;
+static const double kCB_BodyTau  = 0.125;  /* both references thin the 50-90 ms region below the first fit */
 static const double kCB_ClankMix = 0.77;
 static const double kCB_BodyMix  = 0.23;
 static const double kCB_OutScale = 1.9;      /* fitted, shared trim */
@@ -510,15 +510,14 @@ static const double kCB_OutScale = 1.9;      /* fitted, shared trim */
 static double kCB_Asym  = 2.0;
 
 /*
- * The pair's own upper harmonics, bled around the band pass through the
- * stage's coupling caps — a memoryless polynomial cannot SUSTAIN a third
- * harmonic in the body (its product decays as the cube of a decaying
- * envelope), but the squares never stop supplying theirs: 3 x 540 = 1620
- * and 3 x 804 = 2413 arrive at the square's natural -9.5 dB and only need
- * the right level. High-passed so the fundamentals stay the filter's.
+ * NO harmonic bleed. One existed for an afternoon, built to hit a "3rd
+ * harmonic at -20 dB" that turned out to be the coarse analyzer's own
+ * artifact: exact-bin measurement of BOTH references — Roland's render and
+ * the player's — puts 3 x f0 at -36 to -38 dB, which is where the band
+ * pass alone leaves it. The 2 x f0 at -22/-23 is real and the stage
+ * asymmetry below supplies exactly that. Trust the narrow bin, not the
+ * peak list.
  */
-static double kCB_BleedHPHz = 1400.0;
-static double kCB_Bleed     = 0.55;   /* through TWO poles at the corner */
 
 class CowbellCircuit {
 public:
@@ -527,8 +526,6 @@ public:
         sr_ = _sr; bank_ = _bank;
         bp_.set(812.0, kCB_BandQ, _sr);
         hp_.set(200.0, _sr);
-        bleedHpA_.set(kCB_BleedHPHz, _sr);
-        bleedHpB_.set(kCB_BleedHPHz, _sr);
         clank_ = body_ = 0.0;
         clankD_ = bodyD_ = 1.0;
         ratio_ = 1.0;
@@ -570,7 +567,7 @@ public:
         clank_ *= clankD_;
         body_  *= bodyD_;
 
-        double v = (x + kCB_Bleed * bleedHpB_.process(bleedHpA_.process((o5 + o6) * 0.5))) * env;
+        double v = x * env;
         /* the stage's one-sided curvature */
         v = v + kCB_Asym * v * v;
         const double y = hp_.process(v * kCB_OutScale);
@@ -585,7 +582,7 @@ private:
     double sr_ = 44100.0, ratio_ = 1.0;
     SchmittBank *bank_ = nullptr;
     BridgedT  bp_;
-    OnePoleHP hp_, bleedHpA_, bleedHpB_;
+    OnePoleHP hp_;
     double clank_ = 0, body_ = 0, clankD_ = 1, bodyD_ = 1;
     bool active_ = false;
     int  quiet_ = 0;
