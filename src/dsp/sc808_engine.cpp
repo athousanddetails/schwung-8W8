@@ -117,22 +117,22 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.2766f,   /* bd — the reference: everything else is set against the kick */
-    0.1823f,   /* sd */
-    0.3836f,   /* lt */
-    0.3919f,   /* mt */
-    0.3656f,   /* ht */
-    0.3500f,   /* lc */
-    0.3639f,   /* mc */
-    0.3587f,   /* hc */
-    0.2467f,   /* rs — a click with a crest factor of 11 */
-    2.4271f,   /* cl */
-    0.5732f,   /* ma */
-    3.6997f,   /* cp — the quietest voice in sc808 by a long way */
-    0.6779f,   /* cb */
-    0.4608f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.8407f,   /* oh */
-    0.9913f,   /* cy */
+    0.2775f,   /* bd — the reference: everything else is set against the kick */
+    0.1829f,   /* sd */
+    0.3849f,   /* lt */
+    0.3932f,   /* mt */
+    0.3667f,   /* ht */
+    0.3511f,   /* lc */
+    0.3651f,   /* mc */
+    0.3599f,   /* hc */
+    0.2475f,   /* rs — a click with a crest factor of 11 */
+    2.4350f,   /* cl */
+    0.5751f,   /* ma */
+    3.7117f,   /* cp — the quietest voice in sc808 by a long way */
+    0.1132f,   /* cb */
+    0.4623f,   /* ch — raw peak near 17 before the drive stage catches it */
+    0.8434f,   /* oh */
+    0.9946f,   /* cy */
 };
 
 /*
@@ -611,6 +611,7 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         {
             const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
             e->mbank.setRatio((double)tune);
+            e->cbc.setRatio((double)tune);
             e->cbc.trigger(decay, av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
             e->rt[voice].hit_gain = 1.0f;
         }

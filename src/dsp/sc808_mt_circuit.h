@@ -475,30 +475,88 @@ private:
 
 /*
  * Oscillators 5 and 6 — 800 and 540 Hz, the pair the trimpots exist for —
- * through a band shaper and a two-stage envelope. Roland's own render at
- * the default kit: partials at 543 and 812 with the square's harmonics,
- * to 1% of peak in 0.43 s with a fast spike on the front.
+ * and everything else is measured off Roland's own render, which told a
+ * different story from the first guess:
+ *
+ *   THE 812 CARRIES THE BELL. In both the attack and the body the 812 Hz
+ *   oscillator dominates with 543 FOURTEEN dB below it, 1635 (2 x 812) at
+ *   -20 and 2445 (3 x 812) at -21. A single band pass centred on the 812,
+ *   Q 5.5, reproduces every one of those ratios from the raw squares.
+ *
+ *   TWO-STAGE ENVELOPE, decomposed from the reference's 10 ms windows: a
+ *   clank of about 15 ms time constant carrying ~77% of the front, over a
+ *   body near 140 ms carrying the rest; the tail is alive past 400 ms, so
+ *   no hard diode gate here.
+ *
+ *   NO half-wave VCA. The first version used the swing-VCA treatment and
+ *   its rectification minted a 1355 Hz intermod (543 + 812) that the
+ *   reference simply does not contain. Linear VCA, measured clean.
  */
+static const double kCB_BandQ    = 5.5;
+static const double kCB_ClankTau = 0.015;
+static const double kCB_BodyTau  = 0.140;
+static const double kCB_ClankMix = 0.77;
+static const double kCB_BodyMix  = 0.23;
+static const double kCB_OutScale = 1.9;      /* fitted, shared trim */
+
+/*
+ * The output transistor stage's asymmetry. A clean band-passed pair is too
+ * PURE to be this bell: the reference carries 2 x 812 at -18 dB and
+ * 3 x 812 at -20 — even harmonics a square pair cannot supply and a Q-5.5
+ * filter would bury. The single-ended stage (Q21-23 region) clips one side
+ * before the other, and that asymmetry mints exactly those partials.
+ * Coefficients calibrated against the reference's measured levels.
+ */
+static double kCB_Asym  = 2.0;
+
+/*
+ * The pair's own upper harmonics, bled around the band pass through the
+ * stage's coupling caps — a memoryless polynomial cannot SUSTAIN a third
+ * harmonic in the body (its product decays as the cube of a decaying
+ * envelope), but the squares never stop supplying theirs: 3 x 540 = 1620
+ * and 3 x 804 = 2413 arrive at the square's natural -9.5 dB and only need
+ * the right level. High-passed so the fundamentals stay the filter's.
+ */
+static double kCB_BleedHPHz = 1400.0;
+static double kCB_Bleed     = 0.55;   /* through TWO poles at the corner */
+
 class CowbellCircuit {
 public:
     void init(const double _sr, SchmittBank *_bank)
     {
         sr_ = _sr; bank_ = _bank;
-        bp_.set(830.0, 1.1, _sr);          /* between the pair; fitted    */
-        hp_.set(400.0, _sr);
-        envA_.init(_sr); envB_.init(_sr);
+        bp_.set(812.0, kCB_BandQ, _sr);
+        hp_.set(200.0, _sr);
+        bleedHpA_.set(kCB_BleedHPHz, _sr);
+        bleedHpB_.set(kCB_BleedHPHz, _sr);
+        clank_ = body_ = 0.0;
+        clankD_ = bodyD_ = 1.0;
+        ratio_ = 1.0;
         active_ = false; quiet_ = 0;
     }
 
     bool active() const { return active_; }
 
+    /* decaySec scales the body's ring (to 1% of peak, seconds); the clank
+     * is the strike and stays put. */
     void trigger(const float _decaySec, const float _accentV)
     {
         const double a = (double)_accentV / 8.0;
         const double t = _decaySec > 0.05f ? (double)_decaySec : 0.05;
-        envA_.trigger(10.0 * a, 0.012);            /* the clank            */
-        envB_.trigger(4.0 * a, t / 1.6);   /* the body; two envelopes stack */
+        /* 0.43 s to 1% at the default pot = the derived kCB_BodyTau — the
+         * pot moves the body proportionally around it */
+        const double scale = t / 0.43;
+        clank_  = kCB_ClankMix * a;
+        body_   = kCB_BodyMix * a;
+        clankD_ = exp(-1.0 / (kCB_ClankTau * sr_));
+        bodyD_  = exp(-1.0 / (kCB_BodyTau * scale * sr_));
         active_ = true; quiet_ = 0;
+    }
+
+    void setRatio(const double _r)
+    {
+        const double r = _r < 0.25 ? 0.25 : (_r > 4.0 ? 4.0 : _r);
+        if(r != ratio_) { bp_.set(812.0 * r, kCB_BandQ, sr_); ratio_ = r; }
     }
 
     float process()
@@ -506,24 +564,29 @@ public:
         if(!active_) return 0.0f;
         double o5, o6;
         bank_->cowbellPair(&o5, &o6);
-        const double pair = (o5 + o6) * 0.5;
-        const double x = bp_.process(pair) * 1.6 + pair * 0.25;
-        const double e = envA_.tick() + envB_.tick();
-        const double y = hp_.process(swingVCA(x, e) * kCB_OutScale);
+        const double x = bp_.process((o5 + o6) * 0.5);
+
+        const double env = clank_ + body_;
+        clank_ *= clankD_;
+        body_  *= bodyD_;
+
+        double v = (x + kCB_Bleed * bleedHpB_.process(bleedHpA_.process((o5 + o6) * 0.5))) * env;
+        /* the stage's one-sided curvature */
+        v = v + kCB_Asym * v * v;
+        const double y = hp_.process(v * kCB_OutScale);
 
         const float o = (float)y;
         if(o > 3.2e-5f || o < -3.2e-5f) quiet_ = 0;
-        else if(++quiet_ > 400 && envA_.dead() && envB_.dead()) active_ = false;
+        else if(++quiet_ > 400 && env < 1e-4) active_ = false;
         return o;
     }
 
 private:
-    static constexpr double kCB_OutScale = 0.0236; /* fitted, shared trim */
-    double sr_ = 44100.0;
+    double sr_ = 44100.0, ratio_ = 1.0;
     SchmittBank *bank_ = nullptr;
-    BridgedT bp_;
-    OnePoleHP hp_;
-    MetalEnv envA_, envB_;
+    BridgedT  bp_;
+    OnePoleHP hp_, bleedHpA_, bleedHpB_;
+    double clank_ = 0, body_ = 0, clankD_ = 1, bodyD_ = 1;
     bool active_ = false;
     int  quiet_ = 0;
 };

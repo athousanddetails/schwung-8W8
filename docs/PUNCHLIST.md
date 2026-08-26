@@ -26,8 +26,13 @@ verdict-ed before the next. References on the Desktop: `toms808.wav`
    opening after the last tooth, matching the reference's 5 ms envelope
    table to within the stochastic floor. cp_check embeds that table as the
    oracle.
-5. **COWBELL.** Worse than before. Fix against AU n56 (543+812 Hz,
-   0.43 s) — the sc808 one was closer in character.
+5. **COWBELL — deployed, awaiting verdict.** Measured truth: 812
+   dominates EVERYWHERE (543 at -14), single BP at the 812 with Q 5.5
+   nails every filter ratio; two-stage envelope (15 ms clank over 140 ms
+   body, tail alive past 400 ms, no diode gate); the metal 2f/3f
+   harmonics come from the stage's asymmetry plus the squares' own
+   harmonics bled through the coupling caps. The half-wave VCA's 1355 Hz
+   intermod — which the reference does not contain — is gone.
 6. **HATS.** "Disgusting." Both CH and OH. References: 808 clean CH/OH
    samples + AU. The circuit ladder/VCA needs real work against them.
 7. **SNARE.** User reports a Tone control that does nothing and was to
