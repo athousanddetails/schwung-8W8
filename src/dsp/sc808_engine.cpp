@@ -117,22 +117,22 @@ const float kBaseNote[SC808_NUM_VOICES] = {
  * file as failures worth not repeating — peak, and RMS over a fixed window.
  */
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
-    0.2881f,   /* bd — the reference: everything else is set against the kick */
-    0.1899f,   /* sd */
-    0.3995f,   /* lt */
-    0.4082f,   /* mt */
-    0.3807f,   /* ht */
-    0.3645f,   /* lc */
-    0.3790f,   /* mc */
-    0.3736f,   /* hc */
-    0.2569f,   /* rs — a click with a crest factor of 11 */
-    2.5278f,   /* cl */
-    0.5970f,   /* ma */
-    3.8531f,   /* cp — the quietest voice in sc808 by a long way */
-    0.1176f,   /* cb */
+    0.2927f,   /* bd — the reference: everything else is set against the kick */
+    0.1929f,   /* sd */
+    0.4059f,   /* lt */
+    0.4147f,   /* mt */
+    0.3868f,   /* ht */
+    0.3703f,   /* lc */
+    0.3850f,   /* mc */
+    0.3795f,   /* hc */
+    0.2610f,   /* rs — a click with a crest factor of 11 */
+    2.5680f,   /* cl */
+    0.6065f,   /* ma */
+    3.9144f,   /* cp — the quietest voice in sc808 by a long way */
+    0.1194f,   /* cb */
     0.0013f,   /* ch — raw peak near 17 before the drive stage catches it */
     0.0023f,   /* oh */
-    1.0324f,   /* cy */
+    1.0489f,   /* cy */
 };
 
 /*
@@ -626,10 +626,17 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
     case SC808_CH:
         if(e->env[e->e_ch_engine] == 0)
         {
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            /*
+             * Accent stays a GAIN on the hats, not a trigger voltage. A
+             * hotter envelope into the diode gate makes the note LONGER
+             * and puts a beat-wobble in the tail — measured 30% stretch at
+             * full accent — and every reference render keeps its length
+             * regardless of level. The kick's trigger-volts treatment is
+             * right for the kick; here it made the pads sound unlike the
+             * renders.
+             */
             e->mbank.setRatio((double)tune);
-            e->chc.trigger(decay, av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            e->rt[voice].hit_gain = 1.0f;
+            e->chc.trigger(decay, 4.0f);   /* the envelope that matches the references */
         }
         else
         {
@@ -641,10 +648,9 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
     case SC808_OH:
         if(e->env[e->e_oh_engine] == 0)
         {
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            /* accent as gain, same reasoning as the closed hat */
             e->mbank.setRatio((double)tune);
-            e->ohc.trigger(decay, av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            e->rt[voice].hit_gain = 1.0f;
+            e->ohc.trigger(decay, 4.0f);
         }
         else
         {
