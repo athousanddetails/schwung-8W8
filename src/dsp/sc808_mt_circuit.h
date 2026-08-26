@@ -409,35 +409,32 @@ public:
     {
         sr_ = _sr; bank_ = _bank; mode_ = _mode;
         /*
-         * Ladder corners: derived shape, fitted numbers. The 1.0 n / 1.5 n
-         * ratio pins CH a fifth above OH; the absolute placement is fitted
-         * to the hardware samples' spectra (OH centred near 7 kHz, CH near
-         * 9.5 with content to 15).
+         * The coupling ladder, read off the board AS COMPONENT VALUES this
+         * time: the series caps (1 nF closed, 1.5 nF open) against the
+         * 2.7 k shunt put the section corners at 59 and 39 kHz — ABOVE
+         * NYQUIST. These sections are not "highpass corners", they are
+         * DIFFERENTIATORS: +6 dB per octave each across the whole audio
+         * band. Modelling them as one-poles with in-band corners was the
+         * closed hat's entire mud problem: the bank's strong 2-4 kHz
+         * harmonics only fell 13 dB when the references have them at 22.
          */
-        const double f = _mode == 1 ? 5600.0 : 8200.0;
-        hpA_.set(f, _sr);
-        hpB_.set(f * 0.7, _sr);
+        d1_ = d2_ = 0.0;
         /*
-         * The 470 pF coupling into the output amp: C80/R160 = 8.7 kHz on
-         * the open hat, C74/R162 = 10.2 kHz on the closed. This is not a
-         * tone decision — the swing VCA half-wave rectifies, rectification
-         * of a six-square cluster regenerates LOW frequency energy, and
-         * without this the hats measured centred at one kilohertz. The
-         * derived corner is what makes a hat a hat.
+         * The junk wall: the VCA input network and output coupling as two
+         * true 2nd-order sections. Corners fitted against the band tables
+         * of Roland's render and the player's pattern: 3.5 kHz closed,
+         * 2.3 kHz open (the open hat's bigger caps sit its whole voice
+         * lower). Result matches the AU's six-band split within ~1 dB.
          */
-        /* TWO poles: the 470 pF into the amp is one, the amp's own input
-         * network the other. One pole left the VCA's rectification junk at
-         * 2-3 kHz only 12 dB down where every reference has it at 22. */
-        hpOutA_.set(_mode == 1 ? 8700.0 : 10200.0, _sr);
-        hpOutB_.set(_mode == 1 ? 5200.0 : 6000.0, _sr);
-        env_.init(_sr);
-        dc_.set(200.0, _sr);
-        /* the naive squares put extra energy above 12.5 kHz (aliased edge
-         * content the analog references do not have); one pole at 10.5 kHz
-         * flattens the top the way both references measure flat */
+        const double wall = _mode == 1 ? 2300.0 : 3500.0;
+        skA_.set(wall, 0.80, 1.0, _sr);
+        skB_.set(wall, 0.80, 1.0, _sr);
+        /* the top: the naive squares' aliased edges, pulled flat */
         lpTopA_ = exp(-2.0 * kCircPi * 10500.0 / _sr);
         lpTopZ_ = 0.0;
-        outScale_ = _mode == 1 ? 5.5 : 22.0;
+        env_.init(_sr);
+        dc_.set(200.0, _sr);
+        outScale_ = _mode == 1 ? 5.0 : 8.0;
         active_ = false; quiet_ = 0;
     }
 
@@ -447,24 +444,37 @@ public:
     {
         const double a = (double)_accentV / 8.0;
         const double t = _decaySec > 0.02f ? (double)_decaySec : 0.02;
-        /* peak ~8 V on the envelope bus; decay pot is seconds to 1% */
-        env_.trigger(8.0 * a, t / 2.0);   /* tau: see the cymbal note */
+        env_.trigger(8.0 * a, t / 2.0);
         active_ = true; quiet_ = 0;
     }
 
-    /* the shared-bus choke: the engine already fades the lane, this only
-     * has to kill the envelope so the diode closes */
     void choke() { env_.kill(); }
 
     float process(const double _bus)
     {
         if(!active_) return 0.0f;
-        const double hp = hpB_.process(hpA_.process(_bus));
-        double v = hpOutB_.process(hpOutA_.process(
-                       swingVCA(hp, env_.tick(), 1.2)));
+
+        /* two differentiator sections; x30 restores working level */
+        const double t1 = _bus - d1_; d1_ = _bus;
+        const double hp = (t1 - d2_) * 30.0; d2_ = t1;
+
+        /*
+         * The transistor as an amplifier with the diode's gate in the
+         * ENVELOPE, not as a half-wave rectifier of the signal — half-wave
+         * rectification of a six-square cluster mints broadband difference
+         * tones no coupling can reject without killing the mids.
+         */
+        const double e = env_.tick();
+        const double over = e - kMT_DiodeVon;
+        double drive;
+        const double knee = 1.2;
+        if(over <= 0.0) drive = 0.0;
+        else if(over < knee) drive = over * over / knee;
+        else drive = over - knee * 0.5;
+
+        double v = skB_.process(skA_.process(hp * drive));
         lpTopZ_ += (v - lpTopZ_) * (1.0 - lpTopA_);
-        v = lpTopZ_;
-        const double y = dc_.process(v * outScale_);
+        const double y = dc_.process(lpTopZ_ * outScale_);
 
         const float o = (float)y;
         if(o > 3.2e-5f || o < -3.2e-5f) quiet_ = 0;
@@ -473,16 +483,15 @@ public:
     }
 
 private:
-    /* fitted per mode so a default hit peaks near 1.0, where the engine's
-     * shared lane trim expects a voice to arrive */
-    double outScale_ = 1.0;
-
     double sr_ = 44100.0;
     int    mode_ = 0;
     SchmittBank *bank_ = nullptr;
-    OnePoleHP hpA_, hpB_, hpOutA_, hpOutB_, dc_;
-    double lpTopA_ = 0.0, lpTopZ_ = 0.0;
+    OnePoleHP dc_;
+    SKHighpass skA_, skB_;
     MetalEnv env_;
+    double d1_ = 0, d2_ = 0;
+    double lpTopA_ = 0, lpTopZ_ = 0;
+    double outScale_ = 1.0;
     bool active_ = false;
     int  quiet_ = 0;
 };
