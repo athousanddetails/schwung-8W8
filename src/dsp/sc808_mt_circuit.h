@@ -465,10 +465,17 @@ public:
             /* hold flat for a third of the note, then discharge — the
              * reference's plateau-then-ramp, C62 held up by the follower
              * before the pot wins */
-            linLevel_ = 8.0 * a;
-            linHold_  = (int)(0.30 * t * sr_);
-            linStep_  = linLevel_ / (0.70 * t * sr_);
-            linear_   = true;
+            /* C62 is half a microfarad: it CHARGES over several
+             * milliseconds, and the references bloom — the player's render
+             * puts 0.0%% of its energy in the first three milliseconds
+             * where ours stabbed in at five. Attack ramp, then plateau,
+             * then the discharge. */
+            linTarget_ = 8.0 * a;
+            linLevel_  = 0.0;
+            linAtkC_   = 1.0 - exp(-1.0 / (0.006 * sr_));
+            linHold_   = (int)(0.30 * t * sr_);
+            linStep_   = linTarget_ / (0.70 * t * sr_);
+            linear_    = true;
         }
         else
         {
@@ -498,7 +505,12 @@ public:
         if(linear_)
         {
             e = linLevel_;
-            if(linHold_ > 0) --linHold_;
+            if(linTarget_ > 0.0)
+            {
+                linLevel_ += (linTarget_ - linLevel_) * linAtkC_;
+                if(linLevel_ > linTarget_ * 0.99) linTarget_ = 0.0;
+            }
+            else if(linHold_ > 0) --linHold_;
             else
             {
                 linLevel_ -= linStep_;
@@ -540,7 +552,7 @@ private:
     MetalEnv env_;
     double d1_ = 0, d2_ = 0;
     double lpTopA_ = 0, lpZ_[5] = {0, 0, 0, 0, 0};
-    double linLevel_ = 0, linStep_ = 0;
+    double linLevel_ = 0, linStep_ = 0, linTarget_ = 0, linAtkC_ = 0;
     int    linHold_ = 0;
     bool   linear_ = false;
     double outScale_ = 1.0;

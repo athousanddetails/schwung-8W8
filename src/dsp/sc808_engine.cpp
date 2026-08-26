@@ -131,7 +131,7 @@ constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
     3.9144f,   /* cp — the quietest voice in sc808 by a long way */
     0.1194f,   /* cb */
     0.0013f,   /* ch — raw peak near 17 before the drive stage catches it */
-    0.0323f,   /* oh */
+    0.0328f,   /* oh */
     1.0489f,   /* cy */
 };
 
