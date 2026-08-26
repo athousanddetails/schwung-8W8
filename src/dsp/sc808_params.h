@@ -53,7 +53,7 @@ static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
     { "ht_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "ht_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "lc_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
-    { "lc_decay",     0.0600f,     2.0000f, SC808_EXP,  65 },
+    { "lc_decay",     0.0600f,     2.0000f, SC808_EXP,  58 },
     { "lc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "lc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "mc_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
@@ -61,7 +61,7 @@ static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
     { "mc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "mc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "hc_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
-    { "hc_decay",     0.0600f,     2.0000f, SC808_EXP,  32 },
+    { "hc_decay",     0.0600f,     2.0000f, SC808_EXP,  34 },
     { "hc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "hc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "rs_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
@@ -174,7 +174,7 @@ static const char sc808_chain_params_json[] =
     "key\":\"ht_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"def"
     "ault\":0},{\"key\":\"ht_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":"
     "\"fader\"}},{\"key\":\"lc_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"lc_dec"
-    "ay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":65},{\"key\":\"lc_engine\",\"name\":\"Engine\",\""
+    "ay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":58},{\"key\":\"lc_engine\",\"name\":\"Engine\",\""
     "type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"lc_drive\",\"name\":\"Drive\",\"type\":\"int\",\""
     "min\":0,\"max\":127,\"default\":0},{\"key\":\"lc_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Di"
     "ode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"lc_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\""
@@ -185,7 +185,7 @@ static const char sc808_chain_params_json[] =
     "on\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"mc_level\",\"name\":\"L"
     "evel\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"hc_tune\",\"name\":\"T"
     "une\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"hc_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min"
-    "\":0,\"max\":127,\"default\":32},{\"key\":\"hc_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc80"
+    "\":0,\"max\":127,\"default\":34},{\"key\":\"hc_engine\",\"name\":\"Engine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc80"
     "8\"],\"default\":0},{\"key\":\"hc_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\""
     ":\"hc_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default"
     "\":0},{\"key\":\"hc_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fad"

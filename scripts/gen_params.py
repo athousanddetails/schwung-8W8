@@ -186,7 +186,7 @@ PAGES = [
                          E("ht_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("ht"), DTYPE("ht"), LEVEL("ht")]),
     ("lc", "Low Conga", [P("lc_tune", "Tune", -2.0, 2.0, LIN, 64),
-                         PV("lc_decay", "Decay", 0.06, 2.0, EXP, 0.36),
+                         PV("lc_decay", "Decay", 0.06, 2.0, EXP, 0.30),
                          E("lc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("lc"), DTYPE("lc"), LEVEL("lc")]),
     ("mc", "Mid Conga", [P("mc_tune", "Tune", -2.0, 2.0, LIN, 64),
@@ -194,7 +194,7 @@ PAGES = [
                          E("mc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("mc"), DTYPE("mc"), LEVEL("mc")]),
     ("hc", "Hi Conga",  [P("hc_tune", "Tune", -2.0, 2.0, LIN, 64),
-                         PV("hc_decay", "Decay", 0.06, 2.0, EXP, 0.145),
+                         PV("hc_decay", "Decay", 0.06, 2.0, EXP, 0.154),
                          E("hc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("hc"), DTYPE("hc"), LEVEL("hc")]),
     ("rs", "Rim Shot", [

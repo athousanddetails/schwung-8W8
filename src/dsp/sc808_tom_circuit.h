@@ -88,14 +88,21 @@ static const double kTOM_SkinLevel = 0.095;  /* noise into the loop, tom only.
     noise stays dark — low-passed near the drum, through the loop — and
     only its amount moves. */
 static const double kTOM_SkinTau   = 0.012;  /* the burst, roughly one period */
-static const double kTOM_StrikeTom = 1.0;
-static const double kTOM_StrikeCga = 0.80;
+/*
+ * MUTABLE for tools/tomfit sweeps. StrikeDrive pushes the strike into the
+ * loop hard enough that the op-amp clip catches the first swings — the
+ * kick's own punch mechanism, compression on the attack rather than a
+ * click. Output scales divide it back out so the lane level stays put.
+ */
+static double kTOM_StrikeTom = 1.0;
+static double kTOM_StrikeCga = 0.80;
+static double kTOM_StrikeDrive = 4.0;
 
 /* Roland's own render sweeps ~8-9% at onset on EVERY tom lane (LT 100->92.6,
  * MT 144->135.3, HT 200->183), settling inside ~120 ms — a flat lift, not
  * the frequency-scaled one an earlier sample set suggested. */
 static const double kTOM_PitchLiftTom = 0.085;
-static const double kTOM_PitchLiftCga = 0.02;
+static const double kTOM_PitchLiftCga = 0.03;   /* AU congas sweep 2-5% */
 static const double kTOM_PitchTau     = 0.045;
 
 /* g = 1 - ln(100) Q / (pi f0 t), from the ring-time pot. The ceiling keeps a
@@ -120,8 +127,8 @@ static const double kTOM_FwdPowerCga = 0.90;
  * voice does — each lane has ONE trim shared by both engines, and
  * tools/tom_check asserts they still agree.
  */
-static const double kTOM_OutScaleTom = 38.6;
-static const double kTOM_OutScaleCga = 25.3;
+static const double kTOM_OutScaleTom = 9.2;
+static const double kTOM_OutScaleCga = 6.7;
 
 /*
  * NO direct strike bleed. There was one briefly (0.16, "every tom sample
@@ -219,7 +226,7 @@ public:
         double gate = 0.0;
         if(gateSamples_ > 0) { gate = accentV_; --gateSamples_; }
 
-        double strike = shaper_.process(gate)
+        double strike = shaper_.process(gate) * kTOM_StrikeDrive
                       * (mode_ == 0 ? kTOM_StrikeTom : kTOM_StrikeCga);
         /*
          * The strike is SOFT on both sides of the switch — the reference

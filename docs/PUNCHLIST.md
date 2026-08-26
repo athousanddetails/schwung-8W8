@@ -5,7 +5,7 @@ verdict-ed before the next. References on the Desktop: `toms808.wav`
 (low/mid/hi, default preset settings), `rim808.wav`, `808 clean/`,
 `808default.aupreset` + the AU harness.
 
-1. **TOMS — IN PROGRESS.**
+1. **TOMS — DONE (verdict: better; not 1:1, revisit last).**
    - No click. The reference blooms to its peak at 6-10 ms; the direct
      strike bleed (kTOM_ClickThru) was wrong and goes.
    - Tune must NOT let one tom reach its neighbour. The hardware TUNING

@@ -71,9 +71,13 @@ const float kBaseNote[SC808_NUM_VOICES] = {
     42.02f,  /* lt — 92.6 Hz */
     48.58f,  /* mt — 135.3 Hz */
     54.83f,  /* ht — 183.0 Hz */
-    55.0f,   /* lc — G3, the same channel as ht on the hardware */
-    62.0f,   /* mc — D4 293.7 Hz */
-    69.0f,   /* hc — A4 440.0 Hz */
+    /* Congas: Roland's model with the kit switch flipped to the conga
+     * side of each channel, measured settled — 206.1 / 302.1 / 404.6 Hz.
+     * The 196/293.7/440 that stood here came from third-party samples at
+     * unknown knob positions; the hi conga was a semitone and a half off. */
+    55.88f,  /* lc — 206.1 Hz */
+    62.49f,  /* mc — 302.1 Hz */
+    67.55f,  /* hc — 404.6 Hz */
     92.0f,   /* rs */
     99.2f,   /* cl — MEASURED: Roland's own model pings at 2518 Hz, which is
               *      99.2; sc808's 99 (2489 Hz) sat 20 cents flat */
@@ -111,12 +115,12 @@ const float kBaseNote[SC808_NUM_VOICES] = {
 constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
     0.1970f,   /* bd — the reference: everything else is set against the kick */
     0.1298f,   /* sd */
-    0.2398f,   /* lt */
-    0.3041f,   /* mt */
-    0.2405f,   /* ht */
-    0.2633f,   /* lc */
-    0.2794f,   /* mc */
-    0.2776f,   /* hc */
+    0.2732f,   /* lt */
+    0.2791f,   /* mt */
+    0.2604f,   /* ht */
+    0.2493f,   /* lc */
+    0.2592f,   /* mc */
+    0.2555f,   /* hc */
     2.4747f,   /* rs — a click with a crest factor of 11 */
     1.7287f,   /* cl */
     0.4083f,   /* ma */
