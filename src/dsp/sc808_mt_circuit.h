@@ -426,9 +426,11 @@ public:
          * 2.3 kHz open (the open hat's bigger caps sit its whole voice
          * lower). Result matches the AU's six-band split within ~1 dB.
          */
-        const double wall = _mode == 1 ? 2300.0 : 3500.0;
-        skA_.set(wall, 0.80, 1.0, _sr);
-        skB_.set(wall, 0.80, 1.0, _sr);
+        /* asymmetric pair: skA sits resonant at the top of the wall and
+         * its Q-bump restores the 4.5-6.5 kHz the reference keeps flat;
+         * skB below it does the junk rejection */
+        if(_mode == 0) { skA_.set(5200.0, 1.6, 1.0, _sr); skB_.set(2700.0, 0.75, 1.0, _sr); }
+        else           { skA_.set(3100.0, 1.25, 1.0, _sr); skB_.set(1800.0, 0.75, 1.0, _sr); }
         /* the top: the naive squares' aliased edges, pulled flat */
         lpTopA_ = exp(-2.0 * kCircPi * 10500.0 / _sr);
         lpTopZ_ = 0.0;
