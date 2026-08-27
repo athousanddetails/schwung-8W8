@@ -72,8 +72,18 @@ namespace sc808 {
 
 /* ---- the oscillator bank ---------------------------------------------- */
 
-/* Werner §3. 1-4 nominal, 5-6 the TM1/TM2 factory settings. */
-static const double kMT_OscHz[6] = { 205.3, 369.6, 304.4, 522.7, 800.0, 540.0 };
+/*
+ * Werner §3's measured values — from ONE unit, on parts with several
+ * percent of tolerance — nudged by fractions of a percent so that no two
+ * harmonics of different oscillators sit within a few hertz of each other
+ * in the hats' passband. Exactly coincident digital oscillators beat
+ * SLOWLY and deeply: harmonics slid into alignment 200-330 ms into a note
+ * and rose 10 dB out of the falling tail, which the field heard as a
+ * phantom second hit. Real units sit at their own slightly-off points and
+ * their near-collisions shimmer fast instead of swelling. These offsets
+ * stay well inside the hardware's own spread.
+ */
+static const double kMT_OscHz[6] = { 206.1, 368.2, 305.9, 521.0, 803.1, 541.7 };
 static const double kMT_Duty    = 0.4798;   /* HD14584 thresholds          */
 static const double kMT_OscAmp  = 2.5;      /* +/-2.5 V about the midpoint */
 
@@ -92,6 +102,9 @@ public:
         sr_ = _sr;
         for(int i = 0; i < 6; ++i) { phase_[i] = 0.25 * i; }   /* staggered */
         for(int i = 0; i < 6; ++i) inc_[i] = kMT_OscHz[i] / _sr;
+        for(int i = 0; i < 6; ++i) drift_[i] = 0.0;
+        rng_.seed(0x808D51F7u);
+        driftCnt_ = 0;
         ratio_ = 1.0;
     }
 
@@ -105,24 +118,62 @@ public:
     }
 
     /*
-     * One sample of the summed bus. Naive squares: the HD14584 switches in
-     * under 250 ns and Werner forgoes alias suppression for exactly the
-     * reason we can — everything downstream is band-passed hard.
+     * One sample of the summed bus, BANDLIMITED. Naive squares seemed
+     * defensible (Werner forgoes alias suppression too) until the aliases
+     * were caught red-handed: folded ultrasonic harmonics land hertz away
+     * from direct lines in the hats' passband, and those pairs beat SLOWLY
+     * and deeply — a swell 300 ms into the open hat's tail that the field
+     * heard as a phantom second hit, and that no detune could kill because
+     * an analog square simply has no folded lines to collide with. PolyBLEP
+     * rounds each edge over two samples; the folded energy drops ~30 dB and
+     * the collisions go with it.
      *
      * THE ENGINE CALLS THIS ONCE PER SAMPLE and hands the bus to every
      * metal voice. A voice must never tick the bank itself: two sounding
-     * voices would advance the oscillators twice per sample and the whole
-     * bank would jump a semitone-ish sharp exactly when the hats and
-     * cymbal play together — which is most patterns.
+     * voices would advance the oscillators twice per sample and detune the
+     * whole bank exactly when the hats and cymbal play together.
      */
+    static double blep(const double _t, const double _dt)
+    {
+        /* standard two-sample polynomial edge correction */
+        if(_t < _dt)       { const double x = _t / _dt;         return x + x - x * x - 1.0; }
+        if(_t > 1.0 - _dt) { const double x = (_t - 1.0) / _dt; return x * x + x + x + 1.0; }
+        return 0.0;
+    }
     double tick()
     {
+        /*
+         * DRIFT. Digitally exact oscillators produce exact, coherent beats:
+         * near-coincident harmonics of the six squares slide into
+         * constructive alignment a couple of hundred milliseconds into a
+         * note and rise 8-10 dB out of a falling tail — the field heard it
+         * as "another hit at the end". Real HD14584 stages drift with
+         * temperature and supply (Werner's footnote credits exactly this
+         * variation with each 808's individual character), and that drift
+         * is what keeps the beats smeared. A bounded random walk, about
+         * +/-0.1%, updated every ~6 ms per oscillator, does the same.
+         */
+        if(--driftCnt_ <= 0)
+        {
+            driftCnt_ = 256;
+            for(int i = 0; i < 6; ++i)
+            {
+                drift_[i] += 2.5e-4 * (double)rng_.frand2();
+                drift_[i] *= 0.98;             /* bounded, zero-mean */
+            }
+        }
         double sum = 0.0;
         for(int i = 0; i < 6; ++i)
         {
-            phase_[i] += inc_[i];
+            const double dt = inc_[i] * (1.0 + drift_[i]);
+            phase_[i] += dt;
             if(phase_[i] >= 1.0) phase_[i] -= 1.0;
-            sum += phase_[i] < kMT_Duty ? kMT_OscAmp : -kMT_OscAmp;
+            double v = phase_[i] < kMT_Duty ? 1.0 : -1.0;
+            /* rising edge at phase 0, falling at kMT_Duty */
+            v += blep(phase_[i], dt);
+            double tf = phase_[i] - kMT_Duty; if(tf < 0.0) tf += 1.0;
+            v -= blep(tf, dt);
+            sum += v * kMT_OscAmp;
         }
         return sum * kMT_MixAtten;
     }
@@ -138,7 +189,9 @@ public:
 
 private:
     double sr_ = 44100.0, ratio_ = 1.0;
-    double phase_[6] = {0}, inc_[6] = {0};
+    double phase_[6] = {0}, inc_[6] = {0}, drift_[6] = {0};
+    int    driftCnt_ = 0;
+    sc::RGen rng_;
 };
 
 /* ---- Werner's band pass filters, by bilinear transform ----------------- */
@@ -251,7 +304,12 @@ static inline double swingVCA(const double _x, const double _env,
     const double over = _env - kMT_DiodeVon;
     double drive;
     if(over <= 0.0) return 0.0;
-    else if(over < _knee) drive = over * over / _knee;
+    /* over^2/(2 knee): meets the linear branch at knee/2 WITH matching
+     * slope. The first version dropped the factor of two, and the branch
+     * boundary was a doubling step the envelope crossed on the way down —
+     * an audible phantom hit late in every tail, position fixed at
+     * env = Von + knee whatever the oscillators did. */
+    else if(over < _knee) drive = over * over / (2.0 * _knee);
     else drive = over - _knee * 0.5;
     const double hw = _x > 0.0 ? _x : 0.0;        /* half-wave conduction */
     return hw * drive;
@@ -522,7 +580,7 @@ public:
         double drive;
         const double knee = 1.2;
         if(over <= 0.0) drive = 0.0;
-        else if(over < knee) drive = over * over / knee;
+        else if(over < knee) drive = over * over / (2.0 * knee);
         else drive = over - knee * 0.5;
 
         double v = skB_.process(skA_.process(hp * drive));
