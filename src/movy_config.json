@@ -1012,14 +1012,6 @@
             ]
           },
           {
-            "key": "cy_tone",
-            "short": "TONE",
-            "full": "Tone",
-            "type": "int",
-            "min": 0,
-            "max": 127
-          },
-          {
             "key": "cy_drive",
             "short": "DRIVE",
             "full": "Drive",
@@ -1047,6 +1039,7 @@
             "min": 0,
             "max": 127
           },
+          null,
           null
         ]
       ]

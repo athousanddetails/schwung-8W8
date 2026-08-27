@@ -132,7 +132,7 @@ constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
     0.1108f,   /* cb */
     0.0019f,   /* ch — raw peak near 17 before the drive stage catches it */
     0.0369f,   /* oh */
-    0.8916f,   /* cy */
+    3.6108f,   /* cy */
 };
 
 /*
@@ -215,7 +215,7 @@ struct sc808_engine {
 
     /* Voice-specific extras that only some lanes have. */
     int bd_attack, bd_tone, sd_snappy;
-    int ma_attack, cy_tone;
+    int ma_attack;
     /* Globals. */
     int e_master_dist, e_choke, e_note_map, e_bd_engine, e_metal_run, e_sd_engine;
     int e_cp_engine;
@@ -322,7 +322,6 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->bd_tone   = find_pot("bd_tone");
     e->sd_snappy = find_pot("sd_snappy");
     e->ma_attack = find_pot("ma_attack");
-    e->cy_tone   = find_pot("cy_tone");
     e->p_master_drive = find_pot("master_drive");
     e->p_volume       = find_pot("volume");
     e->p_accent       = find_pot("accent");
@@ -661,15 +660,14 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
     case SC808_CY:
         if(e->env[e->e_cy_engine] == 0)
         {
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+            /* accent as gain, like the hats; no Tone — the crash balance
+             * is the reference's, fixed in the voice */
             e->mbank.setRatio((double)tune);
-            e->cyc.trigger(decay, e->potv[e->cy_tone],
-                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            e->rt[voice].hit_gain = 1.0f;
+            e->cyc.trigger(decay, 4.0f);
         }
         else
         {
-            e->cy.trigger((double)tune, decay * 1.453f, e->potv[e->cy_tone]);
+            e->cy.trigger((double)tune, decay * 1.453f, 0.25f);
         }
         break;
     default: break;

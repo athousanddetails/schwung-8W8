@@ -25,7 +25,7 @@ typedef struct {
     int         def;
 } sc808_enum_t;
 
-#define SC808_NUM_POTS  72
+#define SC808_NUM_POTS  71
 #define SC808_NUM_ENUMS 35
 
 static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
@@ -95,7 +95,6 @@ static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
     { "oh_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "cy_tune",     0.5000f,     2.0000f, SC808_EXP,  64 },
     { "cy_decay",     0.4000f,     6.0000f, SC808_EXP,  70 },
-    { "cy_tone",     0.0000f,     1.0000f, SC808_LIN,  32 },
     { "cy_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "cy_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "master_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
@@ -141,7 +140,7 @@ static const sc808_enum_t g_sc808_enums[SC808_NUM_ENUMS] = {
     { "metal_run",  2,  0 },
 };
 
-#define SC808_CHAIN_PARAMS_LEN 9638
+#define SC808_CHAIN_PARAMS_LEN 9562
 static const char sc808_chain_params_json[] =
     "[{\"key\":\"bd_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"bd_attack\",\"nam"
     "e\":\"Attack\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":24,\"viz\":false},{\"key\":\"bd_decay\",\"name\":\"Decay"
@@ -228,20 +227,19 @@ static const char sc808_chain_params_json[] =
     "],\"default\":0},{\"key\":\"oh_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,\"viz\":{\""
     "kind\":\"fader\"}},{\"key\":\"cy_tune\",\"name\":\"Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\""
     "cy_decay\",\"name\":\"Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":70},{\"key\":\"cy_engine\",\"name\":\"Eng"
-    "ine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"cy_tone\",\"name\":\"Tone\",\"type\":\"in"
-    "t\",\"min\":0,\"max\":127,\"default\":32},{\"key\":\"cy_drive\",\"name\":\"Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\""
-    "default\":0},{\"key\":\"cy_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"Fold\""
-    ",\"Crush\"],\"default\":0},{\"key\":\"cy_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64,"
-    "\"viz\":{\"kind\":\"fader\"}},{\"key\":\"master_dist\",\"name\":\"Master Dist\",\"type\":\"enum\",\"options\":[\"Off\",\"Di"
-    "ode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"master_drive\",\"name\":\"Master Drive\",\"type\":\"int\",\"m"
-    "in\":0,\"max\":127,\"default\":0},{\"key\":\"volume\",\"name\":\"Volume\",\"type\":\"int\",\"min\":0,\"max\":127,\"default"
-    "\":100,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"accent\",\"name\":\"Accent\",\"type\":\"int\",\"min\":0,\"max\":127,\"defaul"
-    "t\":42},{\"key\":\"note_map\",\"name\":\"Note Map\",\"type\":\"enum\",\"options\":[\"Rack 36\",\"GM\"],\"default\":0},{\"k"
-    "ey\":\"metal_run\",\"name\":\"Metal\",\"type\":\"enum\",\"options\":[\"Free\",\"Retrig\"],\"default\":0},{\"key\":\"ui_foc"
-    "us\",\"name\":\"Focus\",\"type\":\"int\",\"min\":0,\"max\":16,\"default\":0},{\"key\":\"mutes\",\"name\":\"Mutes\",\"type\":\""
-    "int\",\"min\":0,\"max\":65535,\"default\":0}]";
+    "ine\",\"type\":\"enum\",\"options\":[\"Circ\",\"sc808\"],\"default\":0},{\"key\":\"cy_drive\",\"name\":\"Drive\",\"type\":\""
+    "int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"cy_dist_type\",\"name\":\"Distortion\",\"type\":\"enum\",\"options"
+    "\":[\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"cy_level\",\"name\":\"Level\",\"type\":\"int\",\"min\":0"
+    ",\"max\":127,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"master_dist\",\"name\":\"Master Dist\",\"type\":\"en"
+    "um\",\"options\":[\"Off\",\"Diode\",\"Clip\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"master_drive\",\"name\":\"Maste"
+    "r Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"volume\",\"name\":\"Volume\",\"type\":\"int\",\"m"
+    "in\":0,\"max\":127,\"default\":100,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"accent\",\"name\":\"Accent\",\"type\":\"int\",\""
+    "min\":0,\"max\":127,\"default\":42},{\"key\":\"note_map\",\"name\":\"Note Map\",\"type\":\"enum\",\"options\":[\"Rack 36"
+    "\",\"GM\"],\"default\":0},{\"key\":\"metal_run\",\"name\":\"Metal\",\"type\":\"enum\",\"options\":[\"Free\",\"Retrig\"],\"de"
+    "fault\":0},{\"key\":\"ui_focus\",\"name\":\"Focus\",\"type\":\"int\",\"min\":0,\"max\":16,\"default\":0},{\"key\":\"mutes\""
+    ",\"name\":\"Mutes\",\"type\":\"int\",\"min\":0,\"max\":65535,\"default\":0}]";
 
-#define SC808_UI_PAGES_LEN 6381
+#define SC808_UI_PAGES_LEN 6339
 static const char sc808_ui_pages_json[] =
     "{\"levels\":{\"bd\":{\"name\":\"Bass Drum\",\"knobs\":[\"bd_tune\",\"bd_attack\",\"bd_decay\",\"bd_tone\",\"bd_engine\","
     "\"bd_drive\",\"bd_dist_type\",\"bd_level\"],\"params\":[{\"key\":\"bd_tune\",\"name\":\"Tune\"},{\"key\":\"bd_attack\",\""
@@ -294,18 +292,18 @@ static const char sc808_ui_pages_json[] =
     "{\"name\":\"Open Hat\",\"knobs\":[\"oh_tune\",\"oh_decay\",\"oh_engine\",\"oh_drive\",\"oh_dist_type\",\"oh_level\"],\""
     "params\":[{\"key\":\"oh_tune\",\"name\":\"Tune\"},{\"key\":\"oh_decay\",\"name\":\"Decay\"},{\"key\":\"oh_engine\",\"name\""
     ":\"Engine\"},{\"key\":\"oh_drive\",\"name\":\"Drive\"},{\"key\":\"oh_dist_type\",\"name\":\"Distortion\"},{\"key\":\"oh_l"
-    "evel\",\"name\":\"Level\"}]},\"cy\":{\"name\":\"Cymbal\",\"knobs\":[\"cy_tune\",\"cy_decay\",\"cy_engine\",\"cy_tone\",\"c"
-    "y_drive\",\"cy_dist_type\",\"cy_level\"],\"params\":[{\"key\":\"cy_tune\",\"name\":\"Tune\"},{\"key\":\"cy_decay\",\"nam"
-    "e\":\"Decay\"},{\"key\":\"cy_engine\",\"name\":\"Engine\"},{\"key\":\"cy_tone\",\"name\":\"Tone\"},{\"key\":\"cy_drive\",\"n"
-    "ame\":\"Drive\"},{\"key\":\"cy_dist_type\",\"name\":\"Distortion\"},{\"key\":\"cy_level\",\"name\":\"Level\"}]},\"root\":"
-    "{\"name\":\"8W8\",\"knobs\":[\"master_dist\",\"master_drive\",\"volume\",\"accent\"],\"params\":[{\"level\":\"bd\",\"labe"
-    "l\":\"Bass Drum\"},{\"level\":\"sd\",\"label\":\"Snare\"},{\"level\":\"lt\",\"label\":\"Low Tom\"},{\"level\":\"mt\",\"label"
-    "\":\"Mid Tom\"},{\"level\":\"ht\",\"label\":\"Hi Tom\"},{\"level\":\"lc\",\"label\":\"Low Conga\"},{\"level\":\"mc\",\"label"
-    "\":\"Mid Conga\"},{\"level\":\"hc\",\"label\":\"Hi Conga\"},{\"level\":\"rs\",\"label\":\"Rim Shot\"},{\"level\":\"cl\",\"la"
-    "bel\":\"Claves\"},{\"level\":\"ma\",\"label\":\"Maracas\"},{\"level\":\"cp\",\"label\":\"Hand Clap\"},{\"level\":\"cb\",\"la"
-    "bel\":\"Cowbell\"},{\"level\":\"ch\",\"label\":\"Closed Hat\"},{\"level\":\"oh\",\"label\":\"Open Hat\"},{\"level\":\"cy\","
-    "\"label\":\"Cymbal\"},{\"key\":\"master_dist\",\"name\":\"Master Dist\"},{\"key\":\"master_drive\",\"name\":\"Master Dr"
-    "ive\"},{\"key\":\"volume\",\"name\":\"Volume\"},{\"key\":\"accent\",\"name\":\"Accent\"},{\"key\":\"hh_choke\",\"name\":\"Ch"
-    "oke\"},{\"key\":\"note_map\",\"name\":\"Note Map\"},{\"key\":\"metal_run\",\"name\":\"Metal\"}]}}}";
+    "evel\",\"name\":\"Level\"}]},\"cy\":{\"name\":\"Cymbal\",\"knobs\":[\"cy_tune\",\"cy_decay\",\"cy_engine\",\"cy_drive\",\""
+    "cy_dist_type\",\"cy_level\"],\"params\":[{\"key\":\"cy_tune\",\"name\":\"Tune\"},{\"key\":\"cy_decay\",\"name\":\"Decay\""
+    "},{\"key\":\"cy_engine\",\"name\":\"Engine\"},{\"key\":\"cy_drive\",\"name\":\"Drive\"},{\"key\":\"cy_dist_type\",\"name\""
+    ":\"Distortion\"},{\"key\":\"cy_level\",\"name\":\"Level\"}]},\"root\":{\"name\":\"8W8\",\"knobs\":[\"master_dist\",\"mast"
+    "er_drive\",\"volume\",\"accent\"],\"params\":[{\"level\":\"bd\",\"label\":\"Bass Drum\"},{\"level\":\"sd\",\"label\":\"Sna"
+    "re\"},{\"level\":\"lt\",\"label\":\"Low Tom\"},{\"level\":\"mt\",\"label\":\"Mid Tom\"},{\"level\":\"ht\",\"label\":\"Hi Tom"
+    "\"},{\"level\":\"lc\",\"label\":\"Low Conga\"},{\"level\":\"mc\",\"label\":\"Mid Conga\"},{\"level\":\"hc\",\"label\":\"Hi C"
+    "onga\"},{\"level\":\"rs\",\"label\":\"Rim Shot\"},{\"level\":\"cl\",\"label\":\"Claves\"},{\"level\":\"ma\",\"label\":\"Mara"
+    "cas\"},{\"level\":\"cp\",\"label\":\"Hand Clap\"},{\"level\":\"cb\",\"label\":\"Cowbell\"},{\"level\":\"ch\",\"label\":\"Clo"
+    "sed Hat\"},{\"level\":\"oh\",\"label\":\"Open Hat\"},{\"level\":\"cy\",\"label\":\"Cymbal\"},{\"key\":\"master_dist\",\"na"
+    "me\":\"Master Dist\"},{\"key\":\"master_drive\",\"name\":\"Master Drive\"},{\"key\":\"volume\",\"name\":\"Volume\"},{\"k"
+    "ey\":\"accent\",\"name\":\"Accent\"},{\"key\":\"hh_choke\",\"name\":\"Choke\"},{\"key\":\"note_map\",\"name\":\"Note Map\"}"
+    ",{\"key\":\"metal_run\",\"name\":\"Metal\"}]}}}";
 
 #endif /* SC808_PARAMS_H */

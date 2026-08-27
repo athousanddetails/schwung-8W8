@@ -283,10 +283,9 @@ PAGES = [
         RATIO("cy"),
         PV("cy_decay", "Decay", 0.4, 6.0, EXP, 1.79),   # seconds; AU: 1.79
         E("cy_engine", "Engine", ["Circ", "sc808"]),
-        # sc808 multiplies `tone` by 0.008 before use, so this is really "how
-        # much low band" and even at maximum it is a whisper next to the
-        # 7 kHz band. That is correct: an 808 cymbal is mostly 7 kHz.
-        PV("cy_tone",  "Tone",  0.0, 1.0, LIN, 0.25),
+        # No Tone pot — field-cut like the snare's. On the circuit engine the
+        # crash balance is fixed to the reference render; the sc808 engine
+        # reads its old default 0.25.
         DRIVE("cy"), DTYPE("cy"), LEVEL("cy"),
     ]),
 ]

@@ -348,35 +348,35 @@ private:
 /* ---- the cymbal -------------------------------------------------------- */
 
 /*
- * Werner's architecture, calibrated to Roland's render with the honest
- * band tools. The reference's fingerprint, measured in three bands:
+ * Werner's three-path structure, voiced entirely to the player's own
+ * reference render (808cy.wav), whose per-band story is:
  *
- *   2.8-5.2 kHz — the SUSTAIN. Dips after the crash, recovers, then rings
- *   with a ~0.77 s time constant: half strength at 700 ms, an eighth at
- *   1.5 s. This band is the shimmer, and it is the Decay pot's band
- *   (BP1 through VCA1/EG1, exactly as the paper wires it).
+ *   5.8-9 kHz — the LOUDEST band: the crash, tau ~135 ms, over a long
+ *   quiet tail. 9.5-14 kHz — the top: -6.6 dB, fastest, tau ~85 ms.
+ *   2.8-5.2 kHz — the shimmer: -12 dB QUIET, RISING to its peak around
+ *   200 ms and ringing with tau ~600 ms. The whole-hit spectrum:
+ *   -13 / -8 / -4 / 0 / -7.5 / -7.
  *
- *   5.8-9 kHz — the BODY: down to a sixth inside 300 ms (tau ~155 ms).
- *   9.5-14 kHz — the CRASH TOP: fastest, tau ~127 ms, gone by 400.
- *
- *   Whole-hit spectrum: -12.9 / -8.1 / -3.9 / 0 / -6.6 / -6.9 across the
- *   six octave bands — peak at 6.5-9 k, falling both ways.
- *
- * MUTABLE constants: tools sweep them against those tables; shipped values
- * are the fit's optimum.
+ * The VCAs are LINEAR with the diode gate in the envelope — the same
+ * lesson the hats taught twice: half-wave rectifying a many-line cluster
+ * mints broadband difference tones ("garbled, dark, full of shit" was the
+ * field report, and it was the rectifier). And no Tone pot: the panel is
+ * Tune / Decay / Level like the lane deserves; the crash balance is the
+ * reference's, fixed.
  */
-static double kCY_SusW    = 0.80;    /* BP1 path weight  */
-static double kCY_BodyW   = 3.00;    /* BP2 -> EG2 path  */
-static double kCY_CrashW  = 1.50;    /* BP2 -> EG3 path  */
-static double kCY_SusHPHz = 3300.0;  /* keeps the sustain out of 2-3k */
-static double kCY_SusLPHz = 4400.0;  /* and out of the crash's bands — the
-    shimmer is a 3-5 kHz pocket; BP1's gentle skirts alone leaked it into
-    the mid and top bands and fattened tails that should die fast */
-static double kCY_EG1Div  = 1.6;     /* pot seconds -> EG1 tau */
-static double kCY_BodyHPHz = 5500.0; /* keeps the loud body out of the shimmer band */
-static double kCY_EG2Tau  = 0.140;
-static double kCY_EG3Tau  = 0.045;
+static double kCY_SusW    = 0.055;
+static double kCY_BodyW   = 1.00;
+static double kCY_TopW    = 0.14;
+static double kCY_SusHPHz = 4300.0;
+static double kCY_SusLPHz = 5200.0;
+static double kCY_SusAtk  = 0.070;   /* the shimmer BLOOMS, ~200 ms to peak */
+static double kCY_EG1Div  = 2.2;     /* pot seconds -> shimmer tau */
+static double kCY_BodyLPHz = 20000.0; /* parked inert; the fit rejected it */
+static double kCY_EG2Tau  = 0.220;
+static double kCY_EG3Tau  = 0.085;
+static double kCY_FloorW  = 0.004;   /* the long quiet tail under the crash */
 static constexpr double kCY_OutScale = 0.74;
+static const double kCY_Knee = 1.2;
 
 class CymbalCircuit {
 public:
@@ -385,35 +385,35 @@ public:
         sr_ = _sr; bank_ = _bank;
         bp1_.set(870.0, 56.0e3, 82.0e3, 6.8e-9, 6.8e-9, 3.3e-9, _sr);
         bp2_.set(1393.0, 56.0e3, 82.0e3, 3.3e-9, 3.3e-9, 1.0e-9, _sr);
-        hp1_.set(2500.0, 0.97, 1.0, _sr);              /* R124/R127, derived */
         susHp_.set(kCY_SusHPHz, 0.9, 1.0, _sr);
         susLpA_ = exp(-2.0 * kCircPi * kCY_SusLPHz / _sr);
-        susLpZ_[0] = susLpZ_[1] = susLpZ_[2] = 0.0;
-        hp2_.set(kCY_BodyHPHz, 1.0, 2.2, _sr);
-        hp3_.set(10500.0, 2.0, 1.4, _sr);              /* the resonance      */
-        hp3b_.set(9000.0, _sr);
-        cpl1_.set(2400.0, _sr);
-        cpl2_.set(4700.0, _sr);
-        cpl3_.set(8700.0, _sr);
-        eg1_.init(_sr); eg2_.init(_sr); eg3_.init(_sr);
-        dc_.set(20.0, _sr);
+        susLpZ_ = 0.0;
+        bodySk_.set(5600.0, 0.9, 1.0, _sr);
+        bodyHpA_.set(5000.0, _sr);
+        bodyHpB_.set(4400.0, _sr);
+        bodyLpA_ = exp(-2.0 * kCircPi * kCY_BodyLPHz / _sr);
+        bodyLpZ_[0] = bodyLpZ_[1] = 0.0;
+        topHp_.set(9500.0, 1.2, 1.0, _sr);
+        dc_.set(200.0, _sr);
+        e1_ = e2_ = e3_ = 0.0; e1t_ = 0.0;
+        d1_ = d2_ = d3_ = 1.0; atkC_ = 0.0;
         active_ = false; quiet_ = 0;
     }
 
     bool active() const { return active_; }
 
-    void trigger(const float _decaySec, const float _tone, const float _accentV)
+    void trigger(const float _decaySec, const float _accentV)
     {
         const double a = (double)_accentV / 8.0;
-        tone_ = (double)(_tone < 0.0f ? 0.0f : (_tone > 1.0f ? 1.0f : _tone));
         const double t = _decaySec > 0.1f ? (double)_decaySec : 0.1;
-        eg3_.trigger(13.0 * a, kCY_EG3Tau);
-        eg2_.trigger(6.0 * a, kCY_EG2Tau);
-        eg1_.trigger(7.0 * a, t / kCY_EG1Div);
         susHp_.set(kCY_SusHPHz, 0.9, 1.0, sr_);
         susLpA_ = exp(-2.0 * kCircPi * kCY_SusLPHz / sr_);
-        hp2_.set(kCY_BodyHPHz, 1.0, 2.2, sr_);
-        bodyHp2_.set(kCY_BodyHPHz * 0.85, sr_);
+        bodyLpA_ = exp(-2.0 * kCircPi * kCY_BodyLPHz / sr_);
+        e1t_ = 8.0 * a;                 /* shimmer target, reached slowly */
+        atkC_ = 1.0 - exp(-1.0 / (kCY_SusAtk * sr_));
+        d1_ = exp(-1.0 / ((t / kCY_EG1Div) * sr_));
+        e2_ = 8.0 * a; d2_ = exp(-1.0 / (kCY_EG2Tau * sr_));
+        e3_ = 8.0 * a; d3_ = exp(-1.0 / (kCY_EG3Tau * sr_));
         active_ = true; quiet_ = 0;
     }
 
@@ -424,37 +424,58 @@ public:
         const double b1 = opampClip(bp1_.process(_bus), 14.0);
         const double b2 = opampClip(bp2_.process(_bus), 14.0);
 
-        const double e1 = eg1_.tick(), e2 = eg2_.tick(), e3 = eg3_.tick();
+        /* shimmer env: attack toward target, then the pot's decay */
+        if(e1t_ > 0.0)
+        {
+            e1_ += (e1t_ - e1_) * atkC_;
+            if(e1_ > e1t_ * 0.99) e1t_ = 0.0;
+        }
+        else e1_ *= d1_;
+        e2_ *= d2_;
+        e3_ *= d3_;
 
-        double sus = susHp_.process(hp1_.process(cpl1_.process(swingVCA(b1, e1))));
-        susLpZ_[0] += (sus - susLpZ_[0]) * (1.0 - susLpA_);
-        susLpZ_[1] += (susLpZ_[0] - susLpZ_[1]) * (1.0 - susLpA_);
-        susLpZ_[2] += (susLpZ_[1] - susLpZ_[2]) * (1.0 - susLpA_);
-        sus = susLpZ_[2];
-        const double body  = bodyHp2_.process(hp2_.process(cpl2_.process(swingVCA(b2, e2))));
-        double crash = cpl3_.process(swingVCA(b2, e3));
-        crash = hp3_.process(hp3b_.process(crash));
+        /* linear VCAs, diode gate in the envelope */
+        const double g1 = gate(e1_), g2 = gate(e2_), g3 = gate(e3_);
 
-        /* Tone's main act, per the paper: the crash band's level */
-        double y = sus * kCY_SusW + body * kCY_BodyW
-                 + crash * kCY_CrashW * (0.2 + 1.1 * tone_);
+        double sus = susHp_.process(b1) * g1;
+        susLpZ_ += (sus - susLpZ_) * (1.0 - susLpA_);
+        sus = susLpZ_;
+
+        const double bodyIn = bodyHpB_.process(bodyHpA_.process(bodySk_.process(b2)));
+        double bodyDk = bodyIn;
+        bodyLpZ_[0] += (bodyDk - bodyLpZ_[0]) * (1.0 - bodyLpA_); bodyDk = bodyLpZ_[0];
+        bodyLpZ_[1] += (bodyDk - bodyLpZ_[1]) * (1.0 - bodyLpA_); bodyDk = bodyLpZ_[1];
+        const double body = bodyDk * (g2 + kCY_FloorW * g1);
+        const double top  = topHp_.process(bodyIn) * g3;
+
+        double y = sus * kCY_SusW + body * kCY_BodyW + top * kCY_TopW;
         y = dc_.process(y * kCY_OutScale);
 
         const float o = (float)y;
         if(o > 3.2e-5f || o < -3.2e-5f) quiet_ = 0;
-        else if(++quiet_ > 400 && eg1_.dead() && eg2_.dead() && eg3_.dead())
+        else if(++quiet_ > 400 && e1_ < kMT_DiodeVon * 0.5 && e2_ < kMT_DiodeVon
+                && e3_ < kMT_DiodeVon)
             active_ = false;
         return o;
     }
 
 private:
-    double sr_ = 44100.0, tone_ = 0.5;
+    static double gate(const double _e)
+    {
+        const double over = _e - kMT_DiodeVon;
+        if(over <= 0.0) return 0.0;
+        if(over < kCY_Knee) return over * over / (2.0 * kCY_Knee);
+        return over - kCY_Knee * 0.5;
+    }
+
+    double sr_ = 44100.0;
     SchmittBank *bank_ = nullptr;
     WernerBandpass bp1_, bp2_;
-    SKHighpass hp1_, hp2_, hp3_, susHp_;
-    OnePoleHP hp3b_, cpl1_, cpl2_, cpl3_, bodyHp2_, dc_;
-    double susLpA_ = 0, susLpZ_[3] = {0, 0, 0};
-    MetalEnv eg1_, eg2_, eg3_;
+    SKHighpass susHp_, topHp_, bodySk_;
+    OnePoleHP bodyHpA_, bodyHpB_, dc_;
+    double susLpA_ = 0, susLpZ_ = 0, bodyLpA_ = 0, bodyLpZ_[2] = {0, 0};
+    double e1_ = 0, e2_ = 0, e3_ = 0, e1t_ = 0;
+    double d1_ = 1, d2_ = 1, d3_ = 1, atkC_ = 0;
     bool active_ = false;
     int  quiet_ = 0;
 };
