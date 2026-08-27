@@ -132,7 +132,7 @@ constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
     0.1108f,   /* cb */
     0.0019f,   /* ch — raw peak near 17 before the drive stage catches it */
     0.0369f,   /* oh */
-    1.1480f,   /* cy */
+    0.8916f,   /* cy */
 };
 
 /*

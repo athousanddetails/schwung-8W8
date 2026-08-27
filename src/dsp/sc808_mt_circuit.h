@@ -348,34 +348,50 @@ private:
 /* ---- the cymbal -------------------------------------------------------- */
 
 /*
- * Three bands, as the block diagram has it: BP1 (3.44 kHz) through VCA1 is
- * the pot-controlled SUSTAIN; BP2 (7.1 kHz) through VCA2 is the BODY, and
- * through VCA3 with the tall fast envelope is the CRASH, whose HP3 puts the
- * resonant 10.5 kHz edge on the front of the note.
+ * Werner's architecture, calibrated to Roland's render with the honest
+ * band tools. The reference's fingerprint, measured in three bands:
  *
- * Envelope peaks are Fig 7's voltages; time constants FITTED to Roland's
- * own render at the default kit (to 1% of peak in 1.79 s).
+ *   2.8-5.2 kHz — the SUSTAIN. Dips after the crash, recovers, then rings
+ *   with a ~0.77 s time constant: half strength at 700 ms, an eighth at
+ *   1.5 s. This band is the shimmer, and it is the Decay pot's band
+ *   (BP1 through VCA1/EG1, exactly as the paper wires it).
+ *
+ *   5.8-9 kHz — the BODY: down to a sixth inside 300 ms (tau ~155 ms).
+ *   9.5-14 kHz — the CRASH TOP: fastest, tau ~127 ms, gone by 400.
+ *
+ *   Whole-hit spectrum: -12.9 / -8.1 / -3.9 / 0 / -6.6 / -6.9 across the
+ *   six octave bands — peak at 6.5-9 k, falling both ways.
+ *
+ * MUTABLE constants: tools sweep them against those tables; shipped values
+ * are the fit's optimum.
  */
+static double kCY_SusW    = 0.80;    /* BP1 path weight  */
+static double kCY_BodyW   = 3.00;    /* BP2 -> EG2 path  */
+static double kCY_CrashW  = 1.50;    /* BP2 -> EG3 path  */
+static double kCY_SusHPHz = 3300.0;  /* keeps the sustain out of 2-3k */
+static double kCY_SusLPHz = 4400.0;  /* and out of the crash's bands — the
+    shimmer is a 3-5 kHz pocket; BP1's gentle skirts alone leaked it into
+    the mid and top bands and fattened tails that should die fast */
+static double kCY_EG1Div  = 1.6;     /* pot seconds -> EG1 tau */
+static double kCY_BodyHPHz = 5500.0; /* keeps the loud body out of the shimmer band */
+static double kCY_EG2Tau  = 0.140;
+static double kCY_EG3Tau  = 0.045;
+static constexpr double kCY_OutScale = 0.74;
+
 class CymbalCircuit {
 public:
     void init(const double _sr, SchmittBank *_bank)
     {
         sr_ = _sr; bank_ = _bank;
-        /*
-         * The input impedance each filter actually sees is the passive
-         * mixer's ~1k bus, not the 22k printed beside the input cap (that
-         * resistor biases, it does not source). Solved so the paper's own
-         * transfer function lands on the paper's own stated centres:
-         * 870 ohm -> 3445 Hz, 1393 ohm -> 7101 Hz.
-         */
         bp1_.set(870.0, 56.0e3, 82.0e3, 6.8e-9, 6.8e-9, 3.3e-9, _sr);
         bp2_.set(1393.0, 56.0e3, 82.0e3, 3.3e-9, 3.3e-9, 1.0e-9, _sr);
         hp1_.set(2500.0, 0.97, 1.0, _sr);              /* R124/R127, derived */
-        hp2_.set(5200.0, 1.0, 2.2, _sr);               /* fitted to Fig 4    */
+        susHp_.set(kCY_SusHPHz, 0.9, 1.0, _sr);
+        susLpA_ = exp(-2.0 * kCircPi * kCY_SusLPHz / _sr);
+        susLpZ_[0] = susLpZ_[1] = susLpZ_[2] = 0.0;
+        hp2_.set(kCY_BodyHPHz, 1.0, 2.2, _sr);
         hp3_.set(10500.0, 2.0, 1.4, _sr);              /* the resonance      */
-        hp3b_.set(9000.0, _sr);                        /* 3rd-order's extra  */
-        /* the same rectification story as the hats: each VCA couples out
-         * through small caps, and the lows the half-wave makes must go */
+        hp3b_.set(9000.0, _sr);
         cpl1_.set(2400.0, _sr);
         cpl2_.set(4700.0, _sr);
         cpl3_.set(8700.0, _sr);
@@ -386,26 +402,18 @@ public:
 
     bool active() const { return active_; }
 
-    /* decaySec: the CY Decay pot, seconds of audible ring (to 1%). tone:
-     * 0..1, primarily the level of the crash band, as the paper describes
-     * the hardware control. accentV: trigger volts. */
     void trigger(const float _decaySec, const float _tone, const float _accentV)
     {
         const double a = (double)_accentV / 8.0;
         tone_ = (double)(_tone < 0.0f ? 0.0f : (_tone > 1.0f ? 1.0f : _tone));
-        /*
-         * Fig 7: EG3 tall and fast (the crash), EG2 mid, EG1 the sustain
-         * whose release is the pot. Peaks in volts, from the figure; decay
-         * of EG1 set so the whole note reaches 1% at the pot's seconds.
-         */
-        eg3_.trigger(13.0 * a, 0.030);
-        eg2_.trigger(6.0 * a, 0.180);
         const double t = _decaySec > 0.1f ? (double)_decaySec : 0.1;
-        /* tau = t/2.3, not t/ln(100): the diode gate ends the tail after
-         * about 23 dB of envelope travel, so the audible-seconds pot maps
-         * through the span the gate actually allows. Calibrated against
-         * the measured renders. */
-        eg1_.trigger(7.0 * a, t / 2.3);
+        eg3_.trigger(13.0 * a, kCY_EG3Tau);
+        eg2_.trigger(6.0 * a, kCY_EG2Tau);
+        eg1_.trigger(7.0 * a, t / kCY_EG1Div);
+        susHp_.set(kCY_SusHPHz, 0.9, 1.0, sr_);
+        susLpA_ = exp(-2.0 * kCircPi * kCY_SusLPHz / sr_);
+        hp2_.set(kCY_BodyHPHz, 1.0, 2.2, sr_);
+        bodyHp2_.set(kCY_BodyHPHz * 0.85, sr_);
         active_ = true; quiet_ = 0;
     }
 
@@ -418,15 +426,18 @@ public:
 
         const double e1 = eg1_.tick(), e2 = eg2_.tick(), e3 = eg3_.tick();
 
-        const double sus   = hp1_.process(cpl1_.process(swingVCA(b1, e1)));
-        const double body  = hp2_.process(cpl2_.process(swingVCA(b2, e2)));
+        double sus = susHp_.process(hp1_.process(cpl1_.process(swingVCA(b1, e1))));
+        susLpZ_[0] += (sus - susLpZ_[0]) * (1.0 - susLpA_);
+        susLpZ_[1] += (susLpZ_[0] - susLpZ_[1]) * (1.0 - susLpA_);
+        susLpZ_[2] += (susLpZ_[1] - susLpZ_[2]) * (1.0 - susLpA_);
+        sus = susLpZ_[2];
+        const double body  = bodyHp2_.process(hp2_.process(cpl2_.process(swingVCA(b2, e2))));
         double crash = cpl3_.process(swingVCA(b2, e3));
         crash = hp3_.process(hp3b_.process(crash));
 
-        /* band weights fitted to Roland's own render: its default cymbal
-         * is body-and-crash forward (6-9 kHz), the sustain a floor under
-         * it. Tone's main act, per the paper, is the crash band's level. */
-        double y = sus * 0.42 + body * 0.85 + crash * (0.15 + 0.70 * tone_);
+        /* Tone's main act, per the paper: the crash band's level */
+        double y = sus * kCY_SusW + body * kCY_BodyW
+                 + crash * kCY_CrashW * (0.2 + 1.1 * tone_);
         y = dc_.process(y * kCY_OutScale);
 
         const float o = (float)y;
@@ -437,14 +448,12 @@ public:
     }
 
 private:
-    /* fitted: circuit and sc808 engines share the lane trim */
-    static constexpr double kCY_OutScale = 0.74;
-
     double sr_ = 44100.0, tone_ = 0.5;
     SchmittBank *bank_ = nullptr;
     WernerBandpass bp1_, bp2_;
-    SKHighpass hp1_, hp2_, hp3_;
-    OnePoleHP hp3b_, cpl1_, cpl2_, cpl3_, dc_;
+    SKHighpass hp1_, hp2_, hp3_, susHp_;
+    OnePoleHP hp3b_, cpl1_, cpl2_, cpl3_, bodyHp2_, dc_;
+    double susLpA_ = 0, susLpZ_[3] = {0, 0, 0};
     MetalEnv eg1_, eg2_, eg3_;
     bool active_ = false;
     int  quiet_ = 0;
