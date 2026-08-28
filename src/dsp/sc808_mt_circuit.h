@@ -390,11 +390,11 @@ private:
  * Tune / Decay / Level like the lane deserves; the crash balance is the
  * reference's, fixed.
  */
-static double kCY_SusW    = 0.032;
+static double kCY_SusW    = 0.022;
 static double kCY_BodyW   = 1.00;
-static double kCY_TopW    = 0.14;
-static double kCY_SusHPHz = 4300.0;
-static double kCY_SusLPHz = 5200.0;
+static double kCY_TopW    = 0.55;
+static double kCY_SusHPHz = 3150.0;
+static double kCY_SusLPHz = 3700.0;
 static double kCY_SusAtk  = 0.070;   /* the shimmer BLOOMS, ~200 ms to peak */
 static double kCY_EG1Div  = 2.2;     /* pot seconds -> shimmer tau */
 static double kCY_BodyLPHz = 9200.0; /* the band above 9 k belongs to the fast top path */
@@ -411,16 +411,24 @@ public:
         sr_ = _sr; bank_ = _bank;
         bp1_.set(870.0, 56.0e3, 82.0e3, 6.8e-9, 6.8e-9, 3.3e-9, _sr);
         bp2_.set(1393.0, 56.0e3, 82.0e3, 3.3e-9, 3.3e-9, 1.0e-9, _sr);
-        susHp_.set(kCY_SusHPHz, 0.9, 1.0, _sr);
+        susHp_.set(kCY_SusHPHz, 2.0, 1.0, _sr);
+        susHp2_.set(kCY_SusHPHz, 0.9, 1.0, _sr);
         susLpA_ = exp(-2.0 * kCircPi * kCY_SusLPHz / _sr);
         susLpZ_ = 0.0;
-        bodySk_.set(6500.0, 0.9, 1.0, _sr);
+        /*
+         * The recording's fine spectrum is TWO FORMANTS — 3.25 and 7.1 kHz,
+         * the Werner band passes' own centres — with valleys between and
+         * around them. Broad walls flattened that structure; each path now
+         * keeps its formant: the body re-peaks at BP2's centre.
+         */
+        bodyRes_.set(7150.0, 2.6, _sr);
+        bodySk_.set(6400.0, 1.1, 1.0, _sr);
         bodyHpA_.set(5000.0, _sr);
-        bodyHpB_.set(4400.0, _sr);
         bodyLpA_ = exp(-2.0 * kCircPi * kCY_BodyLPHz / _sr);
         bodyLpZ_[0] = bodyLpZ_[1] = 0.0;
-        topHp_.set(9500.0, 1.2, 1.0, _sr);
+        topHp_.set(13500.0, 1.2, 1.0, _sr);
         dc_.set(200.0, _sr);
+        outHp_.set(1500.0, 0.8, 1.0, _sr);
         e1_ = e2_ = e3_ = 0.0; e1t_ = 0.0;
         d1_ = d2_ = d3_ = 1.0; atkC_ = 0.0;
         active_ = false; quiet_ = 0;
@@ -432,7 +440,8 @@ public:
     {
         const double a = (double)_accentV / 8.0;
         const double t = _decaySec > 0.1f ? (double)_decaySec : 0.1;
-        susHp_.set(kCY_SusHPHz, 0.9, 1.0, sr_);
+        susHp_.set(kCY_SusHPHz, 2.0, 1.0, sr_);
+        susHp2_.set(kCY_SusHPHz, 0.9, 1.0, sr_);
         susLpA_ = exp(-2.0 * kCircPi * kCY_SusLPHz / sr_);
         bodyLpA_ = exp(-2.0 * kCircPi * kCY_BodyLPHz / sr_);
         e1t_ = 8.0 * a;                 /* shimmer target, reached slowly */
@@ -463,19 +472,21 @@ public:
         /* linear VCAs, diode gate in the envelope */
         const double g1 = gate(e1_), g2 = gate(e2_), g3 = gate(e3_);
 
-        double sus = susHp_.process(b1) * g1;
+        double sus = susHp2_.process(susHp_.process(b1)) * g1;
         susLpZ_ += (sus - susLpZ_) * (1.0 - susLpA_);
-        sus = susLpZ_;
+        susLpZ2_ += (susLpZ_ - susLpZ2_) * (1.0 - susLpA_);
+        sus = susLpZ2_;
 
-        const double bodyIn = bodyHpB_.process(bodyHpA_.process(bodySk_.process(b2)));
+        const double bodyPre = bodySk_.process(bodyHpA_.process(b2));
+        const double bodyIn  = bodyRes_.process(bodyPre);
         double bodyDk = bodyIn;
         bodyLpZ_[0] += (bodyDk - bodyLpZ_[0]) * (1.0 - bodyLpA_); bodyDk = bodyLpZ_[0];
         bodyLpZ_[1] += (bodyDk - bodyLpZ_[1]) * (1.0 - bodyLpA_); bodyDk = bodyLpZ_[1];
         const double body = bodyDk * (g2 + kCY_FloorW * g1);
-        const double top  = topHp_.process(bodyIn) * g3;
+        const double top  = topHp_.process(bodyPre) * g3;
 
         double y = sus * kCY_SusW + body * kCY_BodyW + top * kCY_TopW;
-        y = dc_.process(y * kCY_OutScale);
+        y = dc_.process(outHp_.process(y * kCY_OutScale));
 
         const float o = (float)y;
         if(o > 3.2e-5f || o < -3.2e-5f) quiet_ = 0;
@@ -497,9 +508,10 @@ private:
     double sr_ = 44100.0;
     SchmittBank *bank_ = nullptr;
     WernerBandpass bp1_, bp2_;
-    SKHighpass susHp_, topHp_, bodySk_;
-    OnePoleHP bodyHpA_, bodyHpB_, dc_;
-    double susLpA_ = 0, susLpZ_ = 0, bodyLpA_ = 0, bodyLpZ_[2] = {0, 0};
+    SKHighpass susHp_, susHp2_, topHp_, bodySk_, outHp_;
+    OnePoleHP bodyHpA_, dc_;
+    BridgedT bodyRes_;
+    double susLpA_ = 0, susLpZ_ = 0, susLpZ2_ = 0, bodyLpA_ = 0, bodyLpZ_[2] = {0, 0};
     double e1_ = 0, e2_ = 0, e3_ = 0, e1t_ = 0;
     double d1_ = 1, d2_ = 1, d3_ = 1, atkC_ = 0;
     bool active_ = false;
