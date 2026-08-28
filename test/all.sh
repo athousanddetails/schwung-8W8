@@ -81,6 +81,19 @@ else
   verdict $l
 fi
 
+step "golden render — every lane still makes the sound it was signed off on"
+# The voices were tuned one at a time against the player's own references and
+# each was approved by ear on the device. Nothing else in this suite asserts
+# that work; it lives in filter corners and envelope constants. This renders
+# every lane through the real engine and compares the samples bit for bit, so
+# structural work on the engine AROUND the voices cannot quietly move them.
+$CXX $FLAGS -o build-native/golden_check tools/golden_check.cpp src/dsp/sc808_engine.cpp
+./build-native/golden_check >build-native/golden.log 2>&1
+g=$?
+tail -1 build-native/golden.log
+[ $g -ne 0 ] && head -20 build-native/golden.log
+verdict $g
+
 step "kit balance and spectral placement"
 $CXX $FLAGS -o build-native/kit_check tools/kit_check.cpp src/dsp/sc808_engine.cpp
 ./build-native/kit_check >build-native/kit.log 2>&1
