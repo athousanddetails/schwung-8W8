@@ -59,6 +59,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -119,6 +122,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -172,6 +178,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -226,6 +235,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -280,6 +292,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -334,6 +349,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -388,6 +406,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -442,6 +463,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -496,6 +520,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -550,6 +577,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -612,6 +642,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -665,6 +698,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -719,6 +755,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -773,6 +812,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -837,6 +879,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -891,6 +936,9 @@
             "options": [
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]
@@ -923,6 +971,9 @@
               "Off",
               "Diode",
               "Clip",
+              "SAT",
+              "BFZ",
+              "PDIST",
               "Fold",
               "Crush"
             ]

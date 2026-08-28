@@ -94,6 +94,13 @@ tail -1 build-native/golden.log
 [ $g -ne 0 ] && head -20 build-native/golden.log
 verdict $g
 
+step "drive stage — seven characters, and what the contract promises"
+$CXX $FLAGS -o build-native/fx_probe tools/fx_probe.cpp
+./build-native/fx_probe >build-native/fx.log 2>&1
+f=$?
+grep -E 'bit-exactly dry|more than 6 dB|holds samples' build-native/fx.log
+verdict $f
+
 step "kit balance and spectral placement"
 $CXX $FLAGS -o build-native/kit_check tools/kit_check.cpp src/dsp/sc808_engine.cpp
 ./build-native/kit_check >build-native/kit.log 2>&1

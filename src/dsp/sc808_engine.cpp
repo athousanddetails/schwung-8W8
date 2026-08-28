@@ -27,8 +27,14 @@ using namespace sc808;
  *    its circuit voice now — which renumbers the enum table. v1 blobs are
  *    loaded BY NAME against the table that shipped with them; see
  *    kV1EnumKeys and sc808_deserialize.
+ * 3: the drive stage grew from four characters to 9W9's seven, which moved
+ *    Fold 2 -> 5 and Crush 3 -> 6 inside every *_dist_type, and 3 -> 6 /
+ *    4 -> 7 inside master_dist (its list is "Off" plus the same seven).
+ *    Without the remap every old Crush patch comes back as something else,
+ *    because deserialize clamps a selection to the last option rather than
+ *    guessing.
  */
-#define SC808_STATE_VERSION 2
+#define SC808_STATE_VERSION 3
 
 /* A choke is a 2 ms fade, not a hard stop — cutting a ringing open hat dead
  * puts a click on the front of the closed hat that follows it. */
@@ -179,6 +185,9 @@ struct VoiceRt {
     float hit_gain;      /* this hit's accent scale             */
     float choke_gain;    /* 1.0 normally, ramps to 0 on a choke */
     float choke_step;    /* < 0 while choking, else 0           */
+    /* Crush's sample-and-hold. Per lane, because one shared state would
+     * put the closed hat's decimator steps on the kick. */
+    float crush_st[SC808_CRUSH_STATE];
 };
 
 int find_pot(const char *key)
@@ -225,6 +234,7 @@ struct sc808_engine {
     /* Globals. */
     int e_master_dist, e_choke, e_note_map;
     int p_master_drive, p_volume, p_accent;
+    float crush_master[SC808_CRUSH_STATE];
 
     unsigned mutes;
 
@@ -559,7 +569,8 @@ static inline float voice_sample(sc808_engine *e, int v, float raw)
      * catching the spiky voices. The rim shot has a crest factor of 11, and
      * post-drive trimming would have had it peaking at 6.5 to sit level. */
     const float trimmed = raw * kVoiceTrim[v];
-    const float shaped = sc808_shape(trimmed, e->potv[s.drive], e->env[s.dist]);
+    const float shaped = sc808_shape_st(trimmed, e->potv[s.drive],
+                                        e->env[s.dist], r.crush_st);
     return shaped * e->potv[s.level] * r.hit_gain * r.choke_gain;
 }
 
@@ -610,7 +621,7 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
 #undef SC808_METAL
 
         /* Master stage. Option 0 is Off, so the kit can be left alone. */
-        if(mdist > 0) mix = sc808_shape(mix, mdrive, mdist - 1);
+        if(mdist > 0) mix = sc808_shape_st(mix, mdrive, mdist - 1, e->crush_master);
         mix *= vol;
 
         if(!(mix > -8.0f && mix < 8.0f)) mix = 0.0f;   /* also catches NaN */
@@ -750,6 +761,12 @@ void sc808_deserialize(sc808_engine_t *e, const char *json)
         if(vp) { vp = strchr(vp, ':'); if(vp) version = (int)strtol(vp + 1, NULL, 10); }
     }
     const bool byName = version < 2;
+    /* Old menu position -> new, for the four-type drive stage. Index is the
+     * stored value; the master's list carries a leading "Off" so it shifts
+     * by one. */
+    static const int kDistV2toV3[4]   = { 0, 1, 5, 6 };
+    static const int kMDistV2toV3[5]  = { 0, 1, 2, 6, 7 };
+    const bool remapDist = version < 3;
 
     const char *p = strstr(json, "\"pots\"");
     enum { kScratch = (SC808_NUM_POTS > SC808_NUM_ENUMS ? SC808_NUM_POTS
@@ -779,6 +796,15 @@ void sc808_deserialize(sc808_engine_t *e, const char *json)
         const int slot = byName ? (i < kV1Enums ? find_enum(kV1EnumKeys[i]) : -1) : i;
         if(slot < 0 || slot >= SC808_NUM_ENUMS) continue;
         int v = vals[i] < 0 ? 0 : vals[i];
+        if(remapDist)
+        {
+            const char *k = g_sc808_enums[slot].key;
+            const size_t kl = strlen(k);
+            if(kl > 10 && !strcmp(k + kl - 10, "_dist_type"))
+            { if(v < 4) v = kDistV2toV3[v]; }
+            else if(!strcmp(k, "master_dist"))
+            { if(v < 5) v = kMDistV2toV3[v]; }
+        }
         if(v >= g_sc808_enums[slot].count) v = g_sc808_enums[slot].count - 1;
         e->env[slot] = v;
     }

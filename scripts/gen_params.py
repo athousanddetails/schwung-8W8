@@ -66,13 +66,18 @@ def PV(key, label, lo, hi, curve, value):
 
 # Post-voice drive stage. The 808's own nonlinearities live inside the voices
 # where the circuit puts them; this is the panel's Drive/Distortion, which the
-# hardware never had. Same four flavours as 9W9 and 6W6 so a player who knows
-# what Fold at 90 does on the 606 knows what it does here.
+# hardware never had. The same SEVEN flavours as 9W9 and 6W6, so a player who
+# knows what BFZ at 90 does on the 909 knows what it does here.
+#
+# ORDER IS STORAGE ORDER, and it changed when SAT/BFZ/PDIST arrived: Fold
+# moved 2 -> 5 and Crush 3 -> 6. sc808_deserialize remaps older blobs. Never
+# reorder again without extending that migration.
 #
 # Option text is sized for the stock grid's enum box: TWO LINES OF THREE
-# CHARACTERS (font5x3.mjs enumSquareLines). These read DIO/DE, CLI/P, FOL/D,
-# CRU/SH.
-DIST = ["Diode", "Clip", "Fold", "Crush"]
+# CHARACTERS (font5x3.mjs enumSquareLines). These read DIO/DE, CLI/P, SAT,
+# BFZ, PDI/ST, FOL/D, CRU/SH — which is part of why the three new ones are
+# named the way they are. Do not rename them.
+DIST = ["Diode", "Clip", "SAT", "BFZ", "PDIST", "Fold", "Crush"]
 
 
 # Drive is LINEAR 0..10 and DEFAULTS TO 0, which sc808_shape.h treats as a
