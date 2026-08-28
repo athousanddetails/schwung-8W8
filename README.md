@@ -14,6 +14,14 @@ Sixteen drums fill Move's left 4×4 pad block exactly — where
 Master pad, because sixteen drums leave no room for one; Master is on the jog
 with every other page.
 
+![Bass Drum page on the Move](docs/img/device-bd.png)
+![Hi Tom page, with the two sends](docs/img/device-ht.png)
+![Maracas page, Attack and Decay drawn as one envelope](docs/img/device-ma.png)
+
+The kick has no sends — it is dry by design. The maracas page shows the stock
+knob grid spanning ONE envelope graphic across an adjacent Attack/Decay pair,
+which is why those two are ordered the way they are.
+
 ## Voices
 
 | Voice | Built from |
@@ -209,6 +217,15 @@ different hits.
   Note map: drum rack (36–51, default) or General MIDI, switchable.
 - Works with [Movy](https://github.com/DimaDake/schwung-movy) — a
   `movy_config.json` ships with the module.
+- **Remote panel** in a browser, served by schwung-manager: the whole machine
+  on one screen, every control at once, with the device's current page
+  highlighted.
+
+![8W8 remote panel](docs/img/remote-ui.png)
+
+Top deck is the 808's own panel. Middle deck is Drive, Distortion and the two
+send amounts per drum — none of which an 808 had, which is what the header
+says. Bottom row is the send buses and Master.
 
 ## How it is verified
 
@@ -319,10 +336,12 @@ single dict. Adding a control is one edit.
 
 - **[sc808](https://github.com/sonic-pi-net/sonic-pi/blob/dev/etc/synthdefs/designs/supercollider/sc808.scd)**
   — the 808 SynthDefs by **Yoshinosuke Horiuchi**, adapted for Sonic Pi by
-  **Sam Aaron**, MIT. Vendored under `src/vendor/sc808`. The rim shot you
-  hear is one of these; the rest are still transcribed in
-  `src/dsp/sc808_voices.h` and still verified by the null test, which is what
-  the circuit models were measured against on the way in.
+  **Sam Aaron**, MIT. Vendored under `src/vendor/sc808`. **Exactly one voice
+  you hear is one of these: the rim shot.** The other fifteen lanes are
+  circuit models and are not transcriptions of anything. The rest of the
+  transcription is still in the tree and still verified by the null test,
+  because it is what the circuit models were measured against on the way in
+  and it is what keeps `sc_ugens.h` honest.
 - **Werner, Abel and Smith**, *A Physically-Informed, Circuit-Bendable,
   Digital Model of the Roland TR-808 Bass Drum Circuit* (DAFx-14) and *The
   TR-808 Cymbal* (ICMC|SMC 2014) — the circuit analysis the kick is built

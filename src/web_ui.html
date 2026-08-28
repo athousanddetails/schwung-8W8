@@ -155,8 +155,14 @@
   .deck .hdr { display: flex; justify-content: space-between; align-items: baseline;
                font-size: 7.5px; letter-spacing: 2px; color: #b9b6ae;
                margin-bottom: 7px; }
-  .deck select { width: 50px; height: 18px; border: 1px solid #111; border-radius: 2px;
-                 background: #d9d6cd; color: #17171a; font-weight: 700; font-size: 9px; }
+  /* 54px is the column's whole content box (58 less 2px padding a side), and
+     the longest options — "CH>OH", "Rack 36" — need every pixel of it plus a
+     slightly tighter face. At 50px they truncated to "CH>OI" and "Rack 3",
+     which is worse than an unaligned column. */
+  .deck select { width: 54px; height: 18px; border: 1px solid #111; border-radius: 2px;
+                 padding: 0 1px; box-sizing: border-box;
+                 background: #d9d6cd; color: #17171a; font-weight: 700;
+                 font-size: 8.5px; letter-spacing: -.2px; }
   .deck .knobwrap { margin-bottom: 6px; }
   .deck .rule { opacity: .28; margin: 8px 0; }
   .deck .rule.section { opacity: .5; margin: 4px 7px; }
@@ -227,8 +233,9 @@
     <div class="rack" id="buses"></div>
     <div class="steps" id="steps"></div>
     <div class="foot">
-      by athousanddetails &middot; voices transcribed from sc808 (MIT) &middot;
-      kick and snare after Werner, Abel &amp; Smith &middot;
+      by athousanddetails &middot; circuit models from the TR-808 service notes
+      &middot; rim shot transcribed from sc808 (MIT) &middot;
+      kick, snare and cymbal after Werner, Abel &amp; Smith &middot;
       drag knobs vertically, double-click to reset &middot; buttons mute
     </div>
   </div>

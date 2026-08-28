@@ -2,7 +2,7 @@
 
 8W8 is GPL-3.0. What it is built from, and under what terms:
 
-## sc808 — the Engine A voices
+## sc808 — the rim shot, and the reference the rest was measured against
 
 `src/vendor/sc808/sc808.scd`, vendored unmodified apart from removing the
 duplicated second copy of every SynthDef that ships upstream.
@@ -16,8 +16,19 @@ duplicated second copy of every SynthDef that ships upstream.
   free (see the header comment in the file), adapted for Sonic Pi by
   **Sam Aaron**.
 
-Every Engine A voice in `src/dsp/sc808_voices.h` is a transcription of one of
-these SynthDefs, verified sample-for-sample by `test/nulltest.sh`.
+Every voice in `src/dsp/sc808_voices.h` is a transcription of one of these
+SynthDefs, verified sample-for-sample by `test/nulltest.sh`.
+
+WHAT IS ACTUALLY HEARD, as of the circuit-only build: **the rim shot, and
+only the rim shot.** Two circuit rim shots were built from the schematic and
+both lost to this transcription on hardware, so it is the shipped voice on
+that lane. The other fifteen lanes are circuit models built from the service
+notes and the published analyses — they are not transcriptions of anything.
+
+The rest of the transcription is still in the tree, still compiled, and still
+verified by the null test, because it is what the circuit models were measured
+against on the way in and it is the only thing that keeps `sc_ugens.h` honest.
+The obligation to credit it is unchanged either way.
 
 ## SuperCollider — the UGen semantics
 
