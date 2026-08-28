@@ -299,13 +299,40 @@ def viz_for(p):
     return None
 
 
+# ---- two audiences, two spellings of the same control ----------------------
+#
+# The knob grid draws a param under a page that already says COW BELL, so
+# there it wants to read "Decay". Schwung's LFO and mod pickers draw one FLAT
+# list across the whole module, where SIXTEEN voices each contribute a "Decay"
+# and nothing says which pad you are about to automate. 8W8 has the worst of
+# this in the family: 9W9 has eleven voices and 6W6 eight.
+#
+# param_meta.mjs merges the two sources as {...inlineHierarchy, ...chainParams}
+# and resolves `meta.label || meta.name`. chain_params spells the display
+# string `name`; hierarchy entries spell it `label` — so a `label` on the
+# hierarchy entry survives the merge AND wins the fallback. That is the seam:
+# prefix `name` for the picker, keep `label` bare for the page. Emitting
+# `name` on the hierarchy entry instead is what makes the prefix leak onto the
+# knob grid.
+#
+# The tags are the 808's own panel abbreviations, which is exactly the page id
+# set uppercased — 9W9 had to hand-write its table because its keys carry a
+# `_c_` infix, and ours do not.
+PICKER_PREFIX = {pid.upper(): pid for pid, _, _ in PAGES}
+
+
+def picker_name(key, name):
+    head = key.split("_", 1)[0].upper()
+    return f"{head} {name}" if head in PICKER_PREFIX else name
+
+
 def chain_param(p):
     if p["kind"] == "enum":
-        d = {"key": p["key"], "name": p["name"], "type": "enum",
-             "options": p["options"]}
+        d = {"key": p["key"], "name": picker_name(p["key"], p["name"]),
+             "type": "enum", "options": p["options"]}
     else:
-        d = {"key": p["key"], "name": p["name"], "type": "int",
-             "min": 0, "max": 127}
+        d = {"key": p["key"], "name": picker_name(p["key"], p["name"]),
+             "type": "int", "min": 0, "max": 127}
     # The sc808 default, so a reset gesture (stock Mute+knob, Movy, the web
     # panel's double-click) lands on the verified sound and not on a guessed 64.
     d["default"] = p["default"]
@@ -333,13 +360,13 @@ for pid, label, params in PAGES:
         raise SystemExit(f"page {pid} has {len(params)} params — max 8 knobs")
     levels[pid] = {"name": label,
                    "knobs": [p["key"] for p in params],
-                   "params": [{"key": p["key"], "name": p["name"]}
+                   "params": [{"key": p["key"], "label": p["name"]}
                               for p in params]}
     root.append({"level": pid, "label": label})
 
 for p in GLOBALS:
     register(p)
-root += [{"key": p["key"], "name": p["name"]} for p in GLOBALS]
+root += [{"key": p["key"], "label": p["name"]} for p in GLOBALS]
 levels["root"] = {"name": "8W8",
                   "knobs": [p["key"] for p in GLOBALS[:4]],
                   "params": root}
@@ -353,6 +380,20 @@ cp.append({"key": "ui_focus", "name": "Focus", "type": "int",
            "min": 0, "max": 16, "default": 0})       # 16 == Master
 cp.append({"key": "mutes", "name": "Mutes", "type": "int",
            "min": 0, "max": 65535, "default": 0})    # sixteen lanes, sixteen bits
+
+# The point of the prefixes is that no two entries in the flat picker read the
+# same. Assert it rather than trusting it: 9W9 verified this by hand and its
+# own porting notes ask for the assertion, and a duplicate here is invisible —
+# the picker simply shows two identical lines and automating either is a coin
+# flip. ui_focus and mutes are plumbing and never reach the picker.
+_picker = [e for e in cp if e["key"] not in ("ui_focus", "mutes")]
+_dupes = {}
+for e in _picker:
+    _dupes.setdefault(e["name"], []).append(e["key"])
+_clash = {n: k for n, k in _dupes.items() if len(k) > 1}
+if _clash:
+    raise SystemExit("two controls would read the same in the LFO picker: "
+                     + "; ".join(f"{n!r} <- {', '.join(k)}" for n, k in _clash.items()))
 
 cpj = json.dumps(cp, separators=(",", ":"))
 uhj = json.dumps({"levels": levels}, separators=(",", ":"))

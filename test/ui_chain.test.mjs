@@ -167,7 +167,8 @@ Object.assign(globalThis, {
   host_pad_block: () => {},
   host_announce_screenreader: t => announced.push(t),
   move_midi_inject_to_move: m => injected.push(m),
-  clear_screen: () => {}, fill_rect: () => {}, print: () => {}, text_width: s => s.length * 6,
+  clear_screen: () => {}, fill_rect: () => {},
+  print: () => {}, text_width: s => s.length * 6,
   draw_line: () => {}, fill_circle: () => {}, draw_circle: () => {}, draw_arc: () => {},
 });
 
@@ -185,12 +186,30 @@ if (!SHARED) {
   console.log(fails ? `\nFAILED (${fails})` : "\nSTATIC CHECKS PASS (live editor skipped)");
   process.exit(fails ? 1 : 0);
 }
+/* The title bar is a bitmap font on the device, so scraping the screen text
+ * proves nothing. Wrap createController instead and record the title the
+ * binding HANDS the renderer — 6W6's trick, and the honest reading. */
+const spy = path.join(ROOT, "build-native", "pc_spy.mjs");
+fs.mkdirSync(path.dirname(spy), { recursive: true });
+fs.writeFileSync(spy, `
+import { createController as real } from ${JSON.stringify(pathToFileURL(SHARED + "/param_pages/page_controller.mjs").href)};
+export const spied = { title: null, ctl: null };
+export function createController(...a) {
+  const c = real(...a); spied.ctl = c;
+  const r = c.render.bind(c);
+  c.render = (ctx, opts) => { if (opts && opts.title != null) spied.title = opts.title; return r(ctx, opts); };
+  return c;
+}
+`);
 const src = fs.readFileSync(path.join(ROOT, "src/ui_chain.js"), "utf8")
+  .replace(/\/data\/UserData\/schwung\/shared\/param_pages\/page_controller\.mjs/g,
+           pathToFileURL(spy).href)
   .replace(/\/data\/UserData\/schwung\/shared\//g, pathToFileURL(SHARED + "/").href);
 const tmp = path.join(ROOT, "build-native", "ui_chain.test.mjs");
 fs.mkdirSync(path.dirname(tmp), { recursive: true });
 fs.writeFileSync(tmp, src);
 await import(pathToFileURL(tmp).href);
+const { spied } = await import(pathToFileURL(spy).href);
 const ui = globalThis.chain_ui;
 check(ui && ui.init && ui.tick && ui.onMidiMessageInternal && ui.handleBack,
       "chain_ui exports the four hooks");
@@ -271,6 +290,59 @@ check(ui.handleBack() === false, "Back with no picker exits the editor");
     ui.onMidiMessageInternal(new Uint8Array([0xB0, 14, 1])); ui.tick();
   } } catch (e) { threw = e; }
   check(!threw, "jogging through all 16 pages renders every one" + (threw ? " — " + threw : ""));
+}
+
+/* ---- Main-page jog lock ----------------------------------------------
+ *
+ * A jog click while already ON Main toggles a lock: pads keep playing and
+ * keep recording, but the page stops chasing them, so the master knobs stay
+ * under your hands while you jam. Shift+Pad still navigates — that gesture
+ * is an explicit "take me there". The title shows [L].
+ */
+{
+  const jogBack = () => ui.onMidiMessageInternal(new Uint8Array([0xB0, 14, 127]));
+  const click   = () => ui.onMidiMessageInternal(new Uint8Array([0xB0, 3, 127]));
+  const locked  = () => { ui.tick(); return /\[L\]/.test(spied.title || ""); };
+  /* walk back to Main — it is page 0, and 40 steps is more than the 17 pages */
+  for (let i = 0; i < 40; i++) { jogBack(); }
+  ui.tick();
+  check(!locked(), "not locked to begin with (" + spied.title + ")");
+
+  click();
+  check(locked(), "jog click on Main arms the lock (" + spied.title + ")");
+
+  /* locked: the pad plays but the page does not move */
+  setLog.length = 0; injected = [];
+  note(70, 100); off(70);
+  check(!setLog.some(([k]) => k === "synth:ui_focus"),
+        "locked: a pad no longer moves the page");
+  check(injected.length === 2,
+        "locked: the pad still plays and still records");
+
+  /* Shift+Pad is the explicit override */
+  shift = true; setLog.length = 0;
+  note(70, 100); off(70); shift = false;
+  check(setLog.some(([k, v]) => k === "synth:ui_focus" && v === "2"),
+        "locked: Shift+Pad still navigates (lane 2)");
+
+  /* back to Main, then unlock — a click only toggles while ON Main */
+  for (let i = 0; i < 40; i++) { jogBack(); }
+  ui.tick();
+  click();
+  check(globalThis.__8w8_main_lock === false && !locked(),
+        "a second jog click, on Main, unlocks (" + spied.title + ")");
+
+  setLog.length = 0;
+  note(71, 100); off(71);
+  check(setLog.some(([k, v]) => k === "synth:ui_focus" && v === "3"),
+        "unlocked: pads move the page again");
+
+  /* the host re-evaluates this file every time the editor opens, so the
+   * flag has to outlive module scope or the lock drops itself */
+  globalThis.__8w8_main_lock = true;
+  check(locked(),
+        "the lock lives on globalThis, so re-entering the editor keeps it");
+  globalThis.__8w8_main_lock = false;
 }
 
 /* unfocused: pads pass through, nothing else reacts */
