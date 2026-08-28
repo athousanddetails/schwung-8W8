@@ -1,10 +1,12 @@
 # 8W8 — Rhythm Composer for Ableton Move
 
 A TR-808 style drum machine for [Schwung](https://github.com/charlesvestal/schwung)
-on Ableton Move. Sixteen voices, all synthesised, no samples. Nine of them
-are models of the 808's actual circuits, built from the service notes; the
-rest of the kit is a transcription of Sonic Pi's sc808, verified
-sample-for-sample against SuperCollider.
+on Ableton Move. Sixteen voices, all synthesised, no samples. Fifteen of them
+are models of the 808's actual circuits, built from the service notes and the
+published analyses; the sixteenth — the rim shot — is a transcription of Sonic
+Pi's sc808, because two circuit rim shots were built and both lost to it by
+ear. The rest of that transcription still ships and is still verified
+sample-for-sample against SuperCollider; it is just no longer what you hear.
 
 Sixteen drums fill Move's left 4×4 pad block exactly — where
 [6W6](https://github.com/athousanddetails/schwung-6W6) uses half the block and
@@ -14,47 +16,66 @@ with every other page.
 
 ## Voices
 
-| Voice | Engine |
+| Voice | Built from |
 |---|---|
-| Bass Drum | **Circuit** — a bridged-T network in an op-amp feedback loop, where Decay is loop gain and the pitch sighs because the circuit makes it. Or **sc808**, switchable |
-| Snare | **Circuit** — two bridged-T shells at 173 and 336 Hz from the service notes' component values, so Tone balances two ringing shells and Snappy sets the noise's length as well as its level. Or **sc808**, switchable |
-| Low / Mid / Hi Tom | **Circuit** — a bridged-T at Q 10.8 ringing in a feedback loop, tuned and timed to hardware samples: F2/C3/G3, ring 0.39/0.23/0.18 s, the head a quiet texture on the strike. Or **sc808**, switchable |
-| Low / Mid / Hi Conga | The same channel with the switch the other way: struck soft (it blooms at 2–5 ms where a tom clicks inside 1), no head, ringing twice as long at the same pitch, and tuned an octave-plus above its tom — G3/D4/A4, as measured. Or **sc808** |
-| Rim Shot | **Circuit** — the two bridged-Ts off the schematic: 5.6k/1M/4.7n = 452 Hz and 820k/2.2n over the switch's ~2k = 1785 Hz, the body and the "tock". Or **sc808** |
-| Claves | **Circuit** — the same second network with the switch's 1k shunt: 2524 Hz at Q 14, ringing 30 ms as Roland's own model does. Or **sc808** |
-| Maracas | **Circuit** — bus noise high-passed hard, 39 ms to silence, fitted to Roland's render with the kit switch flipped to MA. Or **sc808** |
-| Hand Clap | **Circuit** — three noise bursts about 10 ms apart and a 330 ms tail (R362 × C143), through the 874 Hz bandpass R342/R334/C128 make. One knob: Decay, the tail. Burst spacing and tail mix are the hardware's, fixed. Or **sc808**, switchable |
-| Cowbell | **Circuit** — oscillators 5 and 6 of the ONE shared free-running Schmitt bank, exactly as the hardware wires them. Or **sc808** |
-| Closed / Open Hat | **Circuit** — the shared bank through each hat's C-R ladder (1.5 nF open, 1.0 nF closed — the closed hat is high-passed higher, which is why it is the thinner voice), a swing VCA whose diode gates the tail dead, and the 470 pF output coupling that keeps rectification out of the mix. Or **sc808** |
-| Cymbal | **Circuit** — Werner's analysis end to end: the bank through both band passes (3440 and 7100 Hz from the paper's own transfer functions), three envelopes, three swing VCAs, and the Sallen-Key high passes with the 10.5 kHz resonance the sizzle lives in. Or **sc808** |
+| Bass Drum | A bridged-T network in an op-amp feedback loop, where Decay is loop gain and the pitch sighs because the circuit makes it |
+| Snare | Two bridged-T shells at 173 and 336 Hz from the service notes' component values; Snappy sets the noise's length as well as its level |
+| Low / Mid / Hi Tom | A bridged-T at Q 10.8 ringing in a feedback loop, tuned and timed to hardware samples: F2/C3/G3, ring 0.39/0.23/0.18 s, the head a quiet texture on the strike |
+| Low / Mid / Hi Conga | The same channel with the switch the other way: struck soft (it blooms at 2–5 ms where a tom clicks inside 1), no head, ringing twice as long at the same pitch, and tuned an octave-plus above its tom — G3/D4/A4, as measured |
+| Rim Shot | **The one sc808 voice.** Two circuit rim shots were built from the schematic and both lost on hardware, the second badly. The transcription is the rim, tuned to a reference render so the tock lands on 1788 Hz |
+| Claves | The clave network with the switch's 1k shunt: 2524 Hz at Q 14, ringing 30 ms as Roland's own model does |
+| Maracas | Bus noise high-passed hard, 39 ms to silence, fitted to Roland's render with the kit switch flipped to MA |
+| Hand Clap | Three noise bursts about 10 ms apart and a 330 ms tail (R362 × C143), through the 874 Hz bandpass R342/R334/C128 make. One knob: Decay, the tail |
+| Cowbell | Oscillators 5 and 6 of the ONE shared free-running Schmitt bank, exactly as the hardware wires them |
+| Closed / Open Hat | The shared bank through each hat's C-R ladder (1.5 nF open, 1.0 nF closed — the closed hat is high-passed higher, which is why it is the thinner voice), a swing VCA whose diode gates the tail dead |
+| Cymbal | Werner's three-path structure voiced to a reference recording: two band passes, a linear-discharge shimmer, and a brushed floor under the crash |
 
-Every drum has **Tune, Decay, Drive, a Distortion type** (Diode / Hard Clip /
-Wavefolder / Bitcrush) and **Level**, plus a **Master Drive / Distortion**
-across the kit. **Drive at 0 — the default — is a bit-exact bypass**: the 808
-had no drive stage, so a fresh patch has none, and the knob adds saturation
-without adding level. Every continuous control is a **0–127 pot**. **Hat choke
-is a switch**: Off, CH cuts OH (the hardware's shared metal source), or
-Mutual. On the tom and conga lanes **Decay is seconds of ring**, solved into
-loop gain at whatever pitch Tune has chosen.
+Every drum has **Tune, Decay, Drive, a Distortion type, Level** and — every
+one except the kick — **Rev** and **Dly** sends. Across the kit there is a
+**Master Drive / Distortion**, a one-knob **Comp**, and **Velocity**.
 
-Defaults are not pot centre. Where sc808 is the engine they are sc808's own
-declared arguments, which is what the null test verifies. Where a circuit
-engine is the default they are the **circuit's** — the clap's Decay sits at
-330 ms because that is R362 × C143 on the real board — so a fresh patch is
-always the sound that was checked, whichever engine checked it.
+**Seven distortion characters**, the same seven 9W9 and 6W6 offer so the knob
+means the same thing on all three: Diode, Clip, SAT, BFZ, PDIST, Fold, Crush.
+**Drive at 0 — the default — is a bit-exact bypass**: the 808 had no drive
+stage, so a fresh patch has none, and the knob adds saturation without adding
+level. Every curve's makeup is measured, not guessed; `tools/fx_probe` fails
+the build if any of them moves the kit by more than 6 dB.
+
+**Velocity** is one straight line with no threshold: a full-velocity hit is
+the loudest the kit gets, and the **Velocity** knob on Master sets how far
+below that a soft hit falls. It only ever carves down. On the eleven lanes
+whose circuits take the strike as a trigger **voltage**, a hard hit is a
+different sound and not just a louder one — so the line is split at the
+unaccented point, the voltage carrying the top of the range and the lane's
+gain the bottom.
+
+**Reverb and Delay** are two send buses with a page each, reached by the jog.
+Sends are post-fader. **The kick is dry** — no sends, by design: reverb on an
+808 kick is mud, and the low end is what the send high-pass exists to keep out
+of the wet path. Delay Time is a note division and follows the host tempo.
+
+Every continuous control is a **0–127 pot**. **Hat choke is a switch**: Off,
+CH cuts OH (the hardware's shared metal source), or Mutual. On the tom and
+conga lanes **Decay is seconds of ring**, solved into loop gain at whatever
+pitch Tune has chosen.
+
+Defaults are the **circuit's** — the clap's Decay sits at 330 ms because that
+is R362 × C143 on the real board — so a fresh patch is always the sound that
+was checked.
 
 ## The circuit voices
 
-All sixteen lanes now have a circuit model as the default engine, with the
-sc808 transcription one switch away on every page — kept while the circuit
-voices are being judged on hardware, and destined to be removed once they
-pass, which frees a knob slot on every instrument.
+Every lane was built, deployed and judged on hardware one at a time, and the
+Engine switches came off once each one had an answer. The sc808 transcription
+stays in the tree — the null test still verifies all of it, straight from the
+header — but it is not on the panel any more, and the freed knob slot on every
+instrument is what the send pair now occupies.
 
-### The two kicks
+### The kick
 
-The kick is the voice an 808 is judged on, so it gets both.
+The kick is the voice an 808 is judged on.
 
-**Circuit** (default) is built from Werner, Abel and Smith's DAFx-14 analysis
+It is built from Werner, Abel and Smith's DAFx-14 analysis
 of the real bass drum circuit. Decay is **loop gain**, not an envelope: the
 network's own ringing is about 80 ms and everything past that is the feedback
 buffer failing to lose the signal. That one fact is why it behaves like an
@@ -66,22 +87,22 @@ buffer failing to lose the signal. That one fact is why it behaves like an
   milliseconds — the beater, not a second oscillator layered on
 - fast repeats do not **machine-gun**: the resonator state is still there when
   the next pulse arrives, so no two hits are identical
-- accent is a trigger **voltage** driving a diode, so a harder hit is a
+- velocity is a trigger **voltage** driving a diode, so a harder hit is a
   slightly different sound and not only a louder one
 
-**sc808** is the transcription: a sine on a pitch envelope. A good kick drum,
-and not a TR-808. Kept because it is the one the null test covers, and because
-sometimes it is the one you want.
+sc808's kick, for contrast, is a sine on a pitch envelope. A good kick drum,
+and not a TR-808 — which is why this one exists.
 
-### The two snares
+### The snare
 
-**Circuit** (default) is two bridged-T networks, derived from the component
+Two bridged-T networks, derived from the component
 values in Roland's service notes: R196/R197/C58/C59 give **173.334 Hz at
 Q 17.4**, R195/R198/C60/C61 give **335.976 Hz at Q 10.7**, through the same
 frequency and Q forms the bass drum paper uses. Three things follow that two
 enveloped sines cannot do —
 
-- **Tone is VR8**, the *balance* between the two shells, not a filter sweep
+- the shell **balance** is VR8's, fixed at its centre — the Tone pot was cut
+  on the field verdict "Tune is enough"
 - the shells **decay at different rates** from their own components: the
   harmonic dies in about 65 ms while the fundamental rings for 200
 - **Snappy is a voltage divider on the trigger** into the noise envelope
@@ -130,8 +151,8 @@ Two things followed from that, and both were reported as faults:
   envelope hard-coded to six seconds, which no knob reaches.
 - **Spread was odd.** One delayed burst over 5–100 ms is a flam.
 
-**Circuit** (default) is the board: Q70 turns the trigger into a short **burst
-of pulses**, not one pulse — that is what a clap is, several hands not quite
+The circuit is the board: Q70 turns the trigger into a short **burst of
+pulses**, not one pulse — that is what a clap is, several hands not quite
 together — and C143 bleeds off through R362 afterwards, which is a tail whose
 time constant you can read straight off the schematic at **330 ms**. The noise
 goes through IC22 (a BA662, the same VCA the snare uses) and IC21's
@@ -140,23 +161,31 @@ around the op-amp:
 
     f0 = 1 / (2π C √(Rin Rf)) = 874.4 Hz     Q = ½ √(Rf / Rin) = 1.291
 
-874 Hz is why an 808 clap sits where it does in a mix. So Decay is the tail,
-Spread is the spacing of the burst, and both do what their labels say.
+874 Hz is why an 808 clap sits where it does in a mix. Decay is that tail —
+one knob, scaling both derived constants together, with its default sitting on
+the hardware's own 330 ms.
+
+Spread and Room existed briefly and were cut on the field verdict: Spread at
+its extremes turned the burst into a flam, and Room against Decay was two
+knobs for one audible thing. The burst spacing is fixed at the hardware's
+~10 ms inside the voice, where it belongs.
 
 What is *not* derived: how many pulses and how far apart. That falls out of a
 transistor's switching behaviour around the C.P. OFFSET trimmer, and nobody
 has published the analysis. Three pulses about 10 ms apart is a measurement,
-not a derivation, and it is a knob rather than a constant so it does not have
+not a derivation, and it is called out as such in the source so it does not have
 to be exactly right.
 
 ### Free-running metal
 
 On the hardware the hats' and cymbal's six Schmitt-trigger oscillators never
 stop — the envelopes gate them — so every hit catches the bank at a different
-phase and no two 808 hats are quite the same. sc808 restarts them on every
-note, because in SuperCollider every note is a new synth, and its hats are
-bit-identical hit to hit. **Metal: Free / Retrig** on the Master page, Free by
-default.
+phase and no two 808 hats are quite the same. There is ONE bank, ticked once
+per sample and shared by the cowbell, both hats and the cymbal, exactly as the
+hardware wires half an HD14584. sc808 restarted them on every note because in
+SuperCollider every note is a new synth; with that engine gone, free-running
+is simply what the module does, and the loadtest asserts consecutive hats are
+different hits.
 
 ## Workflow on the Move
 
@@ -168,7 +197,13 @@ default.
 - **Knobs 1–8** edit the visible page, drawn with Schwung's stock knob grid
   (host 0.12.1+): **jog** cycles pages, **Shift+Jog** jumps sections, **jog
   click** opens the section list, **Shift** reveals values / fine mode,
-  **Mute+knob** resets a pot to its default.
+  **Mute+knob** resets a pot to its default. Master, **Reverb** and **Delay**
+  are pages like any other, reached the same way.
+- **Jog click while on Main locks the page** (`[L]` in the title bar). Locked,
+  the pads still play and still record but the page stops following them, so
+  the master knobs stay under your hands while you jam the kit. **Shift+Pad**
+  still navigates — that gesture is an explicit "take me there". Click again
+  to unlock.
 - **Sequencing:** use Move's own sequencer — a drum track with a kit, muted
   (HiJack), track MIDI OUT on the slot's channel. Each drum is its own lane.
   Note map: drum rack (36–51, default) or General MIDI, switchable.
@@ -177,8 +212,11 @@ default.
 
 ## How it is verified
 
-The claim about Engine A is that it is a **transcription** of sc808, not an
-impression of it, and that claim is only worth anything if it is checked.
+The claim about the sc808 transcription is that it IS a transcription, not an
+impression of one, and that claim is only worth anything if it is checked. It
+still matters with one voice left on the panel: the transcription is what the
+circuit models were measured against on the way in, and the rim shot you hear
+is one of them.
 
 ```bash
 ./test/nulltest.sh --probes
@@ -207,11 +245,31 @@ A circuit voice has nothing to null against, so each one gets a test that
 asserts what its header claims instead: `tools/bd_check` for the kick,
 `tools/cp_check` for the clap, `tools/tom_check` for the tom and conga
 channel. The last two assert the reports that produced them — that Decay
-changes the clap's tail and Spread only moves its burst, and that a tom and a
-conga at the same pitch, same decay and same accent are still not the same
-sound. They also check that both engines on a lane land within 3 dB of each
-other, because the two share one trim and a mismatch would make the Engine
-switch change the mix.
+changes the clap's tail, and that a tom and a conga at the same pitch, same
+decay and same velocity are still not the same sound. `tom_check` also keeps
+the sc808 tom as a **level reference**: the lane trims were fitted while both
+existed, so a circuit tom that drifts far from it has quietly moved the kit
+balance.
+
+Three checks guard the work that has no reference to null against:
+
+- **`tools/golden_check`** renders all sixteen lanes through the real engine
+  at two velocities and compares them **bit for bit** against
+  `tools/golden.txt`. The voices were tuned one at a time against reference
+  recordings and signed off by ear; nothing else in the suite asserts that
+  work, and a structural change to the engine around them fails silently —
+  the kit still plays, it just plays something else. Every structural commit
+  in this repo kept all 32 renders identical.
+- **`tools/vel_check`** asserts velocity's *properties* rather than a curve:
+  monotonic, no step where the old accent switch sat at 100, genuinely flat at
+  depth 0, and never louder at full velocity than before the knob existed. It
+  checks a trigger-voltage lane and a gain lane, because on this kit those are
+  two different mechanisms and the join between them has to hold.
+- **`tools/fx_probe`** measures what the drive stage promises: bypass at zero
+  is bit-exact for all seven types, no curve moves the kit by more than 6 dB
+  anywhere on its throw, Crush really holds samples, both send buses return
+  exactly zero from silence, and the Comp closes the gap between loud and
+  quiet passages without changing the loudness.
 
 `test/ui_chain.test.mjs` runs the on-device editor against the real
 `param_pages` library, cross-checks its pad tables against the DSP's, and
@@ -222,11 +280,13 @@ shipped `dsp.so` exactly as Schwung's chain host does.
 `./test/all.sh` runs all of it. Steps whose tooling is missing report **SKIP**
 and say so in the summary, rather than passing quietly.
 
-CPU, measured on the Move with every lane on its circuit engine: a busy
-pattern is **2.5% of one core**, against 6W6's 22%. The pathological
-all-sixteen-every-16th case is 10.8%. The circuit voices are cheaper than the
-transcriptions they replace — a bridged-T in a loop is a handful of
-multiplies, and the sc808 graphs were not.
+CPU, measured on the Move: a busy pattern is **3.5% of one core**, against
+6W6's 22%. The pathological all-sixteen-every-16th case is 11.9%. The circuit
+voices are cheaper than the transcriptions they replaced — a bridged-T in a
+loop is a handful of multiplies, and the sc808 graphs were not — and about a
+point of that 3.5% is the two send buses, which tick every sample whether or
+not anything is feeding them so that a tail survives its send being turned
+down.
 
 ## Install
 
@@ -259,8 +319,10 @@ single dict. Adding a control is one edit.
 
 - **[sc808](https://github.com/sonic-pi-net/sonic-pi/blob/dev/etc/synthdefs/designs/supercollider/sc808.scd)**
   — the 808 SynthDefs by **Yoshinosuke Horiuchi**, adapted for Sonic Pi by
-  **Sam Aaron**, MIT. Vendored under `src/vendor/sc808`; every voice except
-  the circuit kick is a transcription of one of them.
+  **Sam Aaron**, MIT. Vendored under `src/vendor/sc808`. The rim shot you
+  hear is one of these; the rest are still transcribed in
+  `src/dsp/sc808_voices.h` and still verified by the null test, which is what
+  the circuit models were measured against on the way in.
 - **Werner, Abel and Smith**, *A Physically-Informed, Circuit-Bendable,
   Digital Model of the Roland TR-808 Bass Drum Circuit* (DAFx-14) and *The
   TR-808 Cymbal* (ICMC|SMC 2014) — the circuit analysis the kick is built
@@ -271,8 +333,11 @@ single dict. Adding a control is one edit.
   behaviour was read out of. Pinned to 3.11.2, and that matters.
 - **[9W9](https://github.com/athousanddetails/schwung-9W9)** and
   **[6W6](https://github.com/athousanddetails/schwung-6W6)** — the module
-  architecture, pad gestures and the four distortion flavours, so all three
-  kits feel identical under the hands.
+  architecture, pad gestures, the Main-page lock, the seven distortion
+  characters, the reverb/delay buses and the one-knob glue, so all three kits
+  feel identical under the hands. The maths is theirs, copied rather than
+  re-derived; where 8W8 departs (the drive pot's range, the makeup exponents)
+  the source says why.
 - **Schwung** by Charles Vestal and contributors — the platform and the shared
   `param_pages` knob grid; **Movy** by DimaDake for the page model.
 
@@ -282,8 +347,9 @@ Built with AI assistance. GPL-3.0; see `LICENSE` and `THIRD_PARTY.md`.
 
 **Contributions are open to anyone, any time — just submit a PR.** Voice
 tweaks, new distortion flavours, UI improvements, Movy templates, docs, bug
-reports: all welcome. If you touch a voice, run `./test/nulltest.sh`; if you
-touch the kick, run `bd_check`. Please note in your PR which AI tools you
+reports: all welcome. If you touch a voice, run `./test/nulltest.sh` **and**
+`golden_check` — the latter is what proves you did not move the kit by
+accident. If you touch the kick, run `bd_check`. Please note in your PR which AI tools you
 used, if any (same policy as Schwung upstream).
 
 ## Disclaimer

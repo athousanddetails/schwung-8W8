@@ -2,7 +2,7 @@
   "_comment": "Proposed entry for charlesvestal/schwung module-catalog.json - submit as a PR only after Gus validates the release on his Move and says GO.",
   "id": "8w8",
   "name": "8W8",
-  "description": "TR-808 style drum machine - 15 synthesized voices, no samples. Circuit-modelled kick and snare, free-running metal, per-voice and master distortion.",
+  "description": "TR-808 style drum machine - 16 circuit-modelled voices, no samples. Velocity-played, 7 distortion types per voice and on the master, reverb and delay sends, bus compressor.",
   "author": "athousanddetails; voices transcribed from sc808 (Yoshinosuke Horiuchi / Sam Aaron, Sonic Pi)",
   "component_type": "sound_generator",
   "github_repo": "athousanddetails/schwung-8W8",

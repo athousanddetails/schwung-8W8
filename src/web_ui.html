@@ -80,9 +80,15 @@
 
   /* ---- instrument columns ---- */
   .rack { display: flex; align-items: stretch; }
+  /* ONE column grid for both decks. They are stacked and read as columns of
+     the same machine, so a drum's Drive has to sit under its Decay — and the
+     lower deck's 56px <select> was quietly pushing its columns to 60px
+     against the upper deck's 58px, so the two rows drifted apart by two
+     pixels per instrument and the row overflowed its panel. flex-basis
+     rather than width: the columns must not grow or shrink to fill. */
   .col { display: flex; flex-direction: column; align-items: center;
-         width: 64px; padding: 0 2px; }
-  .col.narrow { width: 56px; }
+         flex: 0 0 58px; width: 58px; padding: 0 2px; box-sizing: border-box; }
+  .col.narrow { flex: 0 0 51px; width: 51px; }
   .col.sel .plate:last-child { box-shadow: 0 0 0 2px var(--led); }
 
   /* The rules. Every instrument is fenced off from its neighbour; the
@@ -149,11 +155,34 @@
   .deck .hdr { display: flex; justify-content: space-between; align-items: baseline;
                font-size: 7.5px; letter-spacing: 2px; color: #b9b6ae;
                margin-bottom: 7px; }
-  .deck select { width: 56px; height: 18px; border: 1px solid #111; border-radius: 2px;
+  .deck select { width: 50px; height: 18px; border: 1px solid #111; border-radius: 2px;
                  background: #d9d6cd; color: #17171a; font-weight: 700; font-size: 9px; }
   .deck .knobwrap { margin-bottom: 6px; }
   .deck .rule { opacity: .28; margin: 8px 0; }
   .deck .rule.section { opacity: .5; margin: 4px 7px; }
+  /* The send buses sit on their own row: two short columns, left-aligned
+     under the lanes rather than stretched across sixteen slots' worth of
+     width, with a hairline above to separate them from the drive deck. */
+  .deck .hdr.buses { margin-top: 14px; padding-top: 10px;
+                     border-top: 1px solid rgba(255,255,255,.10); }
+  /* Three sections, not three leftovers: they share the machine's full
+     width and are fenced from each other by the same rules the lanes use,
+     so the row reads as part of the same rack instead of a strip hugging
+     the left edge with a void beside it. */
+  /* A bus is a console SECTION, not a lane: its handful of controls sit in
+     a row across the section the way they would on a desk, rather than in a
+     single tall file down the middle of a wide empty column. */
+  #buses .col { flex: 1 1 0; width: auto;
+                flex-flow: row wrap; justify-content: center;
+                align-content: flex-start; gap: 4px 16px; padding-top: 2px; }
+  #buses .knobwrap { flex: 0 0 auto; margin-bottom: 0; }
+  /* The sections are wide, but a nameplate is a nameplate: keep it the size
+     of the ones upstairs instead of letting it stretch into a cream bar. */
+  /* flex-basis 100% gives the plate its own line; the plate INSIDE is what
+     gets the rack's width, or it stretches into a cream bar again. */
+  #buses .plates { flex: 0 0 100%; width: 100%; margin: 14px 0 0;
+                   padding-top: 0; }
+  #buses .plates .plate { width: 84px; margin: 0 auto; }
 
   /* The button row. On the hardware these are the sixteen steps, in four
    * groups of four running red to cream; here they mute. */
@@ -192,6 +221,10 @@
       <span id="lane-name">BASS DRUM</span>
     </div>
     <div class="rack" id="fx"></div>
+    <div class="hdr buses">
+      <span>SEND FX &amp; MASTER &mdash; every drum but the kick feeds the buses</span>
+    </div>
+    <div class="rack" id="buses"></div>
     <div class="steps" id="steps"></div>
     <div class="foot">
       by athousanddetails &middot; voices transcribed from sc808 (MIT) &middot;
@@ -491,26 +524,21 @@
     else { knob(c, L.id + "_rev", "Rev"); knob(c, L.id + "_dly", "Dly"); }
     if (L.fx) L.fx.forEach(function (x) { sel(c, x[0], x[1], x[2]); });
   });
-  {
-    rule(fx, true);
-    var mm = column(fx, "narrow");
-    knob(mm, "master_drive", "Master");
-    sel(mm, "master_dist", "Dist", MDIST);
-    knob(mm, "comp", "Comp");
-    sel(mm, "note_map", "Notes", ["Rack 36", "GM"]);
-  }
 
-  /* ---- the send buses: their own strip under the lower deck ---- */
+  /* ---- the send buses: their OWN row ----
+     Not appended to #fx. Sixteen lanes plus Master already fill that row to
+     the pixel (1002 of 1002); two more columns overflowed it by 154 px and
+     pushed both buses off the right edge, where they could not be seen or
+     reached. */
   {
-    var bus = document.getElementById("fx");
-    rule(bus, true);
+    var bus = document.getElementById("buses");
     var rv = column(bus);
     knob(rv, "rev_decay", "Decay");
     knob(rv, "rev_tone",  "Tone");
     knob(rv, "rev_hpf",   "HPF");
     knob(rv, "rev_level", "Level");
     plateOnly(rv, "REVERB");
-    rule(bus);
+    rule(bus, true);
     var dl = column(bus);
     sel(dl,  "dly_time", "Time", DIVS);
     knob(dl, "dly_fdbk",  "Fdbk");
@@ -518,6 +546,18 @@
     knob(dl, "dly_hpf",   "HPF");
     knob(dl, "dly_level", "Level");
     plateOnly(dl, "DELAY");
+    rule(bus, true);
+
+    /* Master lives HERE, not tacked onto the end of the sixteen lanes.
+       Appended there it was a seventeenth column the upper rack has no
+       counterpart for, so it overflowed the panel and got clipped — and it
+       never belonged in a row of drums anyway. */
+    var mm = column(bus);
+    knob(mm, "master_drive", "Drive");
+    sel(mm, "master_dist", "Dist", MDIST);
+    knob(mm, "comp", "Comp");
+    sel(mm, "note_map", "Notes", ["Rack 36", "GM"]);
+    plateOnly(mm, "MASTER");
   }
 
   /* ---- the button row: the 808's steps, muting instead of stepping ---- */
