@@ -103,6 +103,7 @@ public:
         for(int i = 0; i < 6; ++i) { phase_[i] = 0.25 * i; }   /* staggered */
         for(int i = 0; i < 6; ++i) inc_[i] = kMT_OscHz[i] / _sr;
         for(int i = 0; i < 6; ++i) drift_[i] = 0.0;
+        for(int i = 0; i < 6; ++i) jit_[i] = 1.0;
         rng_.seed(0x808D51F7u);
         driftCnt_ = 0;
         ratio_ = 1.0;
@@ -143,6 +144,16 @@ public:
     double tick()
     {
         /*
+         * PER-CYCLE JITTER — the "refined noise". A real Schmitt trigger's
+         * thresholds carry noise, so every period is slightly its own
+         * length, and each harmonic h is broadened by h times the jitter:
+         * the fundamentals stay tonal while the high harmonics — where the
+         * cymbal and hats live — blur into narrowband noise. The player's
+         * reference measures spectral flatness 0.21 in the crash band where
+         * exact squares gave a comb at 0.08; this is the difference between
+         * a wash and a chord. Sigma calibrated to that measurement.
+         */
+        /*
          * DRIFT. Digitally exact oscillators produce exact, coherent beats:
          * near-coincident harmonics of the six squares slide into
          * constructive alignment a couple of hundred milliseconds into a
@@ -165,9 +176,13 @@ public:
         double sum = 0.0;
         for(int i = 0; i < 6; ++i)
         {
-            const double dt = inc_[i] * (1.0 + drift_[i]);
+            const double dt = inc_[i] * (1.0 + drift_[i]) * jit_[i];
             phase_[i] += dt;
-            if(phase_[i] >= 1.0) phase_[i] -= 1.0;
+            if(phase_[i] >= 1.0)
+            {
+                phase_[i] -= 1.0;
+                jit_[i] = 1.0 + 0.0052 * (double)rng_.frand2();
+            }
             double v = phase_[i] < kMT_Duty ? 1.0 : -1.0;
             /* rising edge at phase 0, falling at kMT_Duty */
             v += blep(phase_[i], dt);
@@ -190,6 +205,7 @@ public:
 private:
     double sr_ = 44100.0, ratio_ = 1.0;
     double phase_[6] = {0}, inc_[6] = {0}, drift_[6] = {0};
+    double jit_[6] = {1, 1, 1, 1, 1, 1};
     int    driftCnt_ = 0;
     sc::RGen rng_;
 };
@@ -331,6 +347,16 @@ public:
     }
     double tick()
     {
+        /*
+         * PER-CYCLE JITTER — the "refined noise". A real Schmitt trigger's
+         * thresholds carry noise, so every period is slightly its own
+         * length, and each harmonic h is broadened by h times the jitter:
+         * the fundamentals stay tonal while the high harmonics — where the
+         * cymbal and hats live — blur into narrowband noise. The player's
+         * reference measures spectral flatness 0.21 in the crash band where
+         * exact squares gave a comb at 0.08; this is the difference between
+         * a wash and a chord. Sigma calibrated to that measurement.
+         */
         if(target_ > 0.0)
         {
             v_ = target_ + (v_ - target_) * up_;
@@ -364,14 +390,14 @@ private:
  * Tune / Decay / Level like the lane deserves; the crash balance is the
  * reference's, fixed.
  */
-static double kCY_SusW    = 0.055;
+static double kCY_SusW    = 0.032;
 static double kCY_BodyW   = 1.00;
 static double kCY_TopW    = 0.14;
 static double kCY_SusHPHz = 4300.0;
 static double kCY_SusLPHz = 5200.0;
 static double kCY_SusAtk  = 0.070;   /* the shimmer BLOOMS, ~200 ms to peak */
 static double kCY_EG1Div  = 2.2;     /* pot seconds -> shimmer tau */
-static double kCY_BodyLPHz = 20000.0; /* parked inert; the fit rejected it */
+static double kCY_BodyLPHz = 9200.0; /* the band above 9 k belongs to the fast top path */
 static double kCY_EG2Tau  = 0.220;
 static double kCY_EG3Tau  = 0.085;
 static double kCY_FloorW  = 0.004;   /* the long quiet tail under the crash */
@@ -388,7 +414,7 @@ public:
         susHp_.set(kCY_SusHPHz, 0.9, 1.0, _sr);
         susLpA_ = exp(-2.0 * kCircPi * kCY_SusLPHz / _sr);
         susLpZ_ = 0.0;
-        bodySk_.set(5600.0, 0.9, 1.0, _sr);
+        bodySk_.set(6500.0, 0.9, 1.0, _sr);
         bodyHpA_.set(5000.0, _sr);
         bodyHpB_.set(4400.0, _sr);
         bodyLpA_ = exp(-2.0 * kCircPi * kCY_BodyLPHz / _sr);
