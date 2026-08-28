@@ -226,7 +226,14 @@ int main()
         check(fabs(b - 0.40) / 0.40 < 0.2, "and the middle lands near its label", d);
     }
 
-    /* ---- the two engines agree about level ----------------------------- */
+    /* ---- the circuit sits where the transcription sat ------------------ *
+     *
+     * The sc808 tom is no longer a voice anybody can select — the Engine
+     * switches are gone and every lane is its circuit. It is still the
+     * LEVEL REFERENCE the kit was balanced against, though: the lane trims
+     * were fitted when both existed, so a circuit tom that drifts far from
+     * the transcription's level is a circuit tom that has quietly moved the
+     * kit balance. Kept as an anchor, not as a claim that both ship. */
     {
         double worst = 0.0;
         const char *worstId = "";
@@ -245,7 +252,8 @@ int main()
         }
         char d[96];
         snprintf(d, sizeof d, "worst %s at %+.1f dB", worstId, worst);
-        check(fabs(worst) < 3.0, "the two engines land within 3 dB on every lane", d);
+        check(fabs(worst) < 3.0,
+              "the circuit stays within 3 dB of the level reference", d);
     }
 
     printf(fails ? "\nFAILED (%d)\n" : "\nALL PASS\n", fails);

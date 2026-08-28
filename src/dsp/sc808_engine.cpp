@@ -22,7 +22,13 @@
 
 using namespace sc808;
 
-#define SC808_STATE_VERSION 1
+/*
+ * 2: the sixteen Engine switches and the Metal enum are gone — every lane is
+ *    its circuit voice now — which renumbers the enum table. v1 blobs are
+ *    loaded BY NAME against the table that shipped with them; see
+ *    kV1EnumKeys and sc808_deserialize.
+ */
+#define SC808_STATE_VERSION 2
 
 /* A choke is a 2 ms fade, not a hard stop — cutting a ringing open hat dead
  * puts a click on the front of the closed hat that follows it. */
@@ -217,20 +223,12 @@ struct sc808_engine {
     int bd_attack, bd_tone, sd_snappy;
     int ma_attack;
     /* Globals. */
-    int e_master_dist, e_choke, e_note_map, e_bd_engine, e_metal_run, e_sd_engine;
-    int e_cp_engine;
-    /* lt mt ht lc mc hc, then cl ma — the lanes SC808_TOM_LANE serves.
-     * The rim shot left this list when its switch went. */
-    int e_tom_engine[8];
-    int e_cl_engine, e_ma_engine, e_cb_engine;
-    int e_ch_engine, e_oh_engine, e_cy_engine;
+    int e_master_dist, e_choke, e_note_map;
     int p_master_drive, p_volume, p_accent;
 
     unsigned mutes;
 
-    BassDrum        bd;    /* the sc808 transcription */
     CircuitBassDrum bdc;   /* the bridged-T circuit   */
-    Snare           sd;    /* the sc808 transcription */
     CircuitSnare    sdc;   /* two bridged-T shells    */
     ClapCircuit     cpc;   /* burst, tail, 874 Hz MFB */
     /* Six copies of one channel, three struck as toms and three as
@@ -245,27 +243,16 @@ struct sc808_engine {
     CowbellCircuit  cbc;
     ClaveCircuit    clc;
     MaracasCircuit  mac;
-    Tom       lt, mt, ht, lc, mc, hc;
+    /*
+     * The ONE sc808 voice still in the audio path. Two circuit rim shots
+     * were built from the schematic and both lost to this algorithm on
+     * hardware, so the transcription is the rim. Every other lane is the
+     * circuit; sc808_voices.h keeps the rest of the transcription and the
+     * null test still verifies all of it, straight from the header —
+     * src/tools/nullref.cpp includes it without going through this engine.
+     */
     RimClave  rs;
-    RimClave  cl;          /* the same circuit, mode fixed to Clave */
-    Maracas   ma;
-    Clap      cp;
-    Cowbell   cb;
-    ClosedHat ch;
-    OpenHat   oh;
-    Cymbal    cy;
 };
-
-/* Push the metal_run enum down into the three voices that care. Called at
- * create and whenever the enum is written, so idle() below never acts on a
- * stale flag. */
-static void apply_metal_run(sc808_engine_t *e)
-{
-    const bool freeRun = e->env[e->e_metal_run] == 0;
-    e->ch.setFreeRun(freeRun);
-    e->oh.setFreeRun(freeRun);
-    e->cy.setFreeRun(freeRun);
-}
 
 const char *sc808_voice_id(int voice)
 {
@@ -328,33 +315,9 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->e_master_dist  = find_enum("master_dist");
     e->e_choke        = find_enum("hh_choke");
     e->e_note_map     = find_enum("note_map");
-    e->e_bd_engine    = find_enum("bd_engine");
-    e->e_metal_run    = find_enum("metal_run");
-    e->e_sd_engine    = find_enum("sd_engine");
-    e->e_cp_engine    = find_enum("cp_engine");
-    {
-        static const char *tomIds[6] = { "lt", "mt", "ht", "lc", "mc", "hc" };
-        for(int i = 0; i < 6; ++i)
-        {
-            char k[32];
-            snprintf(k, sizeof k, "%s_engine", tomIds[i]);
-            e->e_tom_engine[i] = find_enum(k);
-        }
-    }
-    e->e_cl_engine = e->e_tom_engine[6] = find_enum("cl_engine");
-    e->e_ma_engine = e->e_tom_engine[7] = find_enum("ma_engine");
-    e->e_cb_engine = find_enum("cb_engine");
-    e->e_ch_engine = find_enum("ch_engine");
-    e->e_oh_engine = find_enum("oh_engine");
-    e->e_cy_engine = find_enum("cy_engine");
 
     const double sr = e->sample_rate;
-    e->bd.init(sr);
-    /* No lookahead limiter on the kick: 20 ms of latency and 23 dB of
-     * squash, neither of which belongs in a drum machine. See BassDrum. */
-    e->bd.setLimiter(false);
     e->bdc.init(sr);
-    e->sd.init(sr);
     e->sdc.init(sr);
     e->cpc.init(sr);
     e->ltc.init(sr, 0); e->mtc.init(sr, 0); e->htc.init(sr, 0);
@@ -366,11 +329,7 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->cbc.init(sr, &e->mbank);
     e->clc.init(sr);
     e->mac.init(sr);
-    e->lt.init(sr); e->mt.init(sr); e->ht.init(sr);
-    e->lc.init(sr); e->mc.init(sr); e->hc.init(sr);
-    e->rs.init(sr); e->cl.init(sr); e->ma.init(sr); e->cp.init(sr); e->cb.init(sr);
-    e->ch.init(sr); e->oh.init(sr); e->cy.init(sr);
-    apply_metal_run(e);
+    e->rs.init(sr);
     return e;
 }
 
@@ -440,104 +399,65 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
     switch(voice)
     {
     case SC808_BD:
-        if(e->env[e->e_bd_engine] == 0)
-        {
-            /*
-             * The circuit kick. Its three shared pots mean something else
-             * here, so they are read as raw POT POSITIONS rather than through
-             * the sc808 mapping — Decay is loop gain in 0..1, not seconds,
-             * and mapping 0.1..8 s onto a loop gain would be meaningless.
-             * One knob, two engines, each reading the position its own way.
-             *
-             * Accent is a TRIGGER VOLTAGE here, 4 V to 14 V as the hardware's
-             * VR3 delivers, because on this circuit accent is not a gain: the
-             * trigger drives a diode and a harder hit is a different sound,
-             * not a louder one.
-             */
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
-            e->bdc.trigger(lane_hz(voice, tune),
-                           (float)e->pot[e->slot[voice].decay] / 127.0f,
-                           (float)e->pot[e->bd_tone]   / 127.0f,
-                           (float)e->pot[e->bd_attack] / 127.0f,
-                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            /* The accent is already in the trigger voltage; do not also
-             * multiply the lane by it. */
-            e->rt[voice].hit_gain = 1.0f;
-        }
-        else
-        {
-            e->bd.trigger(lane_hz(voice, tune), e->potv[e->bd_attack],
-                          decay, e->potv[e->bd_tone]);
-        }
+    {
+        /*
+         * The circuit kick. Its three pots are read as raw POT POSITIONS
+         * rather than through the pot table's engineering mapping — Decay
+         * is LOOP GAIN in 0..1, not seconds, and mapping 0.1..8 s onto a
+         * loop gain would be meaningless.
+         *
+         * Accent is a TRIGGER VOLTAGE here, 4 V to 14 V as the hardware's
+         * VR3 delivers, because on this circuit accent is not a gain: the
+         * trigger drives a diode and a harder hit is a different sound,
+         * not a louder one.
+         */
+        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+        e->bdc.trigger(lane_hz(voice, tune),
+                       (float)e->pot[e->slot[voice].decay] / 127.0f,
+                       (float)e->pot[e->bd_tone]   / 127.0f,
+                       (float)e->pot[e->bd_attack] / 127.0f,
+                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+        /* The accent is already in the trigger voltage; do not also
+         * multiply the lane by it. */
+        e->rt[voice].hit_gain = 1.0f;
         break;
+    }
     case SC808_SD:
-        if(e->env[e->e_sd_engine] == 0)
-        {
-            /* The circuit snare. Its shared pots mean different things here,
-             * so they are read as raw POT POSITIONS: Tone is the balance
-             * between two bridged-T shells rather than a filter corner, and
-             * Snappy is a divider on the trigger rather than a mix. Tune is
-             * a ratio on both shells' component-derived frequencies. */
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
-            /* Shell balance fixed at centre — the Tone pot is gone ("Tune
-             * is enough"), and centre is where its default sat. */
-            e->sdc.trigger(powf(2.0f, tune / 12.0f),
-                           (float)e->pot[e->slot[voice].decay] / 127.0f,
-                           0.5f,
-                           (float)e->pot[e->sd_snappy] / 127.0f,
-                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
-        }
-        else
-        {
-            /* detune -11 semitones on the second shell oscillator; noise
-             * highpass at sc808's 93, lowpass fixed at its old default 121
-             * now that the Tone pot is gone. */
-            e->sd.trigger(lane_hz(voice, tune),
-                          lane_hz(voice, tune - 11.0f),
-                          decay, e->potv[e->sd_snappy],
-                          (double)midicps(93.0f),
-                          (double)midicps(121.0f),
-                          0.999f);
-        }
+    {
+        /* The circuit snare, read as raw POT POSITIONS: Snappy is a divider
+         * on the trigger rather than a mix, and Tune is a ratio on both
+         * shells' component-derived frequencies. */
+        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+        /* Shell balance fixed at centre — the Tone pot is gone ("Tune is
+         * enough"), and centre is where its default sat. */
+        e->sdc.trigger(powf(2.0f, tune / 12.0f),
+                       (float)e->pot[e->slot[voice].decay] / 127.0f,
+                       0.5f,
+                       (float)e->pot[e->sd_snappy] / 127.0f,
+                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+        e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
         break;
+    }
     /*
-     * The six tom / conga lanes, each with two engines.
+     * The six tom / conga lanes — one channel of the voicing board, built
+     * six times, three struck as toms and three as congas, which is what
+     * the switch on the real board does.
      *
-     * On the circuit side Decay is LOOP GAIN, so it is read as a raw pot
-     * position exactly as the kick and snare read theirs, and accent is a
-     * TRIGGER VOLTAGE rather than a gain — the strike is what changes, so the
-     * lane must not also be multiplied by the accent afterwards.
+     * Accent is a TRIGGER VOLTAGE rather than a gain: the strike is what
+     * changes, so the lane must not also be multiplied by it afterwards.
      */
     case SC808_LT: case SC808_MT: case SC808_HT:
     case SC808_LC: case SC808_MC: case SC808_HC:
     {
         const int i = voice - SC808_LT;
-        if(e->env[e->e_tom_engine[i]] == 0)
-        {
-            TomCircuit *const tc[6] = { &e->ltc, &e->mtc, &e->htc,
-                                        &e->lcc, &e->mcc, &e->hcc };
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
-            /* Decay is RING TIME IN SECONDS — the circuit solves the loop
-             * gain that produces it at the current pitch. */
-            tc[i]->trigger(lane_hz(voice, tune), decay,
-                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
-        }
-        else
-        {
-            static const TomSpec *const spec[6] = { &kTomLo,   &kTomMid,  &kTomHi,
-                                                    &kCongaLo, &kCongaMid, &kCongaHi };
-            Tom *const t[6] = { &e->lt, &e->mt, &e->ht, &e->lc, &e->mc, &e->hc };
-            /*
-             * One knob, both engines, one meaning: seconds of audible ring.
-             * sc808's envelope runs at curve -250, where the audible part is
-             * the first ln(100)/250 = 1.8% of the declared duration — so its
-             * "20 seconds" was always about 0.37 s of tom. 54 converts real
-             * seconds into the seconds that envelope wants.
-             */
-            t[i]->trigger(*spec[i], lane_hz(voice, tune), decay * 54.0f);
-        }
+        TomCircuit *const tc[6] = { &e->ltc, &e->mtc, &e->htc,
+                                    &e->lcc, &e->mcc, &e->hcc };
+        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+        /* Decay is RING TIME IN SECONDS — the circuit solves the loop gain
+         * that produces it at the current pitch. */
+        tc[i]->trigger(lane_hz(voice, tune), decay,
+                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+        e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
         break;
     }
     case SC808_RS:
@@ -557,119 +477,61 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
                       (double)midicps(118.0f + tune));
         break;
     case SC808_CL:
-        if(e->env[e->e_cl_engine] == 0)
-        {
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
-            e->clc.trigger(powf(2.0f, tune / 12.0f),
-                           (float)e->pot[e->slot[voice].decay] / 127.0f,
-                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            e->rt[voice].hit_gain = 1.0f;
-        }
-        else
-        {
-            e->cl.trigger(1, lane_hz(voice, tune),
-                          0.01f + ((float)e->pot[e->slot[voice].decay] / 127.0f) * 0.24f,
-                          0.0, 0.0);
-        }
+    {
+        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+        e->clc.trigger(powf(2.0f, tune / 12.0f),
+                       (float)e->pot[e->slot[voice].decay] / 127.0f,
+                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+        e->rt[voice].hit_gain = 1.0f;
         break;
+    }
     case SC808_MA:
-        if(e->env[e->e_ma_engine] == 0)
-        {
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
-            e->mac.trigger(powf(2.0f, tune / 12.0f), decay,
-                           av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            e->rt[voice].hit_gain = 1.0f;
-        }
-        else
-        {
-            /* sc808's decay envelope reads ~1.8x long against the meter */
-            e->ma.trigger(lane_hz(voice, tune), e->potv[e->ma_attack],
-                          decay * 1.8f);
-        }
+    {
+        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+        e->mac.trigger(powf(2.0f, tune / 12.0f), decay,
+                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+        e->rt[voice].hit_gain = 1.0f;
         break;
+    }
     case SC808_CP:
-        if(e->env[e->e_cp_engine] == 0)
-        {
-            /* Burst spacing and tail mix are the hardware's, fixed — the
-             * panel has Tune and Decay, like the machine had Level alone. */
-            /* Decay scales the two derived tails together; the burst
-             * spacing stays the hardware's 10 ms. */
-            e->cpc.trigger(powf(2.0f, tune / 12.0f), decay, 0.010f, 0.0f);
-        }
-        else
-        {
-            /* hpf note 71, bandpass note 84; Tune moves both together.
-             * Spread fixed at sc808's own 26 ms, rev at its default 1. */
-            e->cp.trigger(lane_hz(voice, tune),
-                          (double)midicps(84.0f + tune),
-                          0.5f, decay, 0.026f, 1.0f);
-        }
+        /* Burst spacing and tail mix are the hardware's, fixed — the panel
+         * has Tune and Decay, like the machine had Level alone. Decay
+         * scales the two derived tails together; the burst spacing stays
+         * the hardware's 10 ms. */
+        e->cpc.trigger(powf(2.0f, tune / 12.0f), decay, 0.010f, 0.0f);
         break;
     case SC808_CB:
-        if(e->env[e->e_cb_engine] == 0)
-        {
-            const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
-            e->mbank.setRatio((double)tune);
-            e->cbc.setRatio((double)tune);
-            e->cbc.trigger(decay, av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-            e->rt[voice].hit_gain = 1.0f;
-        }
-        else
-        {
-            /* seconds -> sc808's envPerc argument: its curve makes the
-             * audible part about 1/29th of the declared duration */
-            e->cb.trigger((double)tune, decay * 29.0f,
-                          (double)midicps(59.0f), (double)midicps(109.0f));
-        }
+    {
+        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
+        e->mbank.setRatio((double)tune);
+        e->cbc.setRatio((double)tune);
+        e->cbc.trigger(decay, av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
+        e->rt[voice].hit_gain = 1.0f;
         break;
+    }
     case SC808_CH:
-        if(e->env[e->e_ch_engine] == 0)
-        {
-            /*
-             * Accent stays a GAIN on the hats, not a trigger voltage. A
-             * hotter envelope into the diode gate makes the note LONGER
-             * and puts a beat-wobble in the tail — measured 30% stretch at
-             * full accent — and every reference render keeps its length
-             * regardless of level. The kick's trigger-volts treatment is
-             * right for the kick; here it made the pads sound unlike the
-             * renders.
-             */
-            e->mbank.setRatio((double)tune);
-            e->chc.trigger(decay, 4.0f);   /* the envelope that matches the references */
-        }
-        else
-        {
-            e->ch.trigger((double)tune, decay * 5.9f,
-                          (double)midicps(121.25219487074914f),
-                          (double)midicps(121.05875888638981f));
-        }
+        /*
+         * Accent stays a GAIN on the hats, not a trigger voltage. A hotter
+         * envelope into the diode gate makes the note LONGER and puts a
+         * beat-wobble in the tail — measured 30% stretch at full accent —
+         * and every reference render keeps its length regardless of level.
+         * The kick's trigger-volts treatment is right for the kick; here it
+         * made the pads sound unlike the renders.
+         */
+        e->mbank.setRatio((double)tune);
+        e->chc.trigger(decay, 4.0f);   /* the envelope that matches the references */
         break;
     case SC808_OH:
-        if(e->env[e->e_oh_engine] == 0)
-        {
-            /* accent as gain, same reasoning as the closed hat */
-            e->mbank.setRatio((double)tune);
-            e->ohc.trigger(decay, 4.0f);
-        }
-        else
-        {
-            e->oh.trigger((double)tune, decay * 0.925f,
-                          (double)midicps(118.551f), (double)midicps(107.213f));
-        }
+        /* accent as gain, same reasoning as the closed hat */
+        e->mbank.setRatio((double)tune);
+        e->ohc.trigger(decay, 4.0f);
         break;
     case SC808_CY:
-        if(e->env[e->e_cy_engine] == 0)
-        {
-            /* accent as gain, like the hats; no Tone — the crash balance
-             * is the reference's, fixed in the voice */
-            e->mbank.setRatio((double)tune);
-            e->cyc.setRatio((double)tune);
-            e->cyc.trigger(decay, 4.0f);
-        }
-        else
-        {
-            e->cy.trigger((double)tune, decay * 1.453f, 0.25f);
-        }
+        /* accent as gain, like the hats; no Tone — the crash balance is
+         * the reference's, fixed in the voice */
+        e->mbank.setRatio((double)tune);
+        e->cyc.setRatio((double)tune);
+        e->cyc.trigger(decay, 4.0f);
         break;
     default: break;
     }
@@ -708,14 +570,6 @@ static inline float voice_sample(sc808_engine *e, int v, float raw)
     do { if(e->rt[vid].choke_gain > 0.0f && e->obj.active()) \
              mix += voice_sample(e, vid, e->obj.process()); } while(0)
 
-/* Same, for a lane with two engines behind a switch. */
-#define SC808_TOM_LANE(vid, idx, circ, sc) \
-    do { if(e->rt[vid].choke_gain > 0.0f) { \
-             if(e->env[e->e_tom_engine[idx]] == 0) { \
-                 if(e->circ.active()) mix += voice_sample(e, vid, e->circ.process()); \
-             } else if(e->sc.active()) { \
-                 mix += voice_sample(e, vid, e->sc.process()); \
-             } } } while(0)
 
 void sc808_render(sc808_engine_t *e, float *out, int frames)
 {
@@ -726,36 +580,18 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
     for(int i = 0; i < frames; ++i)
     {
         float mix = 0.0f;
-        if(e->rt[SC808_BD].choke_gain > 0.0f)
-        {
-            if(e->env[e->e_bd_engine] == 0)
-            { if(e->bdc.active()) mix += voice_sample(e, SC808_BD, e->bdc.process()); }
-            else
-            { if(e->bd.active())  mix += voice_sample(e, SC808_BD, e->bd.process()); }
-        }
-        if(e->rt[SC808_SD].choke_gain > 0.0f)
-        {
-            if(e->env[e->e_sd_engine] == 0)
-            { if(e->sdc.active()) mix += voice_sample(e, SC808_SD, e->sdc.process()); }
-            else
-            { if(e->sd.active())  mix += voice_sample(e, SC808_SD, e->sd.process()); }
-        }
-        SC808_TOM_LANE(SC808_LT, 0, ltc, lt);
-        SC808_TOM_LANE(SC808_MT, 1, mtc, mt);
-        SC808_TOM_LANE(SC808_HT, 2, htc, ht);
-        SC808_TOM_LANE(SC808_LC, 3, lcc, lc);
-        SC808_TOM_LANE(SC808_MC, 4, mcc, mc);
-        SC808_TOM_LANE(SC808_HC, 5, hcc, hc);
-        SC808_LANE(SC808_RS, rs);           /* one voice, see the trigger */
-        SC808_TOM_LANE(SC808_CL, 6, clc, cl);
-        SC808_TOM_LANE(SC808_MA, 7, mac, ma);
-        if(e->rt[SC808_CP].choke_gain > 0.0f)
-        {
-            if(e->env[e->e_cp_engine] == 0)
-            { if(e->cpc.active()) mix += voice_sample(e, SC808_CP, e->cpc.process()); }
-            else
-            { if(e->cp.active())  mix += voice_sample(e, SC808_CP, e->cp.process()); }
-        }
+        SC808_LANE(SC808_BD, bdc);
+        SC808_LANE(SC808_SD, sdc);
+        SC808_LANE(SC808_LT, ltc);
+        SC808_LANE(SC808_MT, mtc);
+        SC808_LANE(SC808_HT, htc);
+        SC808_LANE(SC808_LC, lcc);
+        SC808_LANE(SC808_MC, mcc);
+        SC808_LANE(SC808_HC, hcc);
+        SC808_LANE(SC808_RS, rs);           /* the sc808 rim, see the trigger */
+        SC808_LANE(SC808_CL, clc);
+        SC808_LANE(SC808_MA, mac);
+        SC808_LANE(SC808_CP, cpc);
         /*
          * The shared bank ticks ONCE per sample, always — free-running is
          * only true if the oscillators advance while nothing is sounding,
@@ -763,33 +599,14 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
          * same bus, as the hardware's one HD14584 does.
          */
         const double mbus = e->mbank.tick();
-        if(e->rt[SC808_CB].choke_gain > 0.0f)
-        {
-            if(e->env[e->e_cb_engine] == 0)
-            { if(e->cbc.active()) mix += voice_sample(e, SC808_CB, e->cbc.process()); }
-            else if(e->cb.active())
-            { mix += voice_sample(e, SC808_CB, e->cb.process()); }
-        }
-        /*
-         * The metal lanes, with their oscillator banks free-running.
-         *
-         * A lane that is not sounding still has to advance its bank, or
-         * "free-running" only means "free-running while you can hear it" and
-         * every hit lands on the same phase after all — which is the whole
-         * thing this is here to avoid. idle() is six naive pulse oscillators
-         * and no filters, so a silent lane costs almost nothing.
-         */
-#define SC808_METAL(vid, idx_enum, circ, sc) \
-        do { if(e->env[idx_enum] == 0) { \
-                 e->sc.idle(); \
-                 if(e->rt[vid].choke_gain > 0.0f && e->circ.active()) \
-                     mix += voice_sample(e, vid, e->circ.process(mbus)); \
-             } else if(e->rt[vid].choke_gain > 0.0f && e->sc.active()) { \
-                 mix += voice_sample(e, vid, e->sc.process()); \
-             } else e->sc.idle(); } while(0)
-        SC808_METAL(SC808_CH, e->e_ch_engine, chc, ch);
-        SC808_METAL(SC808_OH, e->e_oh_engine, ohc, oh);
-        SC808_METAL(SC808_CY, e->e_cy_engine, cyc, cy);
+        SC808_LANE(SC808_CB, cbc);
+        /* The three lanes that read the shared bus. */
+#define SC808_METAL(vid, circ) \
+        do { if(e->rt[vid].choke_gain > 0.0f && e->circ.active()) \
+                 mix += voice_sample(e, vid, e->circ.process(mbus)); } while(0)
+        SC808_METAL(SC808_CH, chc);
+        SC808_METAL(SC808_OH, ohc);
+        SC808_METAL(SC808_CY, cyc);
 #undef SC808_METAL
 
         /* Master stage. Option 0 is Off, so the kit can be left alone. */
@@ -826,7 +643,6 @@ int sc808_set_param(sc808_engine_t *e, const char *key, const char *val)
         if(v < 0) v = 0;
         if(v >= g_sc808_enums[es].count) v = g_sc808_enums[es].count - 1;
         e->env[es] = v;
-        if(es == e->e_metal_run) apply_metal_run(e);
         return 1;
     }
     return 0;
@@ -852,6 +668,52 @@ int sc808_serialize(const sc808_engine_t *e, char *buf, int len)
     if(n < len) n += snprintf(buf + n, len - n, "],\"mutes\":%u}", e->mutes);
     return n;
 }
+
+/* ---- state migration: the v1 storage order, frozen -------------------- *
+ *
+ * The pot and enum tables are POSITIONAL storage for the patch blob, so a
+ * control removed from the middle renumbers everything after it: a v1 blob
+ * replayed against the v2 table would land bd_engine's value in
+ * bd_dist_type, and so on down the kit. Sixteen Engine switches and the
+ * Metal enum left at once, which is the largest such move this module will
+ * ever make.
+ *
+ * So v1 blobs are placed BY NAME against the order that shipped with them,
+ * and keys that no longer exist have nowhere to land and are dropped. From
+ * v2 on the tables are positional again and APPEND-ONLY.
+ */
+static const char *const kV1PotKeys[71] = {
+    "bd_tune", "bd_attack", "bd_decay", "bd_tone",
+    "bd_drive", "bd_level", "sd_tune", "sd_decay",
+    "sd_snappy", "sd_drive", "sd_level", "lt_tune",
+    "lt_decay", "lt_drive", "lt_level", "mt_tune",
+    "mt_decay", "mt_drive", "mt_level", "ht_tune",
+    "ht_decay", "ht_drive", "ht_level", "lc_tune",
+    "lc_decay", "lc_drive", "lc_level", "mc_tune",
+    "mc_decay", "mc_drive", "mc_level", "hc_tune",
+    "hc_decay", "hc_drive", "hc_level", "rs_tune",
+    "rs_decay", "rs_drive", "rs_level", "cl_tune",
+    "cl_decay", "cl_drive", "cl_level", "ma_tune",
+    "ma_attack", "ma_decay", "ma_drive", "ma_level",
+    "cp_tune", "cp_decay", "cp_drive", "cp_level",
+    "cb_tune", "cb_decay", "cb_drive", "cb_level",
+    "ch_tune", "ch_decay", "ch_drive", "ch_level",
+    "oh_tune", "oh_decay", "oh_drive", "oh_level",
+    "cy_tune", "cy_decay", "cy_drive", "cy_level",
+    "master_drive", "volume", "accent",
+};
+
+static const char *const kV1EnumKeys[35] = {
+    "bd_engine", "bd_dist_type", "sd_engine", "sd_dist_type",
+    "lt_engine", "lt_dist_type", "mt_engine", "mt_dist_type",
+    "ht_engine", "ht_dist_type", "lc_engine", "lc_dist_type",
+    "mc_engine", "mc_dist_type", "hc_engine", "hc_dist_type",
+    "rs_dist_type", "cl_engine", "cl_dist_type", "ma_engine",
+    "ma_dist_type", "cp_engine", "cp_dist_type", "cb_engine",
+    "cb_dist_type", "ch_engine", "ch_dist_type", "hh_choke",
+    "oh_engine", "oh_dist_type", "cy_engine", "cy_dist_type",
+    "master_dist", "note_map", "metal_run",
+};
 
 /* Reads the arrays positionally. A blob shorter than the current table is a
  * patch saved before a control was appended — the missing tail keeps its
@@ -879,27 +741,47 @@ static const char *scan_ints(const char *p, int *dst, int max, int *got)
 void sc808_deserialize(sc808_engine_t *e, const char *json)
 {
     if(!json || !*json) return;
+
+    /* Blobs carry their version; anything without one is a v1 blob from
+     * before the field existed. */
+    int version = 1;
+    {
+        const char *vp = strstr(json, "\"v\"");
+        if(vp) { vp = strchr(vp, ':'); if(vp) version = (int)strtol(vp + 1, NULL, 10); }
+    }
+    const bool byName = version < 2;
+
     const char *p = strstr(json, "\"pots\"");
-    int vals[SC808_NUM_POTS > SC808_NUM_ENUMS ? SC808_NUM_POTS : SC808_NUM_ENUMS];
+    enum { kScratch = (SC808_NUM_POTS > SC808_NUM_ENUMS ? SC808_NUM_POTS
+                                                        : SC808_NUM_ENUMS) };
+    const int kV1Pots  = (int)(sizeof kV1PotKeys  / sizeof kV1PotKeys[0]);
+    const int kV1Enums = (int)(sizeof kV1EnumKeys / sizeof kV1EnumKeys[0]);
+    int vals[kScratch > kV1Pots ? (kScratch > kV1Enums ? kScratch : kV1Enums)
+                                : (kV1Pots > kV1Enums ? kV1Pots : kV1Enums)];
     int got = 0;
 
-    p = scan_ints(p, vals, SC808_NUM_POTS, &got);
+    p = scan_ints(p, vals, byName ? kV1Pots : SC808_NUM_POTS, &got);
     for(int i = 0; i < got; ++i)
     {
-        int v = vals[i] < 0 ? 0 : (vals[i] > 127 ? 127 : vals[i]);
-        e->pot[i]  = v;
-        e->potv[i] = pot_value(i, v);
+        const int v = vals[i] < 0 ? 0 : (vals[i] > 127 ? 127 : vals[i]);
+        /* v1: the value belongs to whatever key sat at this index then, which
+         * may now live somewhere else or nowhere at all. */
+        const int slot = byName ? (i < kV1Pots ? find_pot(kV1PotKeys[i]) : -1) : i;
+        if(slot < 0 || slot >= SC808_NUM_POTS) continue;
+        e->pot[slot]  = v;
+        e->potv[slot] = pot_value(slot, v);
     }
 
     const char *q = strstr(json, "\"enums\"");
-    scan_ints(q, vals, SC808_NUM_ENUMS, &got);
+    scan_ints(q, vals, byName ? kV1Enums : SC808_NUM_ENUMS, &got);
     for(int i = 0; i < got; ++i)
     {
+        const int slot = byName ? (i < kV1Enums ? find_enum(kV1EnumKeys[i]) : -1) : i;
+        if(slot < 0 || slot >= SC808_NUM_ENUMS) continue;
         int v = vals[i] < 0 ? 0 : vals[i];
-        if(v >= g_sc808_enums[i].count) v = g_sc808_enums[i].count - 1;
-        e->env[i] = v;
+        if(v >= g_sc808_enums[slot].count) v = g_sc808_enums[slot].count - 1;
+        e->env[slot] = v;
     }
-    apply_metal_run(e);
 
     const char *mp = strstr(json, "\"mutes\"");
     if(mp) { mp = strchr(mp, ':'); if(mp) e->mutes = (unsigned)strtoul(mp + 1, NULL, 10)

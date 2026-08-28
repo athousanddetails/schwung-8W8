@@ -119,7 +119,7 @@ step "circuit tom / conga"
 $CXX $FLAGS -o build-native/tom_check tools/tom_check.cpp
 ./build-native/tom_check >build-native/tom.log 2>&1
 t=$?
-grep -E 'engines land|not the same signal' build-native/tom.log
+grep -E "level reference|not the same signal" build-native/tom.log
 verdict $t
 
 step "editor and remote panel"

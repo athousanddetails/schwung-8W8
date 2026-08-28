@@ -218,8 +218,6 @@
   var DIST   = ["Diode", "Clip", "Fold", "Crush"];
   var MDIST  = ["Off", "Diode", "Clip", "Fold", "Crush"];
   var CHOKE  = ["Off", "CH>OH", "Mutual"];
-  var ENGINE = ["Circuit", "sc808"];
-  var METAL  = ["Free", "Retrig"];
 
   /*
    * The instrument columns, IN THE DSP'S LANE ORDER — which is also the pad
@@ -239,52 +237,38 @@
    */
   var LANES = [
     { id:"bd", name:"BASS DRUM",  col:"#d2452f",
-      knobs:[["bd_tune","Tune"],["bd_attack","Attack"],["bd_tone","Tone"],["bd_decay","Decay"]],
-      fx:[["bd_engine","Engine",ENGINE]] },
+      knobs:[["bd_tune","Tune"],["bd_attack","Attack"],["bd_tone","Tone"],["bd_decay","Decay"]] },
     { id:"sd", name:"SNARE DRUM", col:"#d8532e",
-      knobs:[["sd_tune","Tune"],["sd_snappy","Snappy"],null,["sd_decay","Decay"]],
-      fx:[["sd_engine","Engine",ENGINE]] },
+      knobs:[["sd_tune","Tune"],["sd_snappy","Snappy"],null,["sd_decay","Decay"]] },
     { id:"lt", name:"LOW TOM",    col:"#dd5f2e",
-      knobs:[["lt_tune","Tuning"],null,null,["lt_decay","Decay"]],
-      fx:[["lt_engine","Engine",ENGINE]] },
+      knobs:[["lt_tune","Tuning"],null,null,["lt_decay","Decay"]] },
     { id:"mt", name:"MID TOM",    col:"#e26b2e",
-      knobs:[["mt_tune","Tuning"],null,null,["mt_decay","Decay"]],
-      fx:[["mt_engine","Engine",ENGINE]] },
+      knobs:[["mt_tune","Tuning"],null,null,["mt_decay","Decay"]] },
     { id:"ht", name:"HI TOM",     col:"#e6772e",
-      knobs:[["ht_tune","Tuning"],null,null,["ht_decay","Decay"]],
-      fx:[["ht_engine","Engine",ENGINE]] },
+      knobs:[["ht_tune","Tuning"],null,null,["ht_decay","Decay"]] },
     { id:"lc", name:"LOW CONGA",  col:"#e9832f", isAlt:true,
-      knobs:[["lc_tune","Tuning"],null,null,["lc_decay","Decay"]],
-      fx:[["lc_engine","Engine",ENGINE]] },
+      knobs:[["lc_tune","Tuning"],null,null,["lc_decay","Decay"]] },
     { id:"mc", name:"MID CONGA",  col:"#ec8f31", isAlt:true,
-      knobs:[["mc_tune","Tuning"],null,null,["mc_decay","Decay"]],
-      fx:[["mc_engine","Engine",ENGINE]] },
+      knobs:[["mc_tune","Tuning"],null,null,["mc_decay","Decay"]] },
     { id:"hc", name:"HI CONGA",   col:"#ee9b34", isAlt:true,
-      knobs:[["hc_tune","Tuning"],null,null,["hc_decay","Decay"]],
-      fx:[["hc_engine","Engine",ENGINE]] },
+      knobs:[["hc_tune","Tuning"],null,null,["hc_decay","Decay"]] },
     { id:"rs", name:"RIM SHOT",   col:"#f0a838",
       knobs:[["rs_tune","Tuning"],null,null,["rs_decay","Decay"]] },
     { id:"cl", name:"CLAVES",     col:"#f1ae3b", isAlt:true,
-      knobs:[["cl_tune","Tuning"],null,null,["cl_decay","Decay"]],
-      fx:[["cl_engine","Engine",ENGINE]] },
+      knobs:[["cl_tune","Tuning"],null,null,["cl_decay","Decay"]] },
     { id:"ma", name:"MARACAS",    col:"#f2b53f", isAlt:true,
-      knobs:[["ma_tune","Tuning"],["ma_attack","Attack"],null,["ma_decay","Decay"]],
-      fx:[["ma_engine","Engine",ENGINE]] },
+      knobs:[["ma_tune","Tuning"],["ma_attack","Attack"],null,["ma_decay","Decay"]] },
     { id:"cp", name:"HAND CLAP",  col:"#f4c24b",
-      knobs:[["cp_tune","Tuning"],null,null,["cp_decay","Decay"]],
-      fx:[["cp_engine","Engine",ENGINE]] },
+      knobs:[["cp_tune","Tuning"],null,null,["cp_decay","Decay"]] },
     { id:"cb", name:"COW BELL",   col:"#f0cf66",
-      knobs:[["cb_tune","Tuning"],null,null,["cb_decay","Decay"]],
-      fx:[["cb_engine","Engine",ENGINE]] },
+      knobs:[["cb_tune","Tuning"],null,null,["cb_decay","Decay"]] },
     { id:"ch", name:"CLSD HIHAT", col:"#eae7d8",
       knobs:[["ch_tune","Tuning"],null,null,["ch_decay","Decay"]],
-      fx:[["hh_choke","Choke",CHOKE],["ch_engine","Engine",ENGINE]] },
+      fx:[["hh_choke","Choke",CHOKE]] },
     { id:"oh", name:"OPEN HIHAT", col:"#e8e3c4",
-      knobs:[["oh_tune","Tuning"],null,null,["oh_decay","Decay"]],
-      fx:[["oh_engine","Engine",ENGINE]] },
+      knobs:[["oh_tune","Tuning"],null,null,["oh_decay","Decay"]] },
     { id:"cy", name:"CYMBAL",     col:"#ecdc94",
-      knobs:[["cy_tune","Tuning"],null,null,["cy_decay","Decay"]],
-      fx:[["cy_engine","Engine",ENGINE]] }
+      knobs:[["cy_tune","Tuning"],null,null,["cy_decay","Decay"]] }
   ];
 
   /*
@@ -490,7 +474,6 @@
     knob(mm, "master_drive", "Master");
     sel(mm, "master_dist", "Dist", MDIST);
     sel(mm, "note_map", "Notes", ["Rack 36", "GM"]);
-    sel(mm, "metal_run", "Metal", METAL);
   }
 
   /* ---- the button row: the 808's steps, muting instead of stepping ---- */

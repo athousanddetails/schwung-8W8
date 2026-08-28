@@ -469,23 +469,19 @@ int main(int argc, char **argv)
         ok(rim > 0 && clave > 0, "Rim and Clave both sound, on their own lanes", NULL);
         ok(rim != clave, "and they are not the same sound", NULL);
 
-        /* Both kick engines must sound, and land at a comparable level —
-         * they share one per-lane trim, so if they disagree about what a
-         * kick comes out at, switching engines shifts the kit balance. */
+        /* The Engine switches are gone — every lane is its circuit voice.
+         * What is worth asserting now is that the switch is really gone
+         * from the surface, so a patch or a controller cannot write a key
+         * the engine will silently ignore. */
         fresh(api, &inst);
-        api->set_param(inst, "bd_engine", "0");        /* circuit */
+        char d[64];
+        ok(api->set_param(inst, "bd_engine", "0") == 0 &&
+           api->set_param(inst, "metal_run", "1") == 0,
+           "the Engine and Metal switches are off the parameter surface", NULL);
         note_on(api, inst, 36, 100);
         const int circ = render_peak(api, inst, 90);
-        fresh(api, &inst);
-        api->set_param(inst, "bd_engine", "1");        /* sc808 */
-        note_on(api, inst, 36, 100);
-        const int sc = render_peak(api, inst, 90);
-        char d[64];
-        snprintf(d, sizeof(d), "circuit %d, sc808 %d", circ, sc);
-        ok(circ > 0 && sc > 0, "both kick engines sound", d);
-        ok(sc < circ * 3 && circ < sc * 3,
-           "and they are within 10 dB of each other", d);
-        api->set_param(inst, "bd_engine", "default");
+        snprintf(d, sizeof(d), "peak %d", circ);
+        ok(circ > 0, "and the kick still sounds without them", d);
     }
 
     /* ---- 13. free-running metal oscillators ----
@@ -502,31 +498,20 @@ int main(int argc, char **argv)
      * same phase every time. */
     printf("\nfree-running metal\n");
     {
+        /* There is no Retrig any more: the Metal switch existed to choose
+         * between the circuit's free-running bank and the sc808 voices,
+         * which restarted their oscillators every note because in
+         * SuperCollider every note is a new synth. The sc808 metal is off
+         * the surface, so free-running is simply what the module does —
+         * and that makes this the assertion that matters, unconditionally. */
         fresh(api, &inst);
-        /* Free/Retrig is a property of the sc808 metal engine — the circuit
-         * bank free-runs, full stop, as the hardware's does. Select the
-         * sc808 engine on the hat lane for this pair of tests. */
-        api->set_param(inst, "ch_engine", "1");
-        api->set_param(inst, "metal_run", "1");        /* Retrig, i.e. sc808 */
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 0);
         note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 1);
         {
             const double diff = captures_diff();
             char d[64]; snprintf(d, sizeof(d), "relative difference %.5f", diff);
-            ok(diff < 0.20, "Retrig: consecutive hats are the same hit", d);
+            ok(diff > 0.50, "consecutive hats are different hits, as on an 808", d);
         }
-
-        fresh(api, &inst);
-        api->set_param(inst, "ch_engine", "1");
-        api->set_param(inst, "metal_run", "0");        /* Free, i.e. hardware */
-        note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 0);
-        note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 1);
-        {
-            const double diff = captures_diff();
-            char d[64]; snprintf(d, sizeof(d), "relative difference %.5f", diff);
-            ok(diff > 0.50, "Free: consecutive hats are different hits, as on an 808", d);
-        }
-        api->set_param(inst, "metal_run", "default");
     }
 
     /* ---- 14. nothing pathological in the output ---- */

@@ -128,17 +128,6 @@ PAGES = [
         P("bd_attack", "Attack", 0.0, 1.0, LIN, 24),
         PV("bd_decay",  "Decay",   0.1,  8.0, EXP,  2.0),
         PV("bd_tone",   "Tone",    0.0,  6.0, LIN,  2.0),
-        # Which kick. "Circuit" is the bridged-T model from Werner et al.'s
-        # analysis of the real 808 — a resonator in an op-amp feedback loop,
-        # where Decay is LOOP GAIN and the pitch sighs because the circuit
-        # makes it. "sc808" is the transcription the null test verifies: a
-        # sine on a pitch envelope, which is a fine kick drum and is not an
-        # 808's. Circuit is the default because the kick is the voice this
-        # whole project is judged on.
-        #
-        # Decay, Attack and Tone mean different things to the two engines and
-        # each maps the same pot POSITION its own way — see sc808_engine.cpp.
-        E("bd_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("bd"), DTYPE("bd"), LEVEL("bd"),
     ]),
     ("sd", "Snare", [
@@ -148,26 +137,13 @@ PAGES = [
         PV("sd_decay",  "Decay",   0.1,  8.0, EXP,  4.2),
         PV("sd_snappy", "Snappy",  0.0,  1.0, LIN,  0.7),
         # No Tone pot. Field verdict: "Tune is enough" — and it was doing
-        # little: the circuit's shell balance sits at its centre, the sc808
-        # lowpass at its default, both now fixed in the engine. The freed
-        # slot is banked for what the single-engine plan will need.
-        # Which snare. "Circ" is two bridged-T networks at 173 and 336 Hz,
-        # derived from the service notes' component values, with a swing-type
-        # VCA on the noise; Snappy divides the trigger into the noise
-        # envelope rather than mixing a level. "sc808" is the transcription.
-        E("sd_engine", "Engine", ["Circ", "sc808"]),
+        # little: the circuit's shell balance sits at its centre, now fixed
+        # in the voice.
         DRIVE("sd"), DTYPE("sd"), LEVEL("sd"),
     ]),
     # The six tom / conga lanes. Decay is RING TIME IN SECONDS (to 1% of
-    # peak) — defaults are the measured hardware times, and the engine
-    # converts for whichever engine is loaded, so the knob means the same
-    # thing on both. Each gets an Engine switch of its own, like
-    # the kick and the snare — on the hardware there is ONE tom/conga switch
-    # for the whole machine, but there tom and conga are the same channel and
-    # cannot sound together, while here they are six pads that can.
+    # peak) and the defaults are the measured hardware times.
     #
-    # Decay reads as SECONDS on sc808 and as LOOP GAIN on the circuit, from
-    # the same knob position; see the circuit kick for why that is deliberate.
     # Tom/conga TUNE is +/-2 SEMITONES, not +/-12: the hardware's TUNING
     # trimmer, measured on Roland's own model, spans exactly four semitones
     # lock to lock (LT 84->106 Hz, HT 165->206). The wide pot let one tom
@@ -175,36 +151,30 @@ PAGES = [
     # kit's three toms into one tom at three knob positions.
     ("lt", "Low Tom",   [P("lt_tune", "Tune", -2.0, 2.0, LIN, 64),
                          PV("lt_decay", "Decay", 0.06, 2.0, EXP, 0.39),
-                         E("lt_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("lt"), DTYPE("lt"), LEVEL("lt")]),
     ("mt", "Mid Tom",   [P("mt_tune", "Tune", -2.0, 2.0, LIN, 64),
                          PV("mt_decay", "Decay", 0.06, 2.0, EXP, 0.28),
-                         E("mt_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("mt"), DTYPE("mt"), LEVEL("mt")]),
     ("ht", "Hi Tom",    [P("ht_tune", "Tune", -2.0, 2.0, LIN, 64),
                          PV("ht_decay", "Decay", 0.06, 2.0, EXP, 0.26),
-                         E("ht_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("ht"), DTYPE("ht"), LEVEL("ht")]),
     ("lc", "Low Conga", [P("lc_tune", "Tune", -2.0, 2.0, LIN, 64),
                          PV("lc_decay", "Decay", 0.06, 2.0, EXP, 0.30),
-                         E("lc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("lc"), DTYPE("lc"), LEVEL("lc")]),
     ("mc", "Mid Conga", [P("mc_tune", "Tune", -2.0, 2.0, LIN, 64),
                          PV("mc_decay", "Decay", 0.06, 2.0, EXP, 0.16),
-                         E("mc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("mc"), DTYPE("mc"), LEVEL("mc")]),
     ("hc", "Hi Conga",  [P("hc_tune", "Tune", -2.0, 2.0, LIN, 64),
                          PV("hc_decay", "Decay", 0.06, 2.0, EXP, 0.154),
-                         E("hc_engine", "Engine", ["Circ", "sc808"]),
                          DRIVE("hc"), DTYPE("hc"), LEVEL("hc")]),
     ("rs", "Rim Shot", [
         TUNE("rs"),
-        # NO Engine switch on this lane. Two circuit rim shots were built
-        # from the schematic and both lost to the sc808 algorithm on
-        # hardware — the second badly enough that the verdict was "not good
-        # at all, I prefer sc808". So the sc808 rim IS the rim here, tuned
-        # to rim808.wav, and the lane has one voice like every lane will
-        # once the switches go. Decay is SECONDS of audible ring.
+        # Two circuit rim shots were built from the schematic and both lost
+        # to the sc808 algorithm on hardware — the second badly enough that
+        # the verdict was "not good at all, I prefer sc808". So the sc808
+        # rim IS the rim here, tuned to rim808.wav. It is the one lane whose
+        # voice did not come from the circuit, and the reason is the ear's.
+        # Decay is SECONDS of audible ring.
         PV("rs_decay", "Decay", 0.005, 0.20, EXP, 0.016),
         DRIVE("rs"), DTYPE("rs"), LEVEL("rs"),
     ]),
@@ -219,7 +189,6 @@ PAGES = [
         # is exactly what the pad block holds.
         TUNE("cl"),
         P("cl_decay", "Decay", 0.0, 1.0, LIN, 64),   # ring stretch, see rs
-        E("cl_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("cl"), DTYPE("cl"), LEVEL("cl"),
     ]),
     ("ma", "Maracas", [
@@ -235,7 +204,6 @@ PAGES = [
         TUNE("ma"),
         PV("ma_attack", "Attack", 0.0,  0.1, LIN, 0.027),
         PV("ma_decay",  "Decay",  0.01, 0.3, EXP, 0.039),   # AU: 39 ms to 1%
-        E("ma_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("ma"), DTYPE("ma"), LEVEL("ma"),
     ]),
     ("cp", "Hand Clap", [
@@ -252,7 +220,6 @@ PAGES = [
         # Decay scales BOTH derived tails together (C144x82k main, C143x330k
         # floor); 1.0 IS the hardware, the ends halve and double it.
         PV("cp_decay",  "Decay",  0.35,  2.8,  EXP, 1.0),
-        E("cp_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("cp"), DTYPE("cp"), LEVEL("cp"),
     ]),
     ("cb", "Cowbell", [
@@ -260,13 +227,11 @@ PAGES = [
         # bank, exactly as the hardware wires them — so Tune is a ratio.
         RATIO("cb"),
         PV("cb_decay", "Decay", 0.1, 2.0, EXP, 0.43),   # seconds; AU: 0.43
-        E("cb_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("cb"), DTYPE("cb"), LEVEL("cb"),
     ]),
     ("ch", "Closed Hat", [
         RATIO("ch"),
         PV("ch_decay", "Decay", 0.03, 0.5, EXP, 0.085),   # seconds; sample: 85 ms
-        E("ch_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("ch"), DTYPE("ch"), LEVEL("ch"),
         # Lives here as well as on Master: this is where you are standing when
         # you want it. The 808 shares one metal source between CH and OH, so
@@ -276,16 +241,13 @@ PAGES = [
     ("oh", "Open Hat", [
         RATIO("oh"),
         PV("oh_decay", "Decay", 0.08, 1.5, EXP, 0.44),   # seconds; AU note ends ~0.40 after the gate
-        E("oh_engine", "Engine", ["Circ", "sc808"]),
         DRIVE("oh"), DTYPE("oh"), LEVEL("oh"),
     ]),
     ("cy", "Cymbal", [
         RATIO("cy"),
         PV("cy_decay", "Decay", 0.4, 6.0, EXP, 1.79),   # seconds; AU: 1.79
-        E("cy_engine", "Engine", ["Circ", "sc808"]),
-        # No Tone pot — field-cut like the snare's. On the circuit engine the
-        # crash balance is fixed to the reference render; the sc808 engine
-        # reads its old default 0.25.
+        # No Tone pot — field-cut like the snare's. The crash balance is
+        # fixed to the player's reference render.
         DRIVE("cy"), DTYPE("cy"), LEVEL("cy"),
     ]),
 ]
@@ -300,14 +262,6 @@ GLOBALS = [
     P("accent", "Accent", 1.0, 4.0, LIN, 42),               # 2.0x on accents
     E("hh_choke", "Choke", ["Off", "CH>OH", "Mutual"], 1),
     E("note_map", "Note Map", ["Rack 36", "GM"]),            # RAC/36 in the box
-    # How the hats' and cymbal's six oscillators behave between hits.
-    #
-    # "Free" is the hardware: the HD14584's oscillators never stop, the
-    # envelopes gate them, and every hit catches the bank at a different
-    # phase — which is why no two 808 hats are quite the same. "Retrig" is
-    # sc808, which restarts them every note because in SuperCollider every
-    # note is a new synth, and which is what the null test verifies.
-    E("metal_run", "Metal", ["Free", "Retrig"]),             # FRE/E, RET/RIG
 ]
 
 # ---------------------------------------------------------------------------
