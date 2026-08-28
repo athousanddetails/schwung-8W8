@@ -132,7 +132,7 @@ constexpr float kVoiceTrim[SC808_NUM_VOICES] = {
     0.1219f,   /* cb */
     0.0021f,   /* ch — raw peak near 17 before the drive stage catches it */
     0.0402f,   /* oh */
-    5.2235f,   /* cy */
+    5.9505f,   /* cy */
 };
 
 /*
@@ -663,6 +663,7 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
             /* accent as gain, like the hats; no Tone — the crash balance
              * is the reference's, fixed in the voice */
             e->mbank.setRatio((double)tune);
+            e->cyc.setRatio((double)tune);
             e->cyc.trigger(decay, 4.0f);
         }
         else

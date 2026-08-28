@@ -390,17 +390,25 @@ private:
  * Tune / Decay / Level like the lane deserves; the crash balance is the
  * reference's, fixed.
  */
-static double kCY_SusW    = 0.022;
+static double kCY_SusW    = 0.042;
 static double kCY_BodyW   = 1.00;
-static double kCY_TopW    = 0.55;
-static double kCY_SusHPHz = 3150.0;
-static double kCY_SusLPHz = 3700.0;
+static double kCY_TopW    = 0.58;
+static double kCY_SusHPHz = 2950.0;
+static double kCY_SusLPHz = 3200.0;
 static double kCY_SusAtk  = 0.070;   /* the shimmer BLOOMS, ~200 ms to peak */
 static double kCY_EG1Div  = 2.2;     /* pot seconds -> shimmer tau */
 static double kCY_BodyLPHz = 9200.0; /* the band above 9 k belongs to the fast top path */
 static double kCY_EG2Tau  = 0.220;
-static double kCY_EG3Tau  = 0.085;
-static double kCY_FloorW  = 0.004;   /* the long quiet tail under the crash */
+static double kCY_EG3Tau  = 0.210;
+static double kCY_FloorW  = 0.065;   /* the long quiet tail under the crash */
+static double kCY_Crash1W = 0.016;    /* BP1's own band in the crash — the
+                                        reference's 2-4 kHz is this filter's
+                                        skirt, not the shimmer resonance.
+                                        Banded 2-4.3 kHz so it cannot reach
+                                        the body's 5.5-7 kHz and interfere. */
+static double kCY_Crash1LP = 4300.0;
+static double kCY_Crash1HP = 2000.0;
+static double kCY_TopFloorW = 0.005;
 static constexpr double kCY_OutScale = 0.74;
 static const double kCY_Knee = 1.2;
 
@@ -409,12 +417,19 @@ public:
     void init(const double _sr, SchmittBank *_bank)
     {
         sr_ = _sr; bank_ = _bank;
-        bp1_.set(870.0, 56.0e3, 82.0e3, 6.8e-9, 6.8e-9, 3.3e-9, _sr);
+        /* C13/C14 at +11% of their marked 6.8n — inside the era's cap
+         * tolerance — bringing BP1's centre to ~3.1 kHz: the reference's
+         * shimmer cluster spans 2.94-3.53 kHz with its energy leader at
+         * the BOTTOM line, and at the paper's nominal 3445 the response
+         * slope handed the contest to the top of the cluster instead. */
+        bp1_.set(870.0, 56.0e3, 82.0e3, 7.96e-9, 7.96e-9, 3.86e-9, _sr);
         bp2_.set(1393.0, 56.0e3, 82.0e3, 3.3e-9, 3.3e-9, 1.0e-9, _sr);
-        susHp_.set(kCY_SusHPHz, 2.0, 1.0, _sr);
+        susHp_.set(kCY_SusHPHz, 2.6, 1.0, _sr);
         susHp2_.set(kCY_SusHPHz, 0.9, 1.0, _sr);
         susLpA_ = exp(-2.0 * kCircPi * kCY_SusLPHz / _sr);
         susLpZ_ = 0.0;
+        susRes_.set(2944.0, 75.0, _sr);
+        susRes2_.set(3265.0, 32.0, _sr);
         /*
          * The recording's fine spectrum is TWO FORMANTS — 3.25 and 7.1 kHz,
          * the Werner band passes' own centres — with valleys between and
@@ -422,11 +437,18 @@ public:
          * keeps its formant: the body re-peaks at BP2's centre.
          */
         bodyRes_.set(7150.0, 2.6, _sr);
-        bodySk_.set(6400.0, 1.1, 1.0, _sr);
+        bodySk_.set(7300.0, 1.1, 1.0, _sr);
         bodyHpA_.set(5000.0, _sr);
         bodyLpA_ = exp(-2.0 * kCircPi * kCY_BodyLPHz / _sr);
         bodyLpZ_[0] = bodyLpZ_[1] = 0.0;
         topHp_.set(13500.0, 1.2, 1.0, _sr);
+        crashHp_.set(kCY_Crash1HP, _sr);
+        crashLpA_ = exp(-2.0 * kCircPi * kCY_Crash1LP / _sr);
+        crashLpZ_[0] = crashLpZ_[1] = 0.0;
+        floorLpA_ = exp(-2.0 * kCircPi * 8500.0 / _sr);
+        topLpA_ = exp(-2.0 * kCircPi * 14000.0 / _sr);
+        topLpZ_ = 0.0;
+        floorLpZ_ = 0.0; floorLpZ2_ = 0.0;
         dc_.set(200.0, _sr);
         outHp_.set(1500.0, 0.8, 1.0, _sr);
         e1_ = e2_ = e3_ = 0.0; e1t_ = 0.0;
@@ -436,17 +458,42 @@ public:
 
     bool active() const { return active_; }
 
+    /* the bank ratio, for the line notch below */
+    void setRatio(const double _r)
+    {
+        const double r = _r < 0.25 ? 0.25 : (_r > 4.0 ? 4.0 : _r);
+        /*
+         * The shimmer is a RESONATOR, not a line. The reference's tail
+         * rings at 2944 Hz — a frequency where its own bank's line is as
+         * weak as ours — with a beating pair around it: the signature of a
+         * high-Q element ringing at its own frequency, excited by the
+         * cluster. Chasing bank lines with notches was a losing game the
+         * measurement ended. The resonance tracks the Tune ratio.
+         */
+        susRes_.set(2944.0 * r / 1.0055, 75.0, sr_);
+        susRes2_.set(3265.0 * r / 1.0055, 32.0, sr_);
+    }
+
     void trigger(const float _decaySec, const float _accentV)
     {
         const double a = (double)_accentV / 8.0;
         const double t = _decaySec > 0.1f ? (double)_decaySec : 0.1;
-        susHp_.set(kCY_SusHPHz, 2.0, 1.0, sr_);
+        susHp_.set(kCY_SusHPHz, 2.6, 1.0, sr_);
         susHp2_.set(kCY_SusHPHz, 0.9, 1.0, sr_);
         susLpA_ = exp(-2.0 * kCircPi * kCY_SusLPHz / sr_);
         bodyLpA_ = exp(-2.0 * kCircPi * kCY_BodyLPHz / sr_);
         e1t_ = 8.0 * a;                 /* shimmer target, reached slowly */
         atkC_ = 1.0 - exp(-1.0 / (kCY_SusAtk * sr_));
-        d1_ = exp(-1.0 / ((t / kCY_EG1Div) * sr_));
+        /*
+         * EG1's release is a LINEAR discharge — the same shape the open
+         * hat's C62 taught: the reference's shimmer band falls in equal
+         * amplitude steps per window, not equal ratios, all the way from
+         * its 200 ms bloom to the diode cut near the pot's full seconds.
+         * An exponential here was measured at an effective 280 ms against
+         * the reference's 630 — the whole "tail is just metal, no brush"
+         * report in one number.
+         */
+        d1_ = (8.0 * a) / (t * sr_);
         e2_ = 8.0 * a; d2_ = exp(-1.0 / (kCY_EG2Tau * sr_));
         e3_ = 8.0 * a; d3_ = exp(-1.0 / (kCY_EG3Tau * sr_));
         active_ = true; quiet_ = 0;
@@ -465,27 +512,46 @@ public:
             e1_ += (e1t_ - e1_) * atkC_;
             if(e1_ > e1t_ * 0.99) e1t_ = 0.0;
         }
-        else e1_ *= d1_;
+        else { e1_ -= d1_; if(e1_ < 0.0) e1_ = 0.0; }
         e2_ *= d2_;
         e3_ *= d3_;
 
         /* linear VCAs, diode gate in the envelope */
         const double g1 = gate(e1_), g2 = gate(e2_), g3 = gate(e3_);
 
-        double sus = susHp2_.process(susHp_.process(b1)) * g1;
-        susLpZ_ += (sus - susLpZ_) * (1.0 - susLpA_);
-        susLpZ2_ += (susLpZ_ - susLpZ2_) * (1.0 - susLpA_);
-        sus = susLpZ2_;
+        /* the shimmer is BOTH: the reference's cluster (3.2-3.4 kHz, a
+         * wider resonance) leading, with the 2.94 kHz ring a few dB under
+         * — its own measured balance */
+        const double sus = (1.4 * susRes_.process(b1)
+                            + susRes2_.process(b1)) * g1;
 
         const double bodyPre = bodySk_.process(bodyHpA_.process(b2));
         const double bodyIn  = bodyRes_.process(bodyPre);
         double bodyDk = bodyIn;
         bodyLpZ_[0] += (bodyDk - bodyLpZ_[0]) * (1.0 - bodyLpA_); bodyDk = bodyLpZ_[0];
         bodyLpZ_[1] += (bodyDk - bodyLpZ_[1]) * (1.0 - bodyLpA_); bodyDk = bodyLpZ_[1];
-        const double body = bodyDk * (g2 + kCY_FloorW * g1);
-        const double top  = topHp_.process(bodyPre) * g3;
+        /* the floor rings through the WIDE stage, not the resonance — a
+         * one-line floor reads as "just metal" where the reference's tail
+         * is brushed */
+        /* the floor stays a band: two poles keep its brush out of the
+         * 9.5-14 kHz row, whose own floor is the (much smaller) top term */
+        floorLpZ_  += (bodyPre - floorLpZ_) * (1.0 - floorLpA_);
+        floorLpZ2_ += (floorLpZ_ - floorLpZ2_) * (1.0 - floorLpA_);
+        const double body = bodyDk * g2 + floorLpZ2_ * (kCY_FloorW * g1);
+        /* the top keeps a brushed floor too — the reference's 9.5-14 kHz
+         * row holds one to two percent all the way down the sustain — and
+         * one pole above 14 k: the reference render falls off past its
+         * sizzle peak where a bare SK highpass stays flat */
+        double topIn = topHp_.process(bodyPre);
+        topLpZ_ += (topIn - topLpZ_) * (1.0 - topLpA_); topIn = topLpZ_;
+        const double top  = topIn * (g3 + kCY_TopFloorW * g1);
 
-        double y = sus * kCY_SusW + body * kCY_BodyW + top * kCY_TopW;
+        double c1 = crashHp_.process(b1);
+        crashLpZ_[0] += (c1 - crashLpZ_[0]) * (1.0 - crashLpA_); c1 = crashLpZ_[0];
+        crashLpZ_[1] += (c1 - crashLpZ_[1]) * (1.0 - crashLpA_); c1 = crashLpZ_[1];
+
+        double y = sus * kCY_SusW + body * kCY_BodyW + top * kCY_TopW
+                   + c1 * (kCY_Crash1W * g2);
         y = dc_.process(outHp_.process(y * kCY_OutScale));
 
         const float o = (float)y;
@@ -508,10 +574,13 @@ private:
     double sr_ = 44100.0;
     SchmittBank *bank_ = nullptr;
     WernerBandpass bp1_, bp2_;
+    BridgedT susRes_, susRes2_;
     SKHighpass susHp_, susHp2_, topHp_, bodySk_, outHp_;
-    OnePoleHP bodyHpA_, dc_;
+    OnePoleHP bodyHpA_, crashHp_, dc_;
     BridgedT bodyRes_;
     double susLpA_ = 0, susLpZ_ = 0, susLpZ2_ = 0, bodyLpA_ = 0, bodyLpZ_[2] = {0, 0};
+    double crashLpA_ = 0, crashLpZ_[2] = {0, 0};
+    double floorLpA_ = 0, floorLpZ_ = 0, floorLpZ2_ = 0, topLpA_ = 0, topLpZ_ = 0;
     double e1_ = 0, e2_ = 0, e3_ = 0, e1t_ = 0;
     double d1_ = 1, d2_ = 1, d3_ = 1, atkC_ = 0;
     bool active_ = false;
