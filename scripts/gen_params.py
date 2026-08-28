@@ -90,6 +90,18 @@ def DRIVE(v):  return P(f"{v}_drive", "Drive", 0.0, 10.0, LIN, 0)
 def DTYPE(v):  return E(f"{v}_dist_type", "Distortion", DIST)
 def LEVEL(v):  return P(f"{v}_level", "Level", 0.0, 2.0, LIN, 64)   # pot 64 == 1.0
 
+# Send amounts, one pair per voice. POST-FADER — what you hear is what you
+# send — and 0 by default, which is load-bearing: at zero the FX ticks see
+# exactly 0.0 and return exactly 0.0, so the kit stays bit-identical to one
+# with no FX at all. tools/golden_check holds that.
+#
+# THE KICK GETS NONE. That is 9W9's explicit call and it is the player's:
+# reverb and delay on an 808 kick is mud, and the low end is exactly what the
+# send highpass is there to keep out of the wet path. It also happens to be
+# what keeps the kick page inside the eight-knob limit.
+def SENDS(v):  return [P(f"{v}_rev", "Rev", 0.0, 1.0, LIN, 0),
+                       P(f"{v}_dly", "Dly", 0.0, 1.0, LIN, 0)]
+
 # Pitch as a SEMITONE OFFSET around the voice's own base note, so pot 64 is
 # always "as sc808 has it" whatever that voice is tuned to. +/- an octave.
 def TUNE(v):   return P(f"{v}_tune", "Tune", -12.0, 12.0, LIN, 64)
@@ -257,12 +269,40 @@ PAGES = [
     ]),
 ]
 
+# Tempo-synced delay: Time is a note DIVISION, not milliseconds, so it is an
+# enum. Order must match kSC808DlyBeats in sc808_fx.h.
+DIVS = ["1/32", "1/16T", "1/16", "1/8T", "1/16.", "1/8", "1/4T", "1/8.",
+        "1/4", "1/2T", "1/4.", "1/2", "1/2."]
+
+# The two send buses get a page each. They are reached by the jog like every
+# other page — there is no pad to spare for them, and none is needed: with
+# sixteen drums the block is full and Master is already reached that way.
+FX_PAGES = [
+    ("rev", "Reverb", [
+        P("rev_decay", "Decay",  0.2,  0.93, LIN, 73),      # 0.62
+        P("rev_tone",  "Tone",   0.0,  1.0,  LIN, 57),      # 0.45
+        P("rev_hpf",   "HPF",   30.0, 800.0, EXP, 62),      # 150 Hz
+        P("rev_level", "Level",  0.0,  1.2,  LIN, 85),      # 0.80
+    ]),
+    ("dly", "Delay", [
+        E("dly_time",  "Time", DIVS, 7),                    # dotted eighth
+        P("dly_fdbk",  "Fdbk",   0.0,  0.85, LIN, 52),      # 0.35
+        P("dly_tone",  "Tone",   0.0,  1.0,  LIN, 51),      # 0.40
+        P("dly_hpf",   "HPF",   30.0, 800.0, EXP, 62),      # 150 Hz
+        P("dly_level", "Level",  0.0,  1.2,  LIN, 85),      # 0.80
+    ]),
+]
+
 GLOBALS = [
     E("master_dist", "Master Dist", ["Off"] + DIST),
     P("master_drive", "Master Drive", 0.0, 10.0, LIN, 0),   # 0 = bypass, see DRIVE
     # The absolute level lives in the per-lane trims (see kit_check), not
     # here, so Volume sits high with room in both directions rather than
     # being the thing that stops the kit clipping.
+    # One-knob bus glue, ported from 9W9. NOT 808 circuitry and honest about
+    # it: at zero the stage is not in the path at all (bit-identical), and the
+    # knob blends threshold, ratio and auto-makeup together.
+    P("comp", "Comp", 0.0, 1.0, LIN, 0),
     P("volume", "Volume", 0.0, 1.0, LIN, 100),
     # No Accent pot. Velocity replaced it: accent WAS the level a hard hit
     # reached, and that is now simply the top of the velocity range. Its gain
@@ -317,8 +357,10 @@ def viz_for(p):
 #
 # The tags are the 808's own panel abbreviations, which is exactly the page id
 # set uppercased — 9W9 had to hand-write its table because its keys carry a
-# `_c_` infix, and ours do not.
-PICKER_PREFIX = {pid.upper(): pid for pid, _, _ in PAGES}
+# `_c_` infix, and ours do not. The two send buses qualify the same way, and
+# they have to: Tone, HPF and Level exist on both of them, and the assertion
+# below caught exactly that the moment the pages were added.
+PICKER_PREFIX = {pid.upper(): pid for pid, _, _ in PAGES + FX_PAGES}
 
 
 def picker_name(key, name):
@@ -353,22 +395,49 @@ def register(p):
     (pots if p["kind"] == "pot" else enums).append(p)
 
 
+# THE KICK IS DRY, on purpose — see SENDS. Everything else gets a pair.
+PAGE_SENDS = {pid: ([] if pid == "bd" else SENDS(pid)) for pid, _, _ in PAGES}
+
+# REGISTRATION ORDER IS STORAGE ORDER for the state blob, and it is
+# APPEND-ONLY. So every parameter that already existed is registered first, in
+# exactly the order it always was, and the new ones go on the end — the pages
+# below then list them in whatever order reads well on the panel. Registering
+# in page order instead would interleave the sends into the middle of the pot
+# table and renumber every patch ever saved.
 for pid, label, params in PAGES:
     for p in params:
         register(p)
-    if len(params) > 8:
-        raise SystemExit(f"page {pid} has {len(params)} params — max 8 knobs")
+for p in GLOBALS:
+    register(p)
+for pid, _, params in PAGES:
+    for p in PAGE_SENDS[pid]:
+        register(p)
+for pid, label, params in FX_PAGES:
+    for p in params:
+        register(p)
+
+# Now the pages, which may reference anything registered above.
+for pid, label, params in PAGES:
+    full = params + PAGE_SENDS[pid]
+    if len(full) > 8:
+        raise SystemExit(f"page {pid} has {len(full)} params — max 8 knobs")
+    levels[pid] = {"name": label,
+                   "knobs": [p["key"] for p in full],
+                   "params": [{"key": p["key"], "label": p["name"]}
+                              for p in full]}
+    root.append({"level": pid, "label": label})
+
+for pid, label, params in FX_PAGES:
     levels[pid] = {"name": label,
                    "knobs": [p["key"] for p in params],
                    "params": [{"key": p["key"], "label": p["name"]}
                               for p in params]}
     root.append({"level": pid, "label": label})
 
-for p in GLOBALS:
-    register(p)
 root += [{"key": p["key"], "label": p["name"]} for p in GLOBALS]
 levels["root"] = {"name": "8W8",
-                  "knobs": [p["key"] for p in GLOBALS[:4]],
+                  "knobs": ["master_dist", "master_drive", "comp", "volume",
+                            "vel_depth"],
                   "params": root}
 
 # Two plugin-level keys that live on NO page but must be in chain_params: the
@@ -497,7 +566,8 @@ static const char sc808_ui_pages_json[] =
 SHORT = {"Tune": "TUNE", "Decay": "DECAY", "Attack": "ATTK", "Tone": "TONE",
          "Drive": "DRIVE", "Distortion": "DIST", "Level": "LEVEL",
          "Snappy": "SNAPY", "Spread": "SPRD", "Room": "ROOM",
-         "Choke": "CHOKE", "Engine": "ENGIN", "Metal": "METAL",
+         "Choke": "CHOKE", "Rev": "REV", "Dly": "DLY",
+         "Fdbk": "FDBK", "HPF": "HPF", "Time": "TIME", "Comp": "COMP",
          "Master Dist": "MDIST", "Master Drive": "MDRV",
          "Volume": "VOL", "Velocity": "VEL", "Note Map": "NMAP"}
 MOVY_NAME = {"bd": "Kick", "sd": "Snare", "lt": "Lo Tom", "mt": "Mid Tom",
@@ -519,8 +589,12 @@ def movy_slot(p):
 
 banks = []
 for pid, label, params in PAGES:
-    row = [movy_slot(p) for p in params] + [None] * (8 - len(params))
+    full = params + PAGE_SENDS[pid]
+    row = [movy_slot(p) for p in full] + [None] * (8 - len(full))
     banks.append({"name": MOVY_NAME[pid], "rows": [row]})
+for pid, label, params in FX_PAGES:
+    row = [movy_slot(p) for p in params] + [None] * (8 - len(params))
+    banks.append({"name": label, "rows": [row]})
 banks.append({"name": "Master", "global": True,
               "rows": [[movy_slot(p) for p in GLOBALS] + [None] * (8 - len(GLOBALS))]})
 movy = {"id": "8w8", "name": "8W8",

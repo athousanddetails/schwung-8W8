@@ -18,6 +18,7 @@
 #include "sc808_rs_circuit.h"
 #include "sc808_engine.h"
 #include "sc808_params.h"
+#include "sc808_fx.h"
 #include "sc808_shape.h"
 
 using namespace sc808;
@@ -195,6 +196,10 @@ static_assert(voice_ids_filled(), "kVoiceIds is short of SC808_NUM_VOICES");
 struct VoiceSlots {
     int tune, decay, drive, level;   /* every voice has these four */
     int dist;                        /* enum slot                  */
+    /* Send amounts. -1 on the kick, which is dry by design — see SENDS in
+     * gen_params.py. Resolved once here so the audio path never searches by
+     * string. */
+    int rev, dly;
 };
 
 struct VoiceRt {
@@ -249,8 +254,24 @@ struct sc808_engine {
     int ma_attack;
     /* Globals. */
     int e_master_dist, e_choke, e_note_map;
-    int p_master_drive, p_volume, p_vel_depth;
+    int p_master_drive, p_volume, p_vel_depth, p_comp;
     float crush_master[SC808_CRUSH_STATE];
+
+    /* The two send buses and the bus glue. Heap-allocated with the engine —
+     * the delay line alone is 352 KB, which is why sc808_create callocs
+     * rather than putting an engine on a stack anywhere. */
+    sc808_verb_t verb;
+    sc808_dly_t  dly;
+    sc808_glue_t glue;
+    int p_rev_decay, p_rev_tone, p_rev_hpf, p_rev_level;
+    int p_dly_fdbk, p_dly_tone, p_dly_hpf, p_dly_level;
+    int e_dly_time;
+    /* what the FX structs were last told, so sync only touches them on a
+     * real change — resetting a biquad every block would tick the reverb
+     * with a filter that never settles */
+    float fx_rev_hpf, fx_dly_hpf;
+    int   fx_divi;
+    float fx_bpm;
 
     unsigned mutes;
 
@@ -279,6 +300,49 @@ struct sc808_engine {
      */
     RimClave  rs;
 };
+
+/*
+ * Push the pot table's engineering values into the FX structs.
+ *
+ * Called at create and after every parameter write. The cheap fields are
+ * copied unconditionally; the two that COST something — the send highpass
+ * biquads and the delay's retime — are only touched when their input
+ * actually moved. Rebuilding a biquad every block is not free, and resetting
+ * one would tick the reverb with a filter that never settles.
+ */
+static void sc808_fx_sync(sc808_engine_t *e)
+{
+    e->verb.decay = e->potv[e->p_rev_decay];
+    e->verb.tone  = e->potv[e->p_rev_tone];
+    e->verb.level = e->potv[e->p_rev_level];
+    e->dly.fdbk   = e->potv[e->p_dly_fdbk];
+    e->dly.tone   = e->potv[e->p_dly_tone];
+    e->dly.level  = e->potv[e->p_dly_level];
+
+    const float rh = e->potv[e->p_rev_hpf];
+    if(rh != e->fx_rev_hpf)
+    {
+        e->verb.hpf_hz = rh;
+        e->verb.hp.setHiPass(rh, kSC808_SendRQ, e->sample_rate);
+        e->fx_rev_hpf = rh;
+    }
+    const float dh = e->potv[e->p_dly_hpf];
+    if(dh != e->fx_dly_hpf)
+    {
+        e->dly.hpf_hz = dh;
+        e->dly.hp.setHiPass(dh, kSC808_SendRQ, e->sample_rate);
+        e->fx_dly_hpf = dh;
+    }
+
+    const int divi = e->env[e->e_dly_time];
+    if(divi != e->fx_divi || e->dly.bpm != e->fx_bpm)
+    {
+        e->dly.divi = divi;
+        sc808_dly_retime(&e->dly, e->sample_rate);
+        e->fx_divi = divi;
+        e->fx_bpm  = e->dly.bpm;
+    }
+}
 
 const char *sc808_voice_id(int voice)
 {
@@ -327,6 +391,10 @@ sc808_engine_t *sc808_create(float sample_rate)
         snprintf(key, sizeof(key), "%s_drive",     id); e->slot[v].drive = find_pot(key);
         snprintf(key, sizeof(key), "%s_level",     id); e->slot[v].level = find_pot(key);
         snprintf(key, sizeof(key), "%s_dist_type", id); e->slot[v].dist  = find_enum(key);
+        /* The kick declares no sends, so find_pot returns -1 and the render
+         * loop skips it. That is the whole of "the kick is dry". */
+        snprintf(key, sizeof(key), "%s_rev",       id); e->slot[v].rev   = find_pot(key);
+        snprintf(key, sizeof(key), "%s_dly",       id); e->slot[v].dly   = find_pot(key);
         e->rt[v].hit_gain   = 1.0f;
         e->rt[v].choke_gain = 1.0f;
         e->rt[v].choke_step = 0.0f;
@@ -338,6 +406,16 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->p_master_drive = find_pot("master_drive");
     e->p_volume       = find_pot("volume");
     e->p_vel_depth    = find_pot("vel_depth");
+    e->p_comp         = find_pot("comp");
+    e->p_rev_decay    = find_pot("rev_decay");
+    e->p_rev_tone     = find_pot("rev_tone");
+    e->p_rev_hpf      = find_pot("rev_hpf");
+    e->p_rev_level    = find_pot("rev_level");
+    e->p_dly_fdbk     = find_pot("dly_fdbk");
+    e->p_dly_tone     = find_pot("dly_tone");
+    e->p_dly_hpf      = find_pot("dly_hpf");
+    e->p_dly_level    = find_pot("dly_level");
+    e->e_dly_time     = find_enum("dly_time");
     e->e_master_dist  = find_enum("master_dist");
     e->e_choke        = find_enum("hh_choke");
     e->e_note_map     = find_enum("note_map");
@@ -356,6 +434,18 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->clc.init(sr);
     e->mac.init(sr);
     e->rs.init(sr);
+
+    /* The FX read their engineering values from the pot table; sync pushes
+     * them across and builds the send filters. The delay's read pointer is
+     * seeded at its target so the first note does not sweep in from zero. */
+    e->fx_bpm = 120.0f;
+    e->dly.bpm = 120.0f;
+    e->fx_rev_hpf = -1.0f; e->fx_dly_hpf = -1.0f; e->fx_divi = -1;
+    sc808_fx_sync(e);
+    sc808_verb_init(&e->verb, (float)sr);
+    sc808_dly_init(&e->dly, (float)sr);
+    e->dly.dcur = e->dly.time_ms * 0.001f * (float)sr;
+    e->glue.env_db = 0.0f; e->glue.det = 0.0f;
     return e;
 }
 
@@ -614,12 +704,31 @@ static inline float voice_sample(sc808_engine *e, int v, float raw)
     return shaped * e->potv[s.level] * r.hit_gain * r.choke_gain;
 }
 
+/*
+ * One lane into the dry mix and the two send buses.
+ *
+ * The sends are POST-FADER — taken from the sample after Drive, Level,
+ * velocity and the choke — because what you hear is what you should send. A
+ * pre-fader send would keep feeding the reverb from a lane you had just
+ * turned down, which is not what a send knob means on any desk.
+ */
+static inline void sc808_add(sc808_engine *e, const int v, const float raw,
+                             float *mix, float *send_r, float *send_d)
+{
+    const float sv = voice_sample(e, v, raw);
+    *mix += sv;
+    const VoiceSlots &s = e->slot[v];
+    if(s.rev >= 0) *send_r += sv * e->potv[s.rev];
+    if(s.dly >= 0) *send_d += sv * e->potv[s.dly];
+}
+
 /* A silent lane must not cost a process() call — the cymbal alone runs
  * eighteen biquads. Guarding on the gate gain also means a muted lane keeps
  * rendering until its fade completes, then disappears. */
 #define SC808_LANE(vid, obj) \
     do { if(e->rt[vid].choke_gain > 0.0f && e->obj.active()) \
-             mix += voice_sample(e, vid, e->obj.process()); } while(0)
+             sc808_add(e, vid, e->obj.process(), &mix, &send_r, &send_d); \
+       } while(0)
 
 
 void sc808_render(sc808_engine_t *e, float *out, int frames)
@@ -627,10 +736,11 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
     const int   mdist  = e->env[e->e_master_dist];
     const float mdrive = e->potv[e->p_master_drive];
     const float vol    = e->potv[e->p_volume];
+    const float comp   = e->potv[e->p_comp];
 
     for(int i = 0; i < frames; ++i)
     {
-        float mix = 0.0f;
+        float mix = 0.0f, send_r = 0.0f, send_d = 0.0f;
         SC808_LANE(SC808_BD, bdc);
         SC808_LANE(SC808_SD, sdc);
         SC808_LANE(SC808_LT, ltc);
@@ -654,14 +764,33 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
         /* The three lanes that read the shared bus. */
 #define SC808_METAL(vid, circ) \
         do { if(e->rt[vid].choke_gain > 0.0f && e->circ.active()) \
-                 mix += voice_sample(e, vid, e->circ.process(mbus)); } while(0)
+                 sc808_add(e, vid, e->circ.process(mbus), \
+                           &mix, &send_r, &send_d); } while(0)
         SC808_METAL(SC808_CH, chc);
         SC808_METAL(SC808_OH, ohc);
         SC808_METAL(SC808_CY, cyc);
 #undef SC808_METAL
 
+        /*
+         * The wet returns join the bus BEFORE the master stages, so master
+         * distortion and the glue work on the whole picture rather than on a
+         * dry kit with the FX bolted on afterwards.
+         *
+         * Both are ticked unconditionally, never branched around on a zero
+         * input: a send turned down while a tail is still ringing has to let
+         * that tail finish. Bit-identity with the sends at zero does not come
+         * from a bypass — it comes from a silent-state tick fed exactly 0.0
+         * returning exactly 0.0, which golden_check is what proves.
+         */
+        mix += sc808_verb_tick(&e->verb, send_r);
+        mix += sc808_dly_tick(&e->dly, send_d, e->sample_rate);
+
         /* Master stage. Option 0 is Off, so the kit can be left alone. */
         if(mdist > 0) mix = sc808_shape_st(mix, mdrive, mdist - 1, e->crush_master);
+        /* Glue after the distortion, before the volume — and skipped entirely
+         * at zero, which is the default, so it cannot colour a kit nobody
+         * asked it to touch. */
+        if(comp > 0.001f) mix = sc808_glue_tick(&e->glue, mix, comp, e->sample_rate);
         mix *= vol;
 
         if(!(mix > -8.0f && mix < 8.0f)) mix = 0.0f;   /* also catches NaN */
@@ -673,6 +802,15 @@ void sc808_render(sc808_engine_t *e, float *out, int frames)
 
 int sc808_set_param(sc808_engine_t *e, const char *key, const char *val)
 {
+    /* Tempo for the synced delay. A raw key: it lives on no page and in no
+     * pot table, because it is the host's business and not the player's. */
+    if(!strcmp(key, "dly_bpm"))
+    {
+        const float bpm = (float)atof(val);
+        if(bpm > 20.0f) { e->dly.bpm = bpm; sc808_fx_sync(e); }
+        return 1;
+    }
+
     /* "default" resets a control to its sc808 default. Those defaults are not
      * pot centre — they are the arguments the SynthDefs declare — so a UI
      * that wants a reset gesture must not guess 64; it asks. */
@@ -685,6 +823,7 @@ int sc808_set_param(sc808_engine_t *e, const char *key, const char *val)
         if(p > 127) p = 127;                 /* clamp, never wrap */
         e->pot[slot]  = p;
         e->potv[slot] = pot_value(slot, p);
+        sc808_fx_sync(e);
         return 1;
     }
     const int es = find_enum(key);
@@ -694,6 +833,7 @@ int sc808_set_param(sc808_engine_t *e, const char *key, const char *val)
         if(v < 0) v = 0;
         if(v >= g_sc808_enums[es].count) v = g_sc808_enums[es].count - 1;
         e->env[es] = v;
+        sc808_fx_sync(e);
         return 1;
     }
     return 0;
@@ -852,6 +992,7 @@ void sc808_deserialize(sc808_engine_t *e, const char *json)
         if(v >= g_sc808_enums[slot].count) v = g_sc808_enums[slot].count - 1;
         e->env[slot] = v;
     }
+    sc808_fx_sync(e);
 
     const char *mp = strstr(json, "\"mutes\"");
     if(mp) { mp = strchr(mp, ':'); if(mp) e->mutes = (unsigned)strtoul(mp + 1, NULL, 10)

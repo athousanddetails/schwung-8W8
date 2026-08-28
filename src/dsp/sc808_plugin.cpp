@@ -38,6 +38,11 @@ typedef struct {
     int             focus_voice;
     unsigned        focus_count;
 
+    /* Last tempo pushed to the synced delay, so a param write only happens
+     * when the BPM actually moves — it is constant for thousands of blocks
+     * at a time and a write is not free. */
+    float           last_bpm;
+
     /* ---- Per-voice step sequencer ----
      * 16 lanes x 16 steps, clocked from host get_beat_position() so it phase-
      * locks to whatever transport is running and stays drift-free. Step input
@@ -397,6 +402,19 @@ static void render_block(void *_instance, int16_t *_out_lr, const int _frames)
     if(!inst) { memset(_out_lr, 0, (size_t)_frames * 2 * sizeof(int16_t)); return; }
 
     inst->samples_rendered += (uint64_t)_frames;
+
+    /* Tempo for the synced delay, pushed once per block and only on change. */
+    if(g_host && g_host->get_bpm)
+    {
+        const float bpm = g_host->get_bpm();
+        if(bpm > 20.0f && bpm != inst->last_bpm)
+        {
+            inst->last_bpm = bpm;
+            char b[24];
+            snprintf(b, sizeof(b), "%.4f", bpm);
+            sc808_set_param(inst->engine, "dly_bpm", b);
+        }
+    }
 
     /* Advance the step sequencer. get_beat_position() < 0 or absent means no
      * transport — the sequencer idles and re-arms. 16th notes over one bar. */

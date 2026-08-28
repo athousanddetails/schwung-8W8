@@ -112,12 +112,29 @@ JSON.parse(CHAIN_PARAMS); JSON.parse(UI_PAGES);
   const ids = [...lanesSrc.matchAll(/id:\s*"([a-z]+)"/g)].map(m => m[1]);
   check(ids.length === 16, `panel declares 16 lanes (got ${ids.length})`);
 
-  /* `id + "_suffix"` call sites */
+  /* `id + "_suffix"` call sites.
+   *
+   * Not every suffix belongs to every lane any more: the kick is DRY, so it
+   * declares no sends. The panel names that exception in DRY_LANES and this
+   * reads it from there rather than hardcoding a second copy — and then
+   * asserts the exempted keys really are absent, so the exemption cannot
+   * quietly cover a control that should exist. */
+  const dry = new Set([...(html.match(/var DRY_LANES = \[([^\]]*)\]/) || [,""])[1]
+                        .matchAll(/"([a-z]+)"/g)].map(m => m[1]));
+  const SEND_SUFFIXES = new Set(["_rev", "_dly"]);
   const suffixes = [...html.matchAll(/id \+ "(_[a-z_]+)"/g)].map(m => m[1]);
   const missing = [];
   for (const id of ids)
-    for (const suf of new Set(suffixes))
+    for (const suf of new Set(suffixes)) {
+      if (dry.has(id) && SEND_SUFFIXES.has(suf)) continue;
       if (!known.has(id + suf)) missing.push(id + suf);
+    }
+  check(dry.size > 0, `the panel names its dry lanes (${[...dry].join(",")})`);
+  const strays = [...dry].flatMap(id =>
+      [...SEND_SUFFIXES].filter(suf => known.has(id + suf)).map(suf => id + suf));
+  check(strays.length === 0,
+        "a dry lane really has no sends in chain_params" +
+        (strays.length ? " — found " + strays.join(", ") : ""));
 
   /* bare string literals passed to knob()/sel() as the key */
   for (const m of html.matchAll(/(?:knob|sel)\((?:top|master|voiceRow|parent),\s*"([a-z_0-9]+)"/g))

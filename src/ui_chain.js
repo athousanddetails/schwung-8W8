@@ -57,7 +57,9 @@ import { LAYOUT_MOVY } from '/data/UserData/schwung/shared/param_pages/render_pa
     /* page key -> lane whose mute the title indicator shows (-1 = none) */
     var LEVEL2LANE = { bd: 0, sd: 1, lt: 2, mt: 3, ht: 4, lc: 5, mc: 6, hc: 7,
                        rs: 8, cl: 9, ma: 10, cp: 11, cb: 12, ch: 13, oh: 14,
-                       cy: 15, root: -1 };
+                       cy: 15, root: -1,
+                       /* the two send buses have no lane and so no mute flag */
+                       rev: -1, dly: -1 };
 
     /*
      * MAIN-PAGE LOCK. A jog click while already ON the Main page toggles it.

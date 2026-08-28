@@ -218,6 +218,13 @@
   var DIST   = ["Diode", "Clip", "SAT", "BFZ", "PDIST", "Fold", "Crush"];
   var MDIST  = ["Off"].concat(DIST);
   var CHOKE  = ["Off", "CH>OH", "Mutual"];
+  var DIVS   = ["1/32", "1/16T", "1/16", "1/8T", "1/16.", "1/8", "1/4T",
+                "1/8.", "1/4", "1/2T", "1/4.", "1/2", "1/2."];
+  /* Lanes with NO sends. The kick is dry by design — reverb and delay on an
+     808 kick is mud, and the low end is what the send highpass exists to keep
+     out of the wet path. Named here rather than inlined so the editor test
+     can read the exception instead of guessing at it. */
+  var DRY_LANES = ["bd"];
 
   /*
    * The instrument columns, IN THE DSP'S LANE ORDER — which is also the pad
@@ -403,6 +410,18 @@
       return "<b>" + w.slice(0, 2) + "</b>" + w.slice(2).toLowerCase();
     }).join(" ");
   }
+  /* A single nameplate under a column that is not an instrument — the two
+     send buses, which have no alternate name above them. */
+  function plateOnly(col, name) {
+    var box = document.createElement("div"); box.className = "plates";
+    var top = document.createElement("span");
+    top.className = "plate empty"; top.innerHTML = "&nbsp;";
+    box.appendChild(top);
+    var p = document.createElement("span");
+    p.className = "plate"; p.innerHTML = plateText(name);
+    box.appendChild(p);
+    col.appendChild(box);
+  }
   function plates(col, L) {
     var box = document.createElement("div"); box.className = "plates";
     var top = document.createElement("span");
@@ -466,6 +485,10 @@
     var c = column(fx);
     knob(c, L.id + "_drive", "Drive");
     sel(c, L.id + "_dist_type", "Dist", DIST);
+    /* The two sends, on every lane but the kick — which is dry by design,
+       so it gets the gap rather than a pair of dead knobs. */
+    if (DRY_LANES.indexOf(L.id) >= 0) { gap(c, 2); }
+    else { knob(c, L.id + "_rev", "Rev"); knob(c, L.id + "_dly", "Dly"); }
     if (L.fx) L.fx.forEach(function (x) { sel(c, x[0], x[1], x[2]); });
   });
   {
@@ -473,7 +496,28 @@
     var mm = column(fx, "narrow");
     knob(mm, "master_drive", "Master");
     sel(mm, "master_dist", "Dist", MDIST);
+    knob(mm, "comp", "Comp");
     sel(mm, "note_map", "Notes", ["Rack 36", "GM"]);
+  }
+
+  /* ---- the send buses: their own strip under the lower deck ---- */
+  {
+    var bus = document.getElementById("fx");
+    rule(bus, true);
+    var rv = column(bus);
+    knob(rv, "rev_decay", "Decay");
+    knob(rv, "rev_tone",  "Tone");
+    knob(rv, "rev_hpf",   "HPF");
+    knob(rv, "rev_level", "Level");
+    plateOnly(rv, "REVERB");
+    rule(bus);
+    var dl = column(bus);
+    sel(dl,  "dly_time", "Time", DIVS);
+    knob(dl, "dly_fdbk",  "Fdbk");
+    knob(dl, "dly_tone",  "Tone");
+    knob(dl, "dly_hpf",   "HPF");
+    knob(dl, "dly_level", "Level");
+    plateOnly(dl, "DELAY");
   }
 
   /* ---- the button row: the 808's steps, muting instead of stepping ---- */

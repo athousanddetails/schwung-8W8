@@ -101,11 +101,11 @@ v=$?
 grep -E 'never quieter|no step at 100|ignored' build-native/vel.log
 verdict $v
 
-step "drive stage — seven characters, and what the contract promises"
+step "drive stage, send buses and bus glue"
 $CXX $FLAGS -o build-native/fx_probe tools/fx_probe.cpp
 ./build-native/fx_probe >build-native/fx.log 2>&1
 f=$?
-grep -E 'bit-exactly dry|more than 6 dB|holds samples' build-native/fx.log
+grep -E 'bit-exactly dry|more than 6 dB|holds samples|exactly zero out|loud and quiet|write head' build-native/fx.log
 verdict $f
 
 step "kit balance and spectral placement"

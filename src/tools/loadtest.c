@@ -231,6 +231,14 @@ int main(int argc, char **argv)
         ok(n == SC808_CHAIN_PARAMS_LEN, "chain_params length", NULL);
         ok(n > 0 && buf[0] == '[', "chain_params is an array", NULL);
 
+        /* Every voice and bus qualifies its params for the LFO picker, or
+         * sixteen identical "Decay" lines is what the player gets. */
+        ok(strstr(buf, "\"name\":\"BD Decay\"") != NULL &&
+           strstr(buf, "\"name\":\"CY Decay\"") != NULL &&
+           strstr(buf, "\"name\":\"REV Decay\"") != NULL &&
+           strstr(buf, "\"name\":\"DLY Tone\"") != NULL,
+           "chain_params qualifies its names for the picker", NULL);
+
         const int m = api->get_param(inst, "ui_pages", buf, sizeof(buf));
         ok(m == SC808_UI_PAGES_LEN, "ui_pages length", NULL);
         ok(m > 0 && buf[0] == '{', "ui_pages is an object", NULL);
@@ -475,8 +483,11 @@ int main(int argc, char **argv)
          * the engine will silently ignore. */
         fresh(api, &inst);
         char d[64];
-        ok(api->set_param(inst, "bd_engine", "0") == 0 &&
-           api->set_param(inst, "metal_run", "1") == 0,
+        /* set_param is void in this ABI, so ABSENCE is asked of get_param:
+         * it returns -1 for a key the engine does not carry. */
+        char gone[16];
+        ok(api->get_param(inst, "bd_engine", gone, sizeof(gone)) < 0 &&
+           api->get_param(inst, "metal_run", gone, sizeof(gone)) < 0,
            "the Engine and Metal switches are off the parameter surface", NULL);
         note_on(api, inst, 36, 100);
         const int circ = render_peak(api, inst, 90);
@@ -512,6 +523,70 @@ int main(int argc, char **argv)
             char d[64]; snprintf(d, sizeof(d), "relative difference %.5f", diff);
             ok(diff > 0.50, "consecutive hats are different hits, as on an 808", d);
         }
+    }
+
+    /* ---- 13b. the send buses and the bus glue ---- */
+    printf("\nsend FX and glue\n");
+    {
+        char d[96];
+        /* The kick is dry BY DESIGN, so its send keys must not exist — a
+         * knob that writes to a key the DSP never heard of is silent and
+         * invisible, which is exactly what this catches. */
+        char q[16];
+        ok(api->get_param(inst, "bd_rev", q, sizeof(q)) < 0 &&
+           api->get_param(inst, "bd_dly", q, sizeof(q)) < 0,
+           "the kick declares no sends", NULL);
+        ok(api->get_param(inst, "sd_rev", q, sizeof(q)) >= 0 &&
+           api->get_param(inst, "cy_dly", q, sizeof(q)) >= 0,
+           "every other lane does", NULL);
+
+        /*
+         * A send up must thicken the tail. The window matters and was
+         * measured, not guessed: the first 40 blocks are the snare's own
+         * transient, where the send changes nothing you can see, and past
+         * about 180 blocks BOTH have decayed into the int16 floor. Blocks
+         * 40..160 — 0.12 s to 0.46 s after the hit — is where the reverb is
+         * ringing and the dry voice is already falling away, and there it
+         * roughly triples the tail.
+         */
+        fresh(api, &inst);
+        note_on(api, inst, 36 + SC808_SD, 110);
+        render_peak(api, inst, 40);                  /* past the transient */
+        const int dryTail = render_peak(api, inst, 120);
+        fresh(api, &inst);
+        api->set_param(inst, "sd_rev", "110");
+        note_on(api, inst, 36 + SC808_SD, 110);
+        render_peak(api, inst, 40);
+        const int wetTail = render_peak(api, inst, 120);
+        snprintf(d, sizeof(d), "dry tail %d, with reverb %d", dryTail, wetTail);
+        ok(wetTail > dryTail * 2, "a reverb send thickens the tail", d);
+        api->set_param(inst, "sd_rev", "default");
+
+        /* The glue is OFF by default and must be, or it colours a kit nobody
+         * asked it to touch. */
+        char v[16];
+        ok(api->get_param(inst, "comp", v, sizeof(v)) > 0 && atoi(v) == 0,
+           "Comp defaults to off", v);
+        api->set_param(inst, "comp", "127");
+        ok(api->get_param(inst, "comp", v, sizeof(v)) > 0 && atoi(v) == 127,
+           "Comp is writable", v);
+        api->set_param(inst, "comp", "default");
+        ok(api->get_param(inst, "comp", v, sizeof(v)) > 0 && atoi(v) == 0,
+           "and resets to off", v);
+
+        /* The delay's Time is an ENUM. Registered as a pot it would be
+         * rescaled 0..127 into a nonsense division index. */
+        api->set_param(inst, "dly_time", "12");
+        ok(api->get_param(inst, "dly_time", v, sizeof(v)) > 0 && atoi(v) == 12,
+           "dly_time takes a division index and reads it back", v);
+        api->set_param(inst, "dly_time", "default");
+
+        /* Tempo is a raw key on no page: the host pushes it, the player
+         * never sees it — so it is write-only and get_param must not find it
+         * (a key the panel could read would put a BPM knob on the surface). */
+        api->set_param(inst, "dly_bpm", "140.0");
+        ok(api->get_param(inst, "dly_bpm", v, sizeof(v)) < 0,
+           "dly_bpm is the host's, not the panel's", NULL);
     }
 
     /* ---- 14. nothing pathological in the output ---- */
