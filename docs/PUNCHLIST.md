@@ -1,48 +1,44 @@
-# 8W8 field punch list — 2026-08-26, user's hardware test
+# 8W8 field punch list — updated 2026-08-28
 
-Worked **one instrument at a time**, in this order, each deployed and
-verdict-ed before the next. References on the Desktop: `toms808.wav`
-(low/mid/hi, default preset settings), `rim808.wav`, `808 clean/`,
+Worked **one instrument at a time**, each deployed and verdict-ed before
+the next. References on the Desktop: `toms808.wav`, `rim808.wav`,
+`cb808.wav`, `808ch.wav`, `808oh.wav`, `808cy.wav`, `808 clean/`,
 `808default.aupreset` + the AU harness.
 
-1. **TOMS — DONE (verdict: better; not 1:1, revisit last).**
-   - No click. The reference blooms to its peak at 6-10 ms; the direct
-     strike bleed (kTOM_ClickThru) was wrong and goes.
-   - Tune must NOT let one tom reach its neighbour. The hardware TUNING
-     trimmer range is narrow; measure it from the AU and match.
-   - Retune/redecay to the reference: ~93.6 / 139.6 / 188.5 Hz settling
-     ~92 / 135.5 / 183, decay to 1% = 0.386 / 0.255 / 0.246 s.
-2. **CONGAS.** "Congas = toms" — not distinct enough. Flip the AU kit
-   switch (channel instrument ids) to render REAL congas as reference.
-   Same no-click rule applies.
-3. **RIM SHOT — DONE.** Two circuit builds, both worse than sc808 on
-   hardware. Resolution the player chose: the sc808 rim IS the rim, no
-   Engine switch on that lane, tuned to `rim808.wav` (note 92 -> 91.62,
-   putting the tock on the reference's 1788 Hz) and Decay in real
-   seconds. The circuit rim code is deleted, not left dormant.
-4. **HAND CLAP — deployed, awaiting verdict.** Envelope rebuilt from the
-   schematic's two RCs: C144x82k = 38.5 ms main decay, C143x330k = 330 ms
-   floor (they were conflated before). Teeth at 0/10/20 ms, main hit
-   opening after the last tooth, matching the reference's 5 ms envelope
-   table to within the stochastic floor. cp_check embeds that table as the
-   oracle.
-5. **COWBELL — deployed, awaiting verdict.** Measured truth: 812
-   dominates EVERYWHERE (543 at -14), single BP at the 812 with Q 5.5
-   nails every filter ratio; two-stage envelope (15 ms clank over 140 ms
-   body, tail alive past 400 ms, no diode gate); the metal 2f/3f
-   harmonics come from the stage's asymmetry plus the squares' own
-   harmonics bled through the coupling caps. The half-wave VCA's 1355 Hz
-   intermod — which the reference does not contain — is gone.
-6. **HATS.** "Disgusting." Both CH and OH. References: 808 clean CH/OH
-   samples + AU. The circuit ladder/VCA needs real work against them.
-7. **SNARE.** User reports a Tone control that does nothing and was to
-   be removed. sd_tone IS gone from the DSP — find what they are seeing
-   (possibly the panel cache, possibly BD Tone) and kill it properly.
-8. **KICK.** Good. Wants LONGER Decay available (extend the top of the
-   pot's range).
-9. **CYMBAL.** Not called out this round beyond the metal disgust —
-   re-verdict after hats.
+## Voice verdicts — ALL IN
 
-Standing rules: no kit-wide passes; deploy after each instrument;
-`fit_trim` refits only when a voice's level actually changed and that is
-flagged when it happens.
+1. **TOMS — DONE** ("better; not 1:1" — revisit someday, low priority).
+2. **CONGAS — DONE** ("Congas and Toms OK. i like them").
+3. **RIM SHOT — DONE.** The sc808 algorithm IS the rim (player's call
+   after two circuit builds lost on hardware). No Engine switch on the
+   lane; tuned to rim808.wav (1788 Hz tock), Decay in real seconds.
+4. **HAND CLAP — DONE** ("fucking good").
+5. **COWBELL — DONE** (reverted version approved; `git revert 4e7af8f`).
+6. **CLOSED HAT — DONE** ("CH is good now! well done!").
+7. **OPEN HAT — DONE** ("OK NOW WE TALKING!").
+8. **CYMBAL — DONE** ("ok it's good! maybe one day we improve it").
+   Linear EG1 discharge, two-resonator shimmer (beating pair ~3300 Hz),
+   BP1's own crash band, brushed floors. Commit f101329.
+9. **SNARE — believed done.** sd_tone is gone from params and DSP; the
+   "Tone does nothing" report predates the panel regeneration and was
+   most likely the cached panel. Confirm once on hardware that no Tone
+   control shows on SD.
+10. **KICK — one open item.** "Make Decay longer if possible": bd_decay
+    is still 0.1–8.0 s, unchanged since the first commit. Extend the top
+    of the pot's range and verify the tail actually uses it.
+11. **MARACAS / CLAVES — small default-tuning touchups** if the player
+    ever calls them out; nothing reported since the retune.
+
+## Structural work — next phase
+
+- **Single-engine plan**: every lane's verdict is in — remove the 15
+  `*_engine` switches (rim already has none) so circuit is THE engine.
+  The sc808 transcription files STAY for the null test. The
+  engines-agree checks in tom_check/loadtest need replacing, not
+  deleting. Freed knob slot per lane.
+- After the switch removal: refit trims if any lane's level path
+  changed, full suite, deploy, hardware pass over the whole kit.
+
+Standing rules: no kit-wide passes on VOICING; deploy after each
+instrument; `fit_trim` refits only when a voice's level actually
+changed and that is flagged when it happens.
