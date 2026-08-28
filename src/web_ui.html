@@ -9,9 +9,9 @@
 
     - the knobs are ORANGE with a white pointer, not black
     - a thin light RULE runs down between every instrument, and a heavier one
-      fences the instrument section off from ACCENT and from the master
+      fences the instrument section off from VELOCITY and from the master
     - the name plates use Roland's own lettering: the first two letters of
-      each word large, the rest small — ACcent, BAss DRum, CLsd HIhat
+      each word large, the rest small — VElocity, BAss DRum, CLsd HIhat
     - the instruments the 808 runs as a channel's ALTERNATE wear an orange
       plate rather than a cream one: the congas, the claves, the maracas
     - "Rhythm Composer TR-808 / Computer Controlled" is bottom right in
@@ -395,7 +395,7 @@
 
   /*
    * Roland's lettering on the name plates: the first two letters of each word
-   * set large, the rest small. ACcent, BAss DRum, CLsd HIhat. It is a small
+   * set large, the rest small. VElocity, BAss DRum, CLsd HIhat. It is a small
    * thing and it is most of why the plates look right.
    */
   function plateText(name) {
@@ -419,18 +419,18 @@
     col.appendChild(box);
   }
 
-  /* ---- upper panel: ACCENT | the instruments ---- */
+  /* ---- upper panel: VELOCITY | the instruments ---- */
   var rack = document.getElementById("rack");
   var cols = [];
   {
     var ac = column(rack, "narrow");
-    knob(ac, "accent", "Level");
+    knob(ac, "vel_depth", "Range");
     gap(ac, 3);
     var box = document.createElement("div"); box.className = "plates";
     var sp = document.createElement("span"); sp.className = "plate empty";
     sp.innerHTML = "&nbsp;"; box.appendChild(sp);
     var acp = document.createElement("span"); acp.className = "plate";
-    acp.innerHTML = plateText("ACCENT"); box.appendChild(acp);
+    acp.innerHTML = plateText("VELOCITY"); box.appendChild(acp);
     ac.appendChild(box);
     rule(rack, true);
   }

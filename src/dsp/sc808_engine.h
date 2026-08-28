@@ -4,7 +4,7 @@
  * The DSP itself is sc808_voices.h, which is a verified transcription of
  * sc808.scd and is left alone. This layer is everything a drum machine needs
  * that a set of SynthDefs does not have: pot mapping, per-voice drive and
- * distortion, accent, hi-hat choke, per-lane mutes and the master stage.
+ * distortion, velocity, hi-hat choke, per-lane mutes and the master stage.
  *
  * Realtime contract: every entry point here runs on the SPI callback. Nothing
  * below allocates, opens a file or takes a lock after sc808_create().
@@ -47,8 +47,9 @@ typedef enum {
     SC808_NUM_VOICES
 } sc808_voice_t;
 
-/* velocity 0..127; >= this applies the global accent, same as 9W9 and 6W6. */
-#define SC808_ACCENT_VELOCITY 100
+/* Velocity has no threshold: level follows it all the way up, reaching the
+ * full-velocity gain at 127. See the comment in sc808_trigger — on this kit
+ * it reaches most voices as a trigger VOLTAGE rather than a gain. */
 
 #ifdef __cplusplus
 extern "C" {

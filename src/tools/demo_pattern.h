@@ -7,7 +7,7 @@
  * Those two wanting the same pattern is not a convenience. The level has to
  * be fitted to what a pattern ACTUALLY peaks at, and every cheaper proxy for
  * that has been wrong in turn: a four-voice downbeat left this pattern
- * clipping at +0.7 dBFS, and a six-voice accented hit — which no pattern ever
+ * clipping at +0.7 dBFS, and a six-voice full-velocity hit — which no pattern ever
  * produces — left it 8.6 dB quieter than it needed to be. Fit the thing you
  * are going to listen to.
  *
@@ -23,8 +23,9 @@
 
 typedef struct { int step, voice, vel; } sc808_hit_t;
 
-/* 32 sixteenths — two bars at 120 BPM. Accents are velocity 127; everything
- * else sits below SC808_ACCENT_VELOCITY. */
+/* 32 sixteenths — two bars at 120 BPM. Velocity is a straight line with no
+ * threshold, so these are simply loud hits and quieter ones; 127 is the top
+ * of the range. */
 static const sc808_hit_t kDemoHits[] = {
     /* bar 1 */
     { 0, SC808_BD, 127}, { 4, SC808_SD, 110}, { 6, SC808_BD,  90},

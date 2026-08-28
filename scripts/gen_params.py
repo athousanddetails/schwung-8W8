@@ -264,7 +264,18 @@ GLOBALS = [
     # here, so Volume sits high with room in both directions rather than
     # being the thing that stops the kit clipping.
     P("volume", "Volume", 0.0, 1.0, LIN, 100),
-    P("accent", "Accent", 1.0, 4.0, LIN, 42),               # 2.0x on accents
+    # No Accent pot. Velocity replaced it: accent WAS the level a hard hit
+    # reached, and that is now simply the top of the velocity range. Its gain
+    # is folded into SC808_FULL_VELOCITY_GAIN so nothing gets quieter —
+    # deleting it and anchoring the velocity line at 1.0 instead would drop
+    # the whole kit 6 dB, because 1.0 is the UNACCENTED level and a pattern
+    # from Move (which sends velocity 100 and up) had always been playing at
+    # the accented one. 9W9 caught that trap before shipping.
+    #
+    # Velocity is how far BELOW that top a soft hit falls: 0 means every hit
+    # plays at the old accented level, full opens the widest range. It only
+    # ever carves down, never boosts.
+    P("vel_depth", "Velocity", 0.0, 1.0, LIN, 127),
     E("hh_choke", "Choke", ["Off", "CH>OH", "Mutual"], 1),
     E("note_map", "Note Map", ["Rack 36", "GM"]),            # RAC/36 in the box
 ]
@@ -447,7 +458,7 @@ SHORT = {"Tune": "TUNE", "Decay": "DECAY", "Attack": "ATTK", "Tone": "TONE",
          "Snappy": "SNAPY", "Spread": "SPRD", "Room": "ROOM",
          "Choke": "CHOKE", "Engine": "ENGIN", "Metal": "METAL",
          "Master Dist": "MDIST", "Master Drive": "MDRV",
-         "Volume": "VOL", "Accent": "ACNT", "Note Map": "NMAP"}
+         "Volume": "VOL", "Velocity": "VEL", "Note Map": "NMAP"}
 MOVY_NAME = {"bd": "Kick", "sd": "Snare", "lt": "Lo Tom", "mt": "Mid Tom",
              "ht": "Hi Tom", "lc": "Lo Cnga", "mc": "Md Cnga", "hc": "Hi Cnga",
              "rs": "Rim", "cl": "Claves", "ma": "Maracas", "cp": "Clap",

@@ -62,9 +62,7 @@ struct Desc {
     double peak, rms, centroid, len;
 };
 
-/* One lane, one hit, at the panel defaults. Velocity 100 is the accented
- * value the engine's own threshold uses, so this exercises the accent path
- * too. */
+/* One lane, one hit, at the panel defaults. */
 static Desc render_voice(int v, int velocity)
 {
     sc808_engine_t *e = sc808_create((float)SR);
@@ -115,9 +113,11 @@ int main(int argc, char **argv)
 {
     const bool write = argc > 1 && !strcmp(argv[1], "--write");
 
-    /* Two velocities: one under the accent threshold, one over it. Whatever
-     * replaces accent has to keep both ends honest. */
-    static const int kVels[2] = { 64, 110 };
+    /* Two velocities: the top of the range, and one halfway down it. The
+     * top is the anchor the whole velocity law is pinned to — a full hit
+     * reaches exactly the gain the old Accent pot delivered — so a change
+     * there is a change to the voice and not to the mapping. */
+    static const int kVels[2] = { 64, 127 };
 
     if(write)
     {

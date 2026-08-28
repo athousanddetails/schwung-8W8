@@ -33,8 +33,24 @@ using namespace sc808;
  *    Without the remap every old Crush patch comes back as something else,
  *    because deserialize clamps a selection to the last option rather than
  *    guessing.
+ * 4: the Accent pot is gone — velocity subsumed it — which renumbers every
+ *    pot after it. The pot table was untouched from v1 through v3, so
+ *    kV1PotKeys is the order all three of them wrote and older blobs are
+ *    placed by name against it.
  */
-#define SC808_STATE_VERSION 3
+#define SC808_STATE_VERSION 4
+
+/*
+ * The gain a FULL-velocity hit reaches — the old Accent pot's default,
+ * 1 + (42/127)*3, kept as a constant now the control is gone.
+ *
+ * The number matters. Accent was never "extra": it was the level a pattern
+ * from Move actually played at, because Move sends velocity 100 and up. Drop
+ * the pot and anchor the velocity line at 1.0 instead and the whole kit comes
+ * back 6 dB quieter. Anchoring here keeps every existing pattern at exactly
+ * the level it had.
+ */
+#define SC808_FULL_VELOCITY_GAIN 1.9921260f
 
 /* A choke is a 2 ms fade, not a hard stop — cutting a ringing open hat dead
  * puts a click on the front of the closed hat that follows it. */
@@ -182,7 +198,7 @@ struct VoiceSlots {
 };
 
 struct VoiceRt {
-    float hit_gain;      /* this hit's accent scale             */
+    float hit_gain;      /* this hit's velocity gain            */
     float choke_gain;    /* 1.0 normally, ramps to 0 on a choke */
     float choke_step;    /* < 0 while choking, else 0           */
     /* Crush's sample-and-hold. Per lane, because one shared state would
@@ -233,7 +249,7 @@ struct sc808_engine {
     int ma_attack;
     /* Globals. */
     int e_master_dist, e_choke, e_note_map;
-    int p_master_drive, p_volume, p_accent;
+    int p_master_drive, p_volume, p_vel_depth;
     float crush_master[SC808_CRUSH_STATE];
 
     unsigned mutes;
@@ -321,7 +337,7 @@ sc808_engine_t *sc808_create(float sample_rate)
     e->ma_attack = find_pot("ma_attack");
     e->p_master_drive = find_pot("master_drive");
     e->p_volume       = find_pot("volume");
-    e->p_accent       = find_pot("accent");
+    e->p_vel_depth    = find_pot("vel_depth");
     e->e_master_dist  = find_enum("master_dist");
     e->e_choke        = find_enum("hh_choke");
     e->e_note_map     = find_enum("note_map");
@@ -387,9 +403,38 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
     if(velocity <= 0) return;                       /* note-off: one-shots */
     if(e->mutes & (1u << voice)) return;
 
-    const float accent = velocity >= SC808_ACCENT_VELOCITY
-                       ? e->potv[e->p_accent] : 1.0f;
-    e->rt[voice].hit_gain   = accent;
+    /*
+     * VELOCITY. One straight line, no threshold: the full-velocity gain is
+     * the top of the range and softer hits come down from it. Velocity on
+     * Master is how far down — 0 means every hit plays at the top, which is
+     * what this kit sounded like when Accent was a switch at 100.
+     *
+     * It reaches the voices TWO WAYS, and that is 8W8's own problem: most of
+     * these circuits take the strike as a TRIGGER VOLTAGE, where a harder hit
+     * is a different sound and not a louder one, while the hats and cymbal
+     * take it as a gain (a hotter envelope into their diode gate stretches
+     * the note 30%, which every reference render says does not happen).
+     *
+     * The voltage lanes cannot carry the whole range on their own: the
+     * hardware's floor is 4 V, so below the unaccented level the voltage has
+     * nowhere left to go and velocities 0..64 would all sound identical. So
+     * the line is split at the unaccented point — above it the voltage rises
+     * to the accented 7.3 V, below it the voltage sits at its floor and the
+     * lane's gain carries the rest. Both halves are continuous and both
+     * reference points land exactly where they always did.
+     */
+    const int   vi    = velocity > 127 ? 127 : velocity;
+    const float vgain = SC808_FULL_VELOCITY_GAIN
+                      * (1.0f - e->potv[e->p_vel_depth]
+                                * (1.0f - (float)vi * (1.0f / 127.0f)));
+    /* the strike, in the volts the hardware's VR3 delivers */
+    float volts = 4.0f + 10.0f * ((vgain > 1.0f ? vgain : 1.0f) - 1.0f) / 3.0f;
+    if(volts < 4.0f)  volts = 4.0f;
+    if(volts > 14.0f) volts = 14.0f;
+    /* what a voltage lane still has to do with gain, once the volts bottom */
+    const float softGain = vgain < 1.0f ? vgain : 1.0f;
+
+    e->rt[voice].hit_gain   = vgain;
     e->rt[voice].choke_gain = 1.0f;
     e->rt[voice].choke_step = 0.0f;
 
@@ -416,20 +461,19 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
          * is LOOP GAIN in 0..1, not seconds, and mapping 0.1..8 s onto a
          * loop gain would be meaningless.
          *
-         * Accent is a TRIGGER VOLTAGE here, 4 V to 14 V as the hardware's
-         * VR3 delivers, because on this circuit accent is not a gain: the
-         * trigger drives a diode and a harder hit is a different sound,
-         * not a louder one.
+         * Velocity is a TRIGGER VOLTAGE here, 4 V to 14 V as the
+         * hardware's VR3 delivers, because on this circuit a harder hit is
+         * a different sound and not a louder one — the trigger drives a
+         * diode.
          */
-        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
         e->bdc.trigger(lane_hz(voice, tune),
                        (float)e->pot[e->slot[voice].decay] / 127.0f,
                        (float)e->pot[e->bd_tone]   / 127.0f,
                        (float)e->pot[e->bd_attack] / 127.0f,
-                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-        /* The accent is already in the trigger voltage; do not also
-         * multiply the lane by it. */
-        e->rt[voice].hit_gain = 1.0f;
+                       volts);
+        /* The hit is already in the trigger voltage; the lane's gain only
+         * carries what is left below the voltage floor. */
+        e->rt[voice].hit_gain = softGain;
         break;
     }
     case SC808_SD:
@@ -437,15 +481,14 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         /* The circuit snare, read as raw POT POSITIONS: Snappy is a divider
          * on the trigger rather than a mix, and Tune is a ratio on both
          * shells' component-derived frequencies. */
-        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
         /* Shell balance fixed at centre — the Tone pot is gone ("Tune is
          * enough"), and centre is where its default sat. */
         e->sdc.trigger(powf(2.0f, tune / 12.0f),
                        (float)e->pot[e->slot[voice].decay] / 127.0f,
                        0.5f,
                        (float)e->pot[e->sd_snappy] / 127.0f,
-                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-        e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
+                       volts);
+        e->rt[voice].hit_gain = softGain;   /* the rest is in the trigger volts */
         break;
     }
     /*
@@ -453,8 +496,9 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
      * six times, three struck as toms and three as congas, which is what
      * the switch on the real board does.
      *
-     * Accent is a TRIGGER VOLTAGE rather than a gain: the strike is what
-     * changes, so the lane must not also be multiplied by it afterwards.
+     * Velocity is a TRIGGER VOLTAGE rather than a gain: the strike is what
+     * changes, so the lane's own gain only carries the range below the
+     * voltage floor.
      */
     case SC808_LT: case SC808_MT: case SC808_HT:
     case SC808_LC: case SC808_MC: case SC808_HC:
@@ -462,12 +506,11 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         const int i = voice - SC808_LT;
         TomCircuit *const tc[6] = { &e->ltc, &e->mtc, &e->htc,
                                     &e->lcc, &e->mcc, &e->hcc };
-        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
         /* Decay is RING TIME IN SECONDS — the circuit solves the loop gain
          * that produces it at the current pitch. */
         tc[i]->trigger(lane_hz(voice, tune), decay,
-                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-        e->rt[voice].hit_gain = 1.0f;   /* accent is in the trigger volts */
+                       volts);
+        e->rt[voice].hit_gain = softGain;   /* the rest is in the trigger volts */
         break;
     }
     case SC808_RS:
@@ -488,19 +531,17 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         break;
     case SC808_CL:
     {
-        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
         e->clc.trigger(powf(2.0f, tune / 12.0f),
                        (float)e->pot[e->slot[voice].decay] / 127.0f,
-                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-        e->rt[voice].hit_gain = 1.0f;
+                       volts);
+        e->rt[voice].hit_gain = softGain;
         break;
     }
     case SC808_MA:
     {
-        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
         e->mac.trigger(powf(2.0f, tune / 12.0f), decay,
-                       av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-        e->rt[voice].hit_gain = 1.0f;
+                       volts);
+        e->rt[voice].hit_gain = softGain;
         break;
     }
     case SC808_CP:
@@ -512,32 +553,31 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
         break;
     case SC808_CB:
     {
-        const float av = 4.0f + 10.0f * (accent - 1.0f) / 3.0f;
         e->mbank.setRatio((double)tune);
         e->cbc.setRatio((double)tune);
-        e->cbc.trigger(decay, av < 4.0f ? 4.0f : (av > 14.0f ? 14.0f : av));
-        e->rt[voice].hit_gain = 1.0f;
+        e->cbc.trigger(decay, volts);
+        e->rt[voice].hit_gain = softGain;
         break;
     }
     case SC808_CH:
         /*
-         * Accent stays a GAIN on the hats, not a trigger voltage. A hotter
-         * envelope into the diode gate makes the note LONGER and puts a
-         * beat-wobble in the tail — measured 30% stretch at full accent —
-         * and every reference render keeps its length regardless of level.
-         * The kick's trigger-volts treatment is right for the kick; here it
-         * made the pads sound unlike the renders.
+         * Velocity stays a GAIN on the hats, not a trigger voltage. A
+         * hotter envelope into the diode gate makes the note LONGER and puts
+         * a beat-wobble in the tail — measured 30% stretch at the top — and
+         * every reference render keeps its length regardless of level. The
+         * kick's trigger-volts treatment is right for the kick; here it made
+         * the pads sound unlike the renders.
          */
         e->mbank.setRatio((double)tune);
         e->chc.trigger(decay, 4.0f);   /* the envelope that matches the references */
         break;
     case SC808_OH:
-        /* accent as gain, same reasoning as the closed hat */
+        /* velocity as gain, same reasoning as the closed hat */
         e->mbank.setRatio((double)tune);
         e->ohc.trigger(decay, 4.0f);
         break;
     case SC808_CY:
-        /* accent as gain, like the hats; no Tone — the crash balance is
+        /* velocity as gain, like the hats; no Tone — the crash balance is
          * the reference's, fixed in the voice */
         e->mbank.setRatio((double)tune);
         e->cyc.setRatio((double)tune);
@@ -760,7 +800,10 @@ void sc808_deserialize(sc808_engine_t *e, const char *json)
         const char *vp = strstr(json, "\"v\"");
         if(vp) { vp = strchr(vp, ':'); if(vp) version = (int)strtol(vp + 1, NULL, 10); }
     }
-    const bool byName = version < 2;
+    /* Pots: the table did not move until v4, so one frozen order serves
+     * every blob written before it. Enums: the table moved at v2. */
+    const bool potsByName  = version < 4;
+    const bool enumsByName = version < 2;
     /* Old menu position -> new, for the four-type drive stage. Index is the
      * stored value; the master's list carries a leading "Off" so it shifts
      * by one. */
@@ -777,23 +820,24 @@ void sc808_deserialize(sc808_engine_t *e, const char *json)
                                 : (kV1Pots > kV1Enums ? kV1Pots : kV1Enums)];
     int got = 0;
 
-    p = scan_ints(p, vals, byName ? kV1Pots : SC808_NUM_POTS, &got);
+    p = scan_ints(p, vals, potsByName ? kV1Pots : SC808_NUM_POTS, &got);
     for(int i = 0; i < got; ++i)
     {
         const int v = vals[i] < 0 ? 0 : (vals[i] > 127 ? 127 : vals[i]);
-        /* v1: the value belongs to whatever key sat at this index then, which
-         * may now live somewhere else or nowhere at all. */
-        const int slot = byName ? (i < kV1Pots ? find_pot(kV1PotKeys[i]) : -1) : i;
+        /* Older blob: the value belongs to whatever key sat at this index
+         * then, which may now live somewhere else or nowhere at all —
+         * "accent" is exactly that, and it simply has nowhere to land. */
+        const int slot = potsByName ? (i < kV1Pots ? find_pot(kV1PotKeys[i]) : -1) : i;
         if(slot < 0 || slot >= SC808_NUM_POTS) continue;
         e->pot[slot]  = v;
         e->potv[slot] = pot_value(slot, v);
     }
 
     const char *q = strstr(json, "\"enums\"");
-    scan_ints(q, vals, byName ? kV1Enums : SC808_NUM_ENUMS, &got);
+    scan_ints(q, vals, enumsByName ? kV1Enums : SC808_NUM_ENUMS, &got);
     for(int i = 0; i < got; ++i)
     {
-        const int slot = byName ? (i < kV1Enums ? find_enum(kV1EnumKeys[i]) : -1) : i;
+        const int slot = enumsByName ? (i < kV1Enums ? find_enum(kV1EnumKeys[i]) : -1) : i;
         if(slot < 0 || slot >= SC808_NUM_ENUMS) continue;
         int v = vals[i] < 0 ? 0 : vals[i];
         if(remapDist)

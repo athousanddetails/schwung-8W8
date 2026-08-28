@@ -160,8 +160,24 @@ static Measure render_one(int voice)
     sc808_set_param(e, "volume", "127");
     sc808_set_param(e, "master_dist", "0");
 
-    /* Velocity 80: below SC808_ACCENT_VELOCITY, so no accent multiplier. */
-    sc808_trigger(e, voice, 80);
+    /*
+     * Velocity 64 — and the number is load-bearing now that velocity is a
+     * continuous line rather than a switch at 100.
+     *
+     * These trims were fitted when any velocity under 100 was "unaccented"
+     * and every one of them produced the identical hit, so the old 80 here
+     * meant "the unaccented voice". It does not any more: under the new law
+     * 80 is two thirds of the way up the range, which on the eleven lanes
+     * that take the strike as a trigger VOLTAGE is a different sound and not
+     * just a louder one. The cowbell showed it first — its asymmetric output
+     * stage puts 10% of the note under 400 Hz at that drive against 7% at
+     * the unaccented one, which walked its centroid out of its band.
+     *
+     * 64 is where the velocity line crosses the old unaccented gain (1.0039
+     * against 1.0), so it is the same operating point the trims were fitted
+     * at, to within 0.03 dB.
+     */
+    sc808_trigger(e, voice, 64);
     sc808_render(e, g_buf, FRAMES);
     sc808_destroy(e);
 
@@ -268,7 +284,7 @@ int main(void)
             sc808_engine_t *e = sc808_create((float)SR);
             sc808_set_param(e, "volume", "127");
             sc808_set_param(e, "master_dist", "0");
-            sc808_trigger(e, v, 80);
+            sc808_trigger(e, v, 64);      /* the unaccented point, see above */
             sc808_render(e, g_buf, FRAMES);
             sc808_destroy(e);
             const double c = centroid(FRAMES);

@@ -995,9 +995,9 @@
             "max": 127
           },
           {
-            "key": "accent",
-            "short": "ACNT",
-            "full": "Accent",
+            "key": "vel_depth",
+            "short": "VEL",
+            "full": "Velocity",
             "type": "int",
             "min": 0,
             "max": 127
