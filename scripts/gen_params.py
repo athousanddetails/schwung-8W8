@@ -18,7 +18,7 @@ control is one edit here.
 module.json is capped at 8 KB by Schwung's loader, so the JSON payloads are
 served dynamically from the DSP via get_param().
 """
-import json, pathlib
+import json, pathlib, re
 
 LIN, EXP = 0, 1
 
@@ -587,16 +587,46 @@ def movy_slot(p):
     return d
 
 
+# ---- pad-follows-page ------------------------------------------------------
+#
+# A bank with a "pad" is selected when that pad is struck, the way the stock
+# editor's page follows the pad you hit. One field per bank is the whole
+# opt-in; Movy needs nothing else.
+#
+# PAD NUMBERS ARE 1-BASED. Movy's drumPadOn returns 1 for the first pad and
+# indexes padKeys[pad - 1]; a 0-based config sends every pad to the wrong
+# drum's page, which is exactly what 9W9 shipped and had to re-deploy.
+#
+# Movy pad N is note padNoteStart + N - 1 = 36 + N - 1, and the DSP maps
+# note - 36 straight onto its lane index (drumrack_to_voice in
+# sc808_plugin.cpp), so pad N is lane N - 1 — provided PAGES is in the DSP's
+# lane order. That is asserted rather than assumed: the pad numbers are only
+# correct because those two lists agree, and nothing else would notice if
+# they stopped.
+_engine_src = (root_dir / "src/dsp/sc808_engine.cpp").read_text()
+_m = re.search(r"kVoiceIds\[SC808_NUM_VOICES\] = \{(.*?)\};", _engine_src, re.S)
+_lane_order = re.findall(r'"(\w+)"', _m.group(1)) if _m else []
+_page_order = [pid for pid, _, _ in PAGES]
+if _lane_order != _page_order:
+    raise SystemExit(
+        "PAGES is not in the DSP's lane order, so the Movy pad numbers would "
+        f"be wrong:\n  engine {_lane_order}\n  pages  {_page_order}")
+PAD_OF = {pid: i + 1 for i, pid in enumerate(_page_order)}
+
 banks = []
+# MASTER FIRST. Opening the module on a drum page rather than the master page
+# is wrong; it has no "pad", so nothing auto-selects it and the jog is how you
+# get back to it.
+banks.append({"name": "Master", "global": True,
+              "rows": [[movy_slot(p) for p in GLOBALS] + [None] * (8 - len(GLOBALS))]})
 for pid, label, params in PAGES:
     full = params + PAGE_SENDS[pid]
     row = [movy_slot(p) for p in full] + [None] * (8 - len(full))
-    banks.append({"name": MOVY_NAME[pid], "rows": [row]})
+    banks.append({"name": MOVY_NAME[pid], "pad": PAD_OF[pid], "rows": [row]})
+# The send buses have no pad — all sixteen are drums — so they are jog-only.
 for pid, label, params in FX_PAGES:
     row = [movy_slot(p) for p in params] + [None] * (8 - len(params))
     banks.append({"name": label, "rows": [row]})
-banks.append({"name": "Master", "global": True,
-              "rows": [[movy_slot(p) for p in GLOBALS] + [None] * (8 - len(GLOBALS))]})
 movy = {"id": "8w8", "name": "8W8",
         "drum": {"padCount": 16, "padNoteStart": 36, "rawMidi": False},
         "banks": banks}
