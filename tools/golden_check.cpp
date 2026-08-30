@@ -262,8 +262,15 @@ int main(int argc, char **argv)
     else if(exact == checked)
         printf("ALL PASS (%d lane/velocity renders bit-identical)\n", checked);
     else
-        printf("ALL PASS (%d renders: %d bit-identical, %d within %g "
-               "— worst %s at %.3g, a cross-compiler difference)\n",
+        /* State the fact, not a cause. A same-host run that lands here is
+         * NOT a compiler difference — it is a real change small enough to
+         * pass, and saying "cross-compiler" would send the reader looking in
+         * the wrong place. That happened: a snare fix normalised by a double
+         * where the engine divides in float, and this line explained the
+         * 1e-7 away instead of flagging it. */
+        printf("ALL PASS (%d renders: %d bit-identical, %d differ but within "
+               "%g — worst %s at %.3g. Expected across build hosts; on the "
+               "host that wrote the baseline it means something moved.)\n",
                checked, exact, checked - exact, 1.0e-6,
                worstWhat[0] ? worstWhat : "none", worstRel);
     return fails ? 1 : 0;

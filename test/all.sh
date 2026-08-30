@@ -129,6 +129,13 @@ c=$?
 tail -1 build-native/cp.log
 verdict $c
 
+step "circuit snare — Decay reaches the whole voice"
+$CXX $FLAGS -o build-native/sd_check tools/sd_check.cpp src/dsp/sc808_engine.cpp
+./build-native/sd_check >build-native/sd.log 2>&1
+sd=$?
+grep -E 'real range' build-native/sd.log
+verdict $sd
+
 step "circuit tom / conga"
 $CXX $FLAGS -o build-native/tom_check tools/tom_check.cpp
 ./build-native/tom_check >build-native/tom.log 2>&1

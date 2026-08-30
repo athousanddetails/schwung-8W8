@@ -141,7 +141,22 @@ public:
          * cannot reproduce and the reason this is not one.
          */
         noiseEnv_ = (double)sc::clampf(_snappy01, 0.0f, 1.0f) * accentV_ * 0.25;
-        noiseDecay_ = exp(-1.0 / (kNoiseTau * sr_));
+        /*
+         * THE DECAY POT REACHES THE NOISE TOO, and it did not used to.
+         *
+         * Decay only scaled the shells' Q, so with Snappy up the fixed 75 ms
+         * noise tail outlasted them and swamped the pot: measured, the note
+         * ran 0.25 s to 0.30 s across the whole throw at Snappy 127 — a range
+         * of 1.18x, against 3.7x with Snappy down. The knob looked broken
+         * because on the half of the voice you could hear, it was.
+         *
+         * The noise tau now follows the same law the shells' Q does,
+         * normalised so it is exactly 1.0 at the pot's shipped default — the
+         * snare that was signed off does not move, and only the positions
+         * either side of it change. golden_check is what holds that.
+         */
+        const double dnorm = dq / (0.35 + 1.15 * kDecayDefault01);
+        noiseDecay_ = exp(-1.0 / (kNoiseTau * dnorm * sr_));
 
         gateSamples_ = (int)(sr_ * 0.001);          /* the CPU's 1 ms pulse */
         active_ = true;
@@ -191,6 +206,20 @@ private:
      * because the rest of this file is not like this. */
     static constexpr double kNoiseHpHz = 1760.0;
     static constexpr double kNoiseTau  = 0.075;
+
+    /*
+     * The Decay pot's shipped default POSITION, 108/127 — sd_decay is
+     * (0.1, 8.0) EXP defaulting to 4.2 s in gen_params.py, which lands there.
+     * It is here only to normalise the noise tail so the default hit is
+     * unchanged; if the pot's default ever moves, golden_check fails and this
+     * is the number to follow.
+     *
+     * Spelled as the FLOAT division the engine actually performs — it passes
+     * pot/127.0f — so dnorm lands on exactly 1.0 at the default rather than
+     * one ulp away from it. Written as a double, the default snare shifted by
+     * 1e-7 and golden_check caught it.
+     */
+    static constexpr double kDecayDefault01 = (double)(108.0f / 127.0f);
 
     /*
      * Level staging, set so an unaccented hit at the engine's default pot
