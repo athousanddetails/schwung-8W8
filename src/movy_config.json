@@ -4,7 +4,8 @@
   "drum": {
     "padCount": 16,
     "padNoteStart": 36,
-    "rawMidi": false
+    "rawMidi": false,
+    "padFollowLock": true
   },
   "banks": [
     {
