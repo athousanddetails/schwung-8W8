@@ -262,6 +262,32 @@ import { LAYOUT_MOVY } from '/data/UserData/schwung/shared/param_pages/render_pa
                 },
                 { title: title() }
             );
+            /*
+             * THE SECOND HALF OF THE DRAW, and it is not optional.
+             *
+             * render() paints a page into a rect the CALLER owns; nothing in
+             * param_pages clears the screen, which is what lets a consumer
+             * host a page inside its own chrome. So anything FULL-SCREEN is
+             * handed back to the frame owner -- and that is us.
+             *
+             * Today that means the enum peek: turn a multi-option enum and its
+             * option list rises over the grid for ~700ms. Without this call
+             * the controller still tracks the peek and applyInput still
+             * swallows the Back that dismisses it; it is simply painted
+             * nowhere. Found on CW-78 by Charles (charlesvestal, schwung-cw-78
+             * PR #1), then in 9W9, then here -- the same one-line omission,
+             * copied per module, drifting silently. His fix, verbatim.
+             *
+             * Guarded because renderOverlays landed in a later host than this
+             * file's min_host_version, and an older host simply has no
+             * overlays to draw.
+             */
+            if (typeof controller.renderOverlays === "function") {
+                controller.renderOverlays(
+                    { fillRect: fill_rect, print: print, textWidth: text_width },
+                    { clearScreen: clear_screen }
+                );
+            }
         } else {
             /* Non-grid page kinds do not occur in 8W8's hierarchy; if one ever
              * does, show something honest instead of a stale frame. */
