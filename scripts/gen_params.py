@@ -617,7 +617,15 @@ banks = []
 # MASTER FIRST. Opening the module on a drum page rather than the master page
 # is wrong; it has no "pad", so nothing auto-selects it and the jog is how you
 # get back to it.
-banks.append({"name": "Master", "global": True,
+# NO "global": true HERE, and that is deliberate. In Movy the flag means the
+# bank's params are "non-automatable globals (not reachable as a chain
+# target:param)" — config-pages.ts turns it straight into automatable: false.
+# 8W8's master controls are nothing of the sort: master_dist, master_drive,
+# comp, volume and vel_depth are ordinary chain_params keys the host resolves
+# exactly like any voice's, which is how the device editor and the remote
+# panel already write them. Setting the flag cost them automation and LFO
+# targeting for no reason. 9W9 never set it; 6W6 does, and has the same bug.
+banks.append({"name": "Master",
               "rows": [[movy_slot(p) for p in GLOBALS] + [None] * (8 - len(GLOBALS))]})
 for pid, label, params in PAGES:
     full = params + PAGE_SENDS[pid]
@@ -627,16 +635,8 @@ for pid, label, params in PAGES:
 for pid, label, params in FX_PAGES:
     row = [movy_slot(p) for p in params] + [None] * (8 - len(params))
     banks.append({"name": label, "rows": [row]})
-# padFollowLock opts this module into Movy's SHIFT + JOG CLICK on the params
-# page, which freezes pad-follow: the pads keep playing, they just stop moving
-# the page, so the knobs you are editing stay under your hands. It is a flag
-# rather than always-on because not every module wants the gesture spent on
-# it. (The stock on-device editor locks with a plain jog click — see
-# ui_chain.js — but in Movy that already opens the module browser, so the
-# gesture moved to Shift there. Same idea, two hosts, two chords.)
 movy = {"id": "8w8", "name": "8W8",
-        "drum": {"padCount": 16, "padNoteStart": 36, "rawMidi": False,
-                 "padFollowLock": True},
+        "drum": {"padCount": 16, "padNoteStart": 36, "rawMidi": False},
         "banks": banks}
 (root_dir / "src/movy_config.json").write_text(json.dumps(movy, indent=2) + "\n")
 

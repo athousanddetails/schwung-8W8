@@ -124,12 +124,12 @@ sound and not only a louder one.
   Note map: drum rack (36–51, default) or General MIDI, switchable.
 - Works with [Movy](https://github.com/DimaDake/schwung-movy) — a
   `movy_config.json` ships with the module. There, pressing a drum pad opens
-  that drum's bank, and Master opens first; Reverb, Delay and Master are
-  reached by scrolling, because all sixteen pads are drums.
-  **The lock gesture differs by host:** on the device it is a plain jog click
-  on Main, but in Movy that already opens the module browser, so there it is
-  **Shift + jog click**. (Both need a Movy release that has
-  [PR #16](https://github.com/DimaDake/schwung-movy/pull/16) in it.)
+  that drum's bank and Master opens first; Reverb, Delay and Master are reached
+  by scrolling, because all sixteen pads are drums. **Shift+Pad** selects
+  without sounding the voice, which is the quiet way to move around a bank you
+  are editing. (Needs a Movy release carrying
+  [PR #16](https://github.com/DimaDake/schwung-movy/pull/16).) The page lock is
+  a device gesture only — Movy has no equivalent.
 
 ## Remote panel
 

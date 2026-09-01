@@ -4,13 +4,11 @@
   "drum": {
     "padCount": 16,
     "padNoteStart": 36,
-    "rawMidi": false,
-    "padFollowLock": true
+    "rawMidi": false
   },
   "banks": [
     {
       "name": "Master",
-      "global": true,
       "rows": [
         [
           {
