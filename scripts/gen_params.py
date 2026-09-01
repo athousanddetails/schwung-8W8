@@ -638,6 +638,69 @@ for pid, label, params in FX_PAGES:
 movy = {"id": "8w8", "name": "8W8",
         "drum": {"padCount": 16, "padNoteStart": 36, "rawMidi": False},
         "banks": banks}
+
+# ---- validate the ARTEFACT, not the inputs ---------------------------------
+#
+# These check the finished banks list rather than the lists it was built from,
+# which is the stronger place: it catches a bad emitter as well as bad input,
+# and it keeps checking if the emitter is ever rewritten.
+#
+# Every one of these has been shipped wrong by somebody in this family, which
+# is the whole argument for them being cheap and present. 9W9 shipped 0-based
+# pads; 9W9's Movy config drifted to 66 controls for a 97-control module; a
+# multi-row bank shifted every following page's label on Tablor; and 8W8 itself
+# shipped a Master bank flagged non-automatable. None of these failures is
+# visible without a device in hand.
+_padCount = movy["drum"]["padCount"]
+_seen_pads = {}
+for _b in movy["banks"]:
+    _where = f"bank {_b['name']!r}"
+
+    # ONE BANK IS EXACTLY ONE PAGE. buildConfigPages keys bankGroups per BANK
+    # but the UI indexes per PAGE, so a second row shifts every following
+    # page's label — the Tablor debugging session that earned this rule.
+    if len(_b["rows"]) != 1:
+        raise SystemExit(f"{_where} has {len(_b['rows'])} rows — a Movy bank is exactly one page")
+
+    # Eight slots, padded with nulls. A row longer than eight silently loses
+    # controls off the end of the page; the pad arithmetic above produces a
+    # NEGATIVE pad count if a page ever exceeds eight, so this is also the
+    # guard for that.
+    _row = _b["rows"][0]
+    if len(_row) != 8:
+        raise SystemExit(f"{_where} has {len(_row)} slots — every Movy row is 8, null-padded")
+
+    # Every key must be one the DSP actually serves, or the knob writes to a
+    # key nothing resolves: silent, and invisible until someone turns it.
+    for _c in _row:
+        if _c is None:
+            continue
+        if _c["key"] not in seen:
+            raise SystemExit(f"{_where} references {_c['key']!r}, which is not a declared param")
+
+    # Pads: in range, and one bank each. Out of range never fires; two banks
+    # on one pad makes which page you get depend on list order.
+    if "pad" in _b:
+        _pad = _b["pad"]
+        if not (1 <= _pad <= _padCount):
+            raise SystemExit(f"{_where} claims pad {_pad}, outside 1..{_padCount}"
+                             " — Movy pads are 1-BASED")
+        if _pad in _seen_pads:
+            raise SystemExit(f"pad {_pad} is claimed by both {_seen_pads[_pad]!r} "
+                             f"and {_b['name']!r}")
+        _seen_pads[_pad] = _b["name"]
+
+# Movy's own automatable rule, replayed over what is about to be written. A
+# bank flagged "global" is non-automatable by definition, and 8W8 has no such
+# params — every key here is chain-addressable. Shipping that flag cost the
+# master controls their automation for a release.
+for _b in movy["banks"]:
+    if _b.get("global"):
+        raise SystemExit(
+            f"bank {_b['name']!r} sets \"global\", which Movy reads as "
+            "non-automatable. Every 8W8 param is a chain_params key the host "
+            "resolves, so none of them is a global in that sense.")
+
 (root_dir / "src/movy_config.json").write_text(json.dumps(movy, indent=2) + "\n")
 
 print(f"chain_params {len(cpj)}B  ui_pages {len(uhj)}B  "
