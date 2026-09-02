@@ -405,7 +405,22 @@ check(injected.length === 1 && setLog.length === 0,
      * the span rule, pages that do not must actually get their two slots.
      */
     const meta = k => (metaIndex.get ? metaIndex.get(k) : metaIndex[k]) || {};
-    if (meta(keys[a]).viz === false || meta(keys[d]).viz === false) { opted++; continue; }
+    /*
+     * A page that opts out must ACTUALLY not draw an envelope. Skipping it
+     * here on the strength of the declaration is what leaves a fake AD
+     * graphic on the device: viz:false is load-bearing on the on-device
+     * renderer, not a note about Movy. The bass drum's Attack is a click
+     * LEVEL, so the graphic would be a lie about what the knob does.
+     */
+    if (meta(keys[a]).viz === false || meta(keys[d]).viz === false) {
+      opted++;
+      const { groups } = resolveViz({ keys, metaIndex });
+      const leaked = groups.find(g => g.kind === VIZ_ENVELOPE &&
+                                      g.keys.includes(keys[a]));
+      check(!leaked, `${id}: viz:false really suppresses the envelope` +
+            (leaked ? ` — one formed anyway over ${leaked.keys.join("+")}` : ""));
+      continue;
+    }
 
     pairs++;
     const { groups } = resolveViz({ keys, metaIndex });

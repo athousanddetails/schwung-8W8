@@ -152,13 +152,32 @@ public:
 
     bool active() const { return active_; }
 
+    /*
+     * attack01  the Attack pot's POSITION, 0..1 — not a time in seconds.
+     *
+     * THE POT USED TO DO NOTHING. It fed the sc808 maracas, and when the
+     * Engine switches came off that branch went with it while this trigger
+     * never took an attack at all: the knob stayed on the panel, resolved a
+     * slot, and changed not one sample. Measured, not guessed — every
+     * position hashed identically.
+     *
+     * It scales the FITTED attack rather than replacing it. kMA_AtkTau is
+     * 1.2 ms because that is what Roland's own render measures, and the
+     * scale is (position / default position) squared, which is exactly 1.0
+     * at the shipped default — so the maracas that was signed off does not
+     * move, and the knob opens a musical range either side: about 0.2 ms at
+     * the bottom for a dry tsk, about 19 ms at the top for a soft shh.
+     */
     void trigger(const double _tuneRatio, const float _decaySec,
-                 const float _accentV)
+                 const float _attack01, const float _accentV)
     {
         setTune(_tuneRatio);
         const double t = _decaySec > 0.008f ? (double)_decaySec : 0.008;
         levelA_ = 0.0;
-        atkCoef_ = exp(-1.0 / (0.0012 * sr_));
+        const double a = (double)sc::clampf(_attack01, 0.0f, 1.0f) / kMA_AtkDefault01;
+        double atk = kMA_AtkTau * a * a;
+        if(atk < 2.0e-4) atk = 2.0e-4;      /* a floor, not a click */
+        atkCoef_ = exp(-1.0 / (atk * sr_));
         decCoef_ = exp(-1.0 / ((t * 0.85 / log(100.0)) * sr_));   /* meter-calibrated */
         peak_ = (double)_accentV / 8.0;
         rising_ = true;
@@ -186,6 +205,17 @@ public:
 
 private:
     static constexpr double kMA_OutScale = 1.9;   /* fitted, shared trim */
+
+    /* The attack Roland's render measures: inside two milliseconds. */
+    static constexpr double kMA_AtkTau = 0.0012;
+    /*
+     * The Attack pot's shipped default POSITION, 32/127 — spelled as the
+     * float division the engine performs, so the scale lands on exactly 1.0
+     * there and the default hit is bit-identical. Written as a double it
+     * would sit an ulp away and move the voice; the snare's Decay fix
+     * learned that one.
+     */
+    static constexpr double kMA_AtkDefault01 = (double)(32.0f / 127.0f);
 
     void setTune(const double _r)
     {

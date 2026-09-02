@@ -73,7 +73,7 @@ static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
     { "cl_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "cl_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
     { "ma_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "ma_attack",     0.0000f,     0.1000f, SC808_LIN,  34 },
+    { "ma_attack",     0.0000f,     1.0000f, SC808_LIN,  32 },
     { "ma_decay",     0.0100f,     0.3000f, SC808_EXP,  51 },
     { "ma_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
     { "ma_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
@@ -217,7 +217,7 @@ static const char sc808_chain_params_json[] =
     ",{\"key\":\"cl_dist_type\",\"name\":\"CL Distortion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"SAT\",\"BFZ\",\"P"
     "DIST\",\"Fold\",\"Crush\"],\"default\":0},{\"key\":\"cl_level\",\"name\":\"CL Level\",\"type\":\"int\",\"min\":0,\"max\":12"
     "7,\"default\":64,\"viz\":{\"kind\":\"fader\"}},{\"key\":\"ma_tune\",\"name\":\"MA Tune\",\"type\":\"int\",\"min\":0,\"max\":"
-    "127,\"default\":64},{\"key\":\"ma_attack\",\"name\":\"MA Attack\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":34}"
+    "127,\"default\":64},{\"key\":\"ma_attack\",\"name\":\"MA Attack\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":32}"
     ",{\"key\":\"ma_decay\",\"name\":\"MA Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":51},{\"key\":\"ma_drive\","
     "\"name\":\"MA Drive\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":0},{\"key\":\"ma_dist_type\",\"name\":\"MA Disto"
     "rtion\",\"type\":\"enum\",\"options\":[\"Diode\",\"Clip\",\"SAT\",\"BFZ\",\"PDIST\",\"Fold\",\"Crush\"],\"default\":0},{\"ke"

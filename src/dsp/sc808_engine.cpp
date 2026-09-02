@@ -630,7 +630,7 @@ void sc808_trigger(sc808_engine_t *e, int voice, int velocity)
     case SC808_MA:
     {
         e->mac.trigger(powf(2.0f, tune / 12.0f), decay,
-                       volts);
+                       (float)e->pot[e->ma_attack] / 127.0f, volts);
         e->rt[voice].hit_gain = softGain;
         break;
     }

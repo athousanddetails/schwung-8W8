@@ -219,7 +219,12 @@ PAGES = [
         # Decay first the graph came out backwards and lopsided, sitting over
         # Decay with Attack blank beside it.
         TUNE("ma"),
-        PV("ma_attack", "Attack", 0.0,  0.1, LIN, 0.027),
+        # A POSITION, not seconds: the voice scales its fitted 1.2 ms attack
+        # by (position/default) squared, so the default is bit-identical and
+        # the knob spans about 0.2 ms to 19 ms. It fed the sc808 maracas
+        # before the Engine switches came off, and was dead from then until
+        # someone measured it.
+        P("ma_attack", "Attack", 0.0, 1.0, LIN, 32),
         PV("ma_decay",  "Decay",  0.01, 0.3, EXP, 0.039),   # AU: 39 ms to 1%
         DRIVE("ma"), DTYPE("ma"), LEVEL("ma"),
     ]),
