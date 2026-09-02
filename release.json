@@ -1,6 +1,6 @@
 {
-  "version": "1.1.2",
-  "download_url": "https://github.com/athousanddetails/schwung-8W8/releases/download/v1.1.2/8w8-module.tar.gz",
+  "version": "1.2.0",
+  "download_url": "https://github.com/athousanddetails/schwung-8W8/releases/download/v1.2.0/8w8-module.tar.gz",
   "name": "8W8",
   "description": "TR-808 style drum machine - 16 circuit-modelled voices, no samples. Velocity-played, 7 distortion types per voice and on the master, reverb and delay sends, bus compressor.",
   "repo_url": "https://github.com/athousanddetails/schwung-8W8"
