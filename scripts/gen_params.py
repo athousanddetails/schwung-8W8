@@ -619,9 +619,28 @@ if _lane_order != _page_order:
 PAD_OF = {pid: i + 1 for i, pid in enumerate(_page_order)}
 
 banks = []
-# MASTER FIRST. Opening the module on a drum page rather than the master page
-# is wrong; it has no "pad", so nothing auto-selects it and the jog is how you
-# get back to it.
+# VOICES FIRST, then the pages with no voice behind them.
+#
+# Movy takes exactly one shape here, and it is the same shape padSpecific has
+# always had (forge, weird-dreams) — a pad-following page first, ordinary pages
+# behind it:
+#
+#     banks: [ voice, voice, ..., Master, Reverb, Delay ]
+#              ^-- each declares `pad`     ^-- none of them do
+#
+# The sixteen voice pages share ONE seat in Movy's jog rotation, so this kit
+# reads <voice> -> Master -> Reverb -> Delay: four pages, not nineteen. Nineteen
+# seats was a nineteen-dot bank bar and a walk through the whole kit to reach
+# the delay. The pad picks which voice that first seat holds, and only while a
+# voice page is the one open — pressing a pad on Reverb re-points the voice page
+# without dragging you off Reverb.
+#
+# The run must LEAD: Movy reads the leading run of pad-declaring banks as the
+# voices, so Master ahead of them would leave the module with no voice slot at
+# all, and a `pad` on Master or a send would make that page read as a voice.
+# This differs from our own editor, which opens on Master; Movy opens on the
+# voice you last hit, the way it opens forge and weird-dreams.
+#
 # NO "global": true HERE, and that is deliberate. In Movy the flag means the
 # bank's params are "non-automatable globals (not reachable as a chain
 # target:param)" — config-pages.ts turns it straight into automatable: false.
@@ -630,18 +649,23 @@ banks = []
 # exactly like any voice's, which is how the device editor and the remote
 # panel already write them. Setting the flag cost them automation and LFO
 # targeting for no reason. 9W9 never set it; 6W6 does, and has the same bug.
-banks.append({"name": "Master",
-              "rows": [[movy_slot(p) for p in GLOBALS] + [None] * (8 - len(GLOBALS))]})
 for pid, label, params in PAGES:
     full = params + PAGE_SENDS[pid]
     row = [movy_slot(p) for p in full] + [None] * (8 - len(full))
     banks.append({"name": MOVY_NAME[pid], "pad": PAD_OF[pid], "rows": [row]})
-# The send buses have no pad — all sixteen are drums — so they are jog-only.
+# The send buses and Master carry no pad: they are the pages with no voice, and
+# a pad on one would take it out of the rotation rather than add a shortcut.
 for pid, label, params in FX_PAGES:
     row = [movy_slot(p) for p in params] + [None] * (8 - len(params))
     banks.append({"name": label, "rows": [row]})
+# Master LAST. Reading the chain left to right — voices, their sends, then the
+# bus everything lands on — is the order the rest of the Schwung fleet uses, and
+# the one a chain view implies. Our own editor still opens on it.
+banks.append({"name": "Master",
+              "rows": [[movy_slot(p) for p in GLOBALS] + [None] * (8 - len(GLOBALS))]})
 movy = {"id": "8w8", "name": "8W8",
-        "drum": {"padCount": 16, "padNoteStart": 36, "rawMidi": False},
+        # padCount is the kit: sixteen voices, sixteen pads.
+        "drum": {"padCount": len(PAGES), "padNoteStart": 36, "rawMidi": False},
         "banks": banks}
 
 # ---- validate the ARTEFACT, not the inputs ---------------------------------
@@ -694,6 +718,21 @@ for _b in movy["banks"]:
             raise SystemExit(f"pad {_pad} is claimed by both {_seen_pads[_pad]!r} "
                              f"and {_b['name']!r}")
         _seen_pads[_pad] = _b["name"]
+
+# The voice run has to LEAD, with nothing claiming a pad behind it: Movy reads
+# the leading run as the voices and ignores a pad on anything after it, so a
+# config that declares one there is not doing what it reads as doing.
+_voices = len(PAGES)
+for _i, _b in enumerate(movy["banks"]):
+    if _i < _voices and "pad" not in _b:
+        raise SystemExit(f"bank {_i} {_b['name']!r} is inside the voice run but "
+                         "declares no pad")
+    if _i >= _voices and "pad" in _b:
+        raise SystemExit(f"bank {_b['name']!r} sits behind the voice run and claims "
+                         f"pad {_b['pad']}; Movy ignores that and the page becomes jog-only")
+if sorted(_seen_pads) != list(range(1, _voices + 1)):
+    raise SystemExit(f"the voice run must claim pads 1..{_voices} exactly, "
+                     f"got {sorted(_seen_pads)}")
 
 # Movy's own automatable rule, replayed over what is about to be written. A
 # bank flagged "global" is non-automatable by definition, and 8W8 has no such
