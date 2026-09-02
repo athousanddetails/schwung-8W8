@@ -45,6 +45,27 @@ static const double SR = 44100.0;
 static const int    kFrames = (int)(SR * 2.0);
 static int fails = 0, live = 0, excused = 0;
 
+/*
+ * COVERAGE, because "excused by omission" is the failure mode this kind of
+ * tool rots into. The master and bus controls are probed from a hand-written
+ * list; a control added tomorrow that no line here names would simply not be
+ * measured, and the tool would still print ALL PASS. So every key touched is
+ * recorded and checked against the generated tables at the end: a control
+ * this file does not mention is a FAILURE, not a silence.
+ */
+static const char *g_seen[SC808_NUM_POTS + SC808_NUM_ENUMS];
+static int g_nseen = 0;
+static void mark(const char *key)
+{
+    for(int i = 0; i < g_nseen; ++i) if(!strcmp(g_seen[i], key)) return;
+    if(g_nseen < (int)(sizeof g_seen / sizeof g_seen[0])) g_seen[g_nseen++] = key;
+}
+static bool was_seen(const char *key)
+{
+    for(int i = 0; i < g_nseen; ++i) if(!strcmp(g_seen[i], key)) return true;
+    return false;
+}
+
 struct Setup { const char *key; const char *val; };
 
 /* Render one lane with a list of params applied, and hash the result. */
@@ -84,6 +105,7 @@ static void probe(const char *key, const char *a, const char *b,
                   int voice, int velocity, const char *why,
                   const Setup *ctx = 0, int nctx = 0, int second = -1)
 {
+    mark(key);
     Setup s[8];
     int n = 0;
     for(int i = 0; i < nctx && n < 7; ++i) s[n++] = ctx[i];
@@ -100,6 +122,7 @@ static void probe(const char *key, const char *a, const char *b,
 
 static void excuse(const char *key, const char *why)
 {
+    mark(key);
     ++excused;
     printf("      %-14s excused — %s\n", key, why);
 }
@@ -190,7 +213,29 @@ int main()
                        "lanes directly, so it is out of reach here. "
                        "src/tools/loadtest.c covers it through the MIDI path.");
 
-    printf("\n%d live, %d excused, %d dead\n", live, excused, fails);
+    /* ---- nothing may be missed in silence ------------------------------ */
+    {
+        int missed = 0;
+        for(int i = 0; i < SC808_NUM_POTS; ++i)
+            if(!was_seen(g_sc808_pots[i].key))
+            {
+                printf("FAIL: %s is never measured — add a probe or an excuse "
+                       "with a reason\n", g_sc808_pots[i].key);
+                ++missed;
+            }
+        for(int i = 0; i < SC808_NUM_ENUMS; ++i)
+            if(!was_seen(g_sc808_enums[i].key))
+            {
+                printf("FAIL: %s is never measured — add a probe or an excuse "
+                       "with a reason\n", g_sc808_enums[i].key);
+                ++missed;
+            }
+        fails += missed;
+        printf("coverage: %d of %d controls accounted for\n",
+               g_nseen, SC808_NUM_POTS + SC808_NUM_ENUMS);
+    }
+
+    printf("%d live, %d excused, %d dead\n", live, excused, fails);
     printf(fails ? "FAILED\n" : "ALL PASS\n");
     return fails ? 1 : 0;
 }
