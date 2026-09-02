@@ -108,6 +108,18 @@ f=$?
 grep -E 'bit-exactly dry|more than 6 dB|holds samples|exactly zero out|loud and quiet|write head' build-native/fx.log
 verdict $f
 
+step "every control reaches the audio"
+# The maracas Attack pot did nothing for several releases and NOTHING ELSE
+# HERE COULD SEE IT: freeze a knob at its exact default and golden_check,
+# kit_check, sd_check and the editor tests all pass clean. Only measuring
+# what a control DOES catches that.
+$CXX $FLAGS -o build-native/knob_check tools/knob_check.cpp src/dsp/sc808_engine.cpp
+./build-native/knob_check >build-native/knob.log 2>&1
+kn=$?
+tail -2 build-native/knob.log
+[ $kn -ne 0 ] && grep '^FAIL' build-native/knob.log
+verdict $kn
+
 step "kit balance and spectral placement"
 $CXX $FLAGS -o build-native/kit_check tools/kit_check.cpp src/dsp/sc808_engine.cpp
 ./build-native/kit_check >build-native/kit.log 2>&1
