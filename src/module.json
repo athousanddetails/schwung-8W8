@@ -2,7 +2,7 @@
   "id": "8w8",
   "name": "8W8",
   "abbrev": "8W8",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "TR-808 style drum machine - 16 circuit-modelled voices, no samples. Velocity-played, 7 distortion types per voice and on the master, reverb and delay sends, bus compressor.",
   "author": "athousanddetails; circuit models from the TR-808 service notes and Werner/Abel/Smith; rim shot transcribed from sc808 (Yoshinosuke Horiuchi / Sam Aaron, Sonic Pi)",
   "dsp": "dsp.so",

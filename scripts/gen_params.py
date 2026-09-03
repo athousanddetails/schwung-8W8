@@ -9,8 +9,6 @@ drift apart:
                      ui_chain.js loads it, see the comment in ui_chain.js)
   * the pot table  — key -> real engineering range + curve + default
 
-and src/movy_config.json from the same dict.
-
 9W9 kept the pot table hand-written in a second header and it was a standing
 drift hazard; 6W6 fixed that with this generator and 8W8 inherits it. Adding a
 control is one edit here.
@@ -380,7 +378,7 @@ def chain_param(p):
     else:
         d = {"key": p["key"], "name": picker_name(p["key"], p["name"]),
              "type": "int", "min": 0, "max": 127}
-    # The sc808 default, so a reset gesture (stock Mute+knob, Movy, the web
+    # The sc808 default, so a reset gesture (stock Mute+knob, the web
     # panel's double-click) lands on the verified sound and not on a guessed 64.
     d["default"] = p["default"]
     v = viz_for(p)
@@ -564,151 +562,7 @@ static const char sc808_ui_pages_json[] =
 #endif /* SC808_PARAMS_H */
 """)
 
-# ---- movy_config.json: same source, Movy's shape. --------------------------
-# HARD RULE (cost a debugging session on Tablor): a Movy bank is EXACTLY ONE
-# PAGE. buildConfigPages keys bankGroups per BANK but the UI indexes per PAGE,
-# so a multi-row bank shifts every following page's label. One row per bank.
-SHORT = {"Tune": "TUNE", "Decay": "DECAY", "Attack": "ATTK", "Tone": "TONE",
-         "Drive": "DRIVE", "Distortion": "DIST", "Level": "LEVEL",
-         "Snappy": "SNAPY", "Spread": "SPRD", "Room": "ROOM",
-         "Choke": "CHOKE", "Rev": "REV", "Dly": "DLY",
-         "Fdbk": "FDBK", "HPF": "HPF", "Time": "TIME", "Comp": "COMP",
-         "Master Dist": "MDIST", "Master Drive": "MDRV",
-         "Volume": "VOL", "Velocity": "VEL", "Note Map": "NMAP"}
-MOVY_NAME = {"bd": "Kick", "sd": "Snare", "lt": "Lo Tom", "mt": "Mid Tom",
-             "ht": "Hi Tom", "lc": "Lo Cnga", "mc": "Md Cnga", "hc": "Hi Cnga",
-             "rs": "Rim", "cl": "Claves", "ma": "Maracas", "cp": "Clap",
-             "cb": "Cowbell",
-             "ch": "Cl Hat", "oh": "Op Hat", "cy": "Cymbal"}
-
-
-def movy_slot(p):
-    d = {"key": p["key"], "short": SHORT[p["name"]], "full": p["name"]}
-    if p["kind"] == "enum":
-        d["type"] = "enum"
-        d["options"] = list(p["options"])   # already sized for a 32 px cell
-    else:
-        d["type"] = "int"; d["min"] = 0; d["max"] = 127
-    return d
-
-
-# ---- pad-follows-page ------------------------------------------------------
-#
-# A bank with a "pad" is selected when that pad is struck, the way the stock
-# editor's page follows the pad you hit. One field per bank is the whole
-# opt-in; Movy needs nothing else.
-#
-# PAD NUMBERS ARE 1-BASED. Movy's drumPadOn returns 1 for the first pad and
-# indexes padKeys[pad - 1]; a 0-based config sends every pad to the wrong
-# drum's page, which is exactly what 9W9 shipped and had to re-deploy.
-#
-# Movy pad N is note padNoteStart + N - 1 = 36 + N - 1, and the DSP maps
-# note - 36 straight onto its lane index (drumrack_to_voice in
-# sc808_plugin.cpp), so pad N is lane N - 1 — provided PAGES is in the DSP's
-# lane order. That is asserted rather than assumed: the pad numbers are only
-# correct because those two lists agree, and nothing else would notice if
-# they stopped.
-_engine_src = (root_dir / "src/dsp/sc808_engine.cpp").read_text()
-_m = re.search(r"kVoiceIds\[SC808_NUM_VOICES\] = \{(.*?)\};", _engine_src, re.S)
-_lane_order = re.findall(r'"(\w+)"', _m.group(1)) if _m else []
-_page_order = [pid for pid, _, _ in PAGES]
-if _lane_order != _page_order:
-    raise SystemExit(
-        "PAGES is not in the DSP's lane order, so the Movy pad numbers would "
-        f"be wrong:\n  engine {_lane_order}\n  pages  {_page_order}")
-PAD_OF = {pid: i + 1 for i, pid in enumerate(_page_order)}
-
-banks = []
-# MASTER FIRST. Opening the module on a drum page rather than the master page
-# is wrong; it has no "pad", so nothing auto-selects it and the jog is how you
-# get back to it.
-# NO "global": true HERE, and that is deliberate. In Movy the flag means the
-# bank's params are "non-automatable globals (not reachable as a chain
-# target:param)" — config-pages.ts turns it straight into automatable: false.
-# 8W8's master controls are nothing of the sort: master_dist, master_drive,
-# comp, volume and vel_depth are ordinary chain_params keys the host resolves
-# exactly like any voice's, which is how the device editor and the remote
-# panel already write them. Setting the flag cost them automation and LFO
-# targeting for no reason. 9W9 never set it; 6W6 does, and has the same bug.
-banks.append({"name": "Master",
-              "rows": [[movy_slot(p) for p in GLOBALS] + [None] * (8 - len(GLOBALS))]})
-for pid, label, params in PAGES:
-    full = params + PAGE_SENDS[pid]
-    row = [movy_slot(p) for p in full] + [None] * (8 - len(full))
-    banks.append({"name": MOVY_NAME[pid], "pad": PAD_OF[pid], "rows": [row]})
-# The send buses have no pad — all sixteen are drums — so they are jog-only.
-for pid, label, params in FX_PAGES:
-    row = [movy_slot(p) for p in params] + [None] * (8 - len(params))
-    banks.append({"name": label, "rows": [row]})
-movy = {"id": "8w8", "name": "8W8",
-        "drum": {"padCount": 16, "padNoteStart": 36, "rawMidi": False},
-        "banks": banks}
-
-# ---- validate the ARTEFACT, not the inputs ---------------------------------
-#
-# These check the finished banks list rather than the lists it was built from,
-# which is the stronger place: it catches a bad emitter as well as bad input,
-# and it keeps checking if the emitter is ever rewritten.
-#
-# Every one of these has been shipped wrong by somebody in this family, which
-# is the whole argument for them being cheap and present. 9W9 shipped 0-based
-# pads; 9W9's Movy config drifted to 66 controls for a 97-control module; a
-# multi-row bank shifted every following page's label on Tablor; and 8W8 itself
-# shipped a Master bank flagged non-automatable. None of these failures is
-# visible without a device in hand.
-_padCount = movy["drum"]["padCount"]
-_seen_pads = {}
-for _b in movy["banks"]:
-    _where = f"bank {_b['name']!r}"
-
-    # ONE BANK IS EXACTLY ONE PAGE. buildConfigPages keys bankGroups per BANK
-    # but the UI indexes per PAGE, so a second row shifts every following
-    # page's label — the Tablor debugging session that earned this rule.
-    if len(_b["rows"]) != 1:
-        raise SystemExit(f"{_where} has {len(_b['rows'])} rows — a Movy bank is exactly one page")
-
-    # Eight slots, padded with nulls. A row longer than eight silently loses
-    # controls off the end of the page; the pad arithmetic above produces a
-    # NEGATIVE pad count if a page ever exceeds eight, so this is also the
-    # guard for that.
-    _row = _b["rows"][0]
-    if len(_row) != 8:
-        raise SystemExit(f"{_where} has {len(_row)} slots — every Movy row is 8, null-padded")
-
-    # Every key must be one the DSP actually serves, or the knob writes to a
-    # key nothing resolves: silent, and invisible until someone turns it.
-    for _c in _row:
-        if _c is None:
-            continue
-        if _c["key"] not in seen:
-            raise SystemExit(f"{_where} references {_c['key']!r}, which is not a declared param")
-
-    # Pads: in range, and one bank each. Out of range never fires; two banks
-    # on one pad makes which page you get depend on list order.
-    if "pad" in _b:
-        _pad = _b["pad"]
-        if not (1 <= _pad <= _padCount):
-            raise SystemExit(f"{_where} claims pad {_pad}, outside 1..{_padCount}"
-                             " — Movy pads are 1-BASED")
-        if _pad in _seen_pads:
-            raise SystemExit(f"pad {_pad} is claimed by both {_seen_pads[_pad]!r} "
-                             f"and {_b['name']!r}")
-        _seen_pads[_pad] = _b["name"]
-
-# Movy's own automatable rule, replayed over what is about to be written. A
-# bank flagged "global" is non-automatable by definition, and 8W8 has no such
-# params — every key here is chain-addressable. Shipping that flag cost the
-# master controls their automation for a release.
-for _b in movy["banks"]:
-    if _b.get("global"):
-        raise SystemExit(
-            f"bank {_b['name']!r} sets \"global\", which Movy reads as "
-            "non-automatable. Every 8W8 param is a chain_params key the host "
-            "resolves, so none of them is a global in that sense.")
-
-(root_dir / "src/movy_config.json").write_text(json.dumps(movy, indent=2) + "\n")
-
 print(f"chain_params {len(cpj)}B  ui_pages {len(uhj)}B  "
-      f"(host buffer {HOST_PARAM_MAX}B)  movy banks={len(banks)}  "
+      f"(host buffer {HOST_PARAM_MAX}B)  "
       f"pages={len(levels)}  pots={len(pots)}  enums={len(enums)}  "
       f"params={len(cp)}")

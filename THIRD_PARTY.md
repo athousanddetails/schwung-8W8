@@ -67,8 +67,6 @@ vendored.
 - **[9W9](https://github.com/athousanddetails/schwung-9W9)** and
   **6W6** — the module architecture, pad gestures, per-lane mutes and the four
   distortion flavours, so all three kits feel the same under the hands.
-- **[Movy](https://github.com/DimaDake/schwung-movy)** by DimaDake — the page
-  model and config format.
 
 ## Disclaimer
 

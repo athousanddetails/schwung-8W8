@@ -122,14 +122,6 @@ sound and not only a louder one.
 - **Sequencing:** use Move's own sequencer — a drum track with a kit, muted
   (HiJack), track MIDI OUT on the slot's channel. Each drum is its own lane.
   Note map: drum rack (36–51, default) or General MIDI, switchable.
-- Works with [Movy](https://github.com/DimaDake/schwung-movy) — a
-  `movy_config.json` ships with the module. There, pressing a drum pad opens
-  that drum's bank and Master opens first; Reverb, Delay and Master are reached
-  by scrolling, because all sixteen pads are drums. **Shift+Pad** selects
-  without sounding the voice, which is the quiet way to move around a bank you
-  are editing. (Needs a Movy release carrying
-  [PR #16](https://github.com/DimaDake/schwung-movy/pull/16).) The page lock is
-  a device gesture only — Movy has no equivalent.
 
 ## Remote panel
 
@@ -167,8 +159,8 @@ every pad sounds, that every generated parameter key resolves, mutes, the hat
 choke, the send buses and state round-trip — end to end.
 
 The parameter surface has one source: `scripts/gen_params.py` generates the
-pot table, `chain_params`, the page hierarchy and `movy_config.json` from a
-single dict. Adding a control is one edit.
+pot table, `chain_params` and the page hierarchy from a single dict. Adding a
+control is one edit.
 
 `./test/all.sh` runs everything that does not need the device: the null test
 against SuperCollider, the per-voice circuit checks, the drive and velocity
@@ -207,9 +199,7 @@ quietly.
   parts list and scope traces) and checked against Roland's own TR-808 plugin
   rendered offline.
 - **[Schwung](https://github.com/charlesvestal/schwung)** by Charles Vestal
-  and contributors — the platform and the shared `param_pages` knob grid;
-  **[Movy](https://github.com/DimaDake/schwung-movy)** by DimaDake for the
-  page model.
+  and contributors — the platform and the shared `param_pages` knob grid.
 
 This project was developed with AI assistance (Claude), with human direction
 and on-hardware verification throughout.
@@ -217,7 +207,7 @@ and on-hardware verification throughout.
 ## Contributing
 
 **Contributions are open to anyone, any time — just submit a PR.** Voice
-tweaks, new distortion flavours, UI improvements, Movy templates, docs, bug
+tweaks, new distortion flavours, UI improvements, docs, bug
 reports: all welcome. If you touch a voice, run `./test/nulltest.sh` **and**
 `golden_check` — the latter is what proves you did not move the kit by
 accident. Please note in your PR which AI tools you used, if any (same policy

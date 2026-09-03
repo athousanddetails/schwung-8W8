@@ -243,10 +243,17 @@ int main(int argc, char **argv)
         ok(m == SC808_UI_PAGES_LEN, "ui_pages length", NULL);
         ok(m > 0 && buf[0] == '{', "ui_pages is an object", NULL);
 
-        /* ui_hierarchy MUST be absent, or enterComponentEdit prefers it and
-         * never loads ui_chain.js — the pad gestures silently stop working. */
-        ok(api->get_param(inst, "ui_hierarchy", buf, sizeof(buf)) < 0,
-           "ui_hierarchy is NOT served", NULL);
+        /* ui_hierarchy must be EMPTY — served, and zero length. Absent it
+         * must be, or enterComponentEdit prefers it and never loads
+         * ui_chain.js and the pad gestures silently stop working. But the
+         * host's load gate distinguishes "" (fall back now) from an error
+         * (the read did not complete, hold and retry), and this used to
+         * return the error, which hung Swap Module on "Loading...". */
+        {
+            const int m = api->get_param(inst, "ui_hierarchy", buf, sizeof(buf));
+            ok(m == 0 && buf[0] == 0,
+               "ui_hierarchy is served EMPTY, not refused", NULL);
+        }
     }
 
     /* ---- 4. every generated key resolves in the engine ----

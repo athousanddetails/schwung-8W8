@@ -52,7 +52,6 @@ if [ "${NATIVE:-0}" != "1" ] && [ -f "$BUILD_DIR/dsp.so" ]; then
     cp src/ui_chain.js      dist/8w8/ 2>/dev/null || true
     cp src/web_ui.html      dist/8w8/ 2>/dev/null || true
     cp src/help.json        dist/8w8/ 2>/dev/null || true
-    cp src/movy_config.json dist/8w8/ 2>/dev/null || true
     (cd dist && tar -czf 8w8-module.tar.gz 8w8/)
     echo "Tarball: dist/8w8-module.tar.gz"
 fi

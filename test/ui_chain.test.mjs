@@ -319,14 +319,27 @@ check(ui.handleBack() === false, "Back with no picker exits the editor");
 {
   const jogBack = () => ui.onMidiMessageInternal(new Uint8Array([0xB0, 14, 127]));
   const click   = () => ui.onMidiMessageInternal(new Uint8Array([0xB0, 3, 127]));
+  /* SHIFT + jog click. A plain click belongs to the platform now: it
+     activates a row on the host's trailing pages and opens the section list
+     on Main, so the lock had to move off it. */
+  const shiftClick = () => { shift = true; click(); shift = false; };
   const locked  = () => { ui.tick(); return /\[L\]/.test(spied.title || ""); };
+  const controller_pickerOpen = () => !!(spied.ctl && spied.ctl.pickerOpen);
   /* walk back to Main — it is page 0, and 40 steps is more than the 17 pages */
   for (let i = 0; i < 40; i++) { jogBack(); }
   ui.tick();
   check(!locked(), "not locked to begin with (" + spied.title + ")");
 
+  /* A PLAIN click must NOT touch the lock — that gesture is Schwung's, and
+     on Main it opens the section list. Which means it leaves the picker OPEN,
+     so close it again before the next gesture, exactly as a player would. */
   click();
-  check(locked(), "jog click on Main arms the lock (" + spied.title + ")");
+  check(!locked(), "a plain jog click does not arm the lock — it is the host's");
+  check(controller_pickerOpen(), "a plain jog click still opens the section list");
+  ui.handleBack();
+
+  shiftClick();
+  check(locked(), "Shift+jog click on Main arms the lock (" + spied.title + ")");
 
   /* locked: the pad plays but the page does not move */
   setLog.length = 0; injected = [];
@@ -345,9 +358,9 @@ check(ui.handleBack() === false, "Back with no picker exits the editor");
   /* back to Main, then unlock — a click only toggles while ON Main */
   for (let i = 0; i < 40; i++) { jogBack(); }
   ui.tick();
-  click();
+  shiftClick();
   check(globalThis.__8w8_main_lock === false && !locked(),
-        "a second jog click, on Main, unlocks (" + spied.title + ")");
+        "a second Shift+jog click, on Main, unlocks (" + spied.title + ")");
 
   setLog.length = 0;
   note(71, 100); off(71);
@@ -409,7 +422,8 @@ check(injected.length === 1 && setLog.length === 0,
      * A page that opts out must ACTUALLY not draw an envelope. Skipping it
      * here on the strength of the declaration is what leaves a fake AD
      * graphic on the device: viz:false is load-bearing on the on-device
-     * renderer, not a note about Movy. The bass drum's Attack is a click
+     * renderer, not a declaration for anyone else. The bass drum's Attack
+     * is a click
      * LEVEL, so the graphic would be a lie about what the knob does.
      */
     if (meta(keys[a]).viz === false || meta(keys[d]).viz === false) {

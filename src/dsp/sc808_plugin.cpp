@@ -329,11 +329,23 @@ static int get_param(void *_instance, const char *_key, char *_buf, const int _l
         memcpy(_buf, sc808_chain_params_json, SC808_CHAIN_PARAMS_LEN + 1);
         return SC808_CHAIN_PARAMS_LEN;
     }
-    /* ui_hierarchy is deliberately NOT served. enterComponentEdit prefers a
-     * module's hierarchy and only falls back to loading the module's own
-     * ui_chain.js when there isn't one. 8W8 ships ui_chain.js for the pad
-     * gestures, so the hierarchy must stay absent here... */
-    if(!strcmp(_key, "ui_hierarchy")) return -1;
+    /* ui_hierarchy is deliberately served EMPTY, not refused.
+     * enterComponentEdit prefers a module's hierarchy and only falls back to
+     * loading the module's own ui_chain.js when there isn't one. 8W8 ships
+     * ui_chain.js for the pad gestures, so the hierarchy must stay absent —
+     * but ABSENT HAS A SPELLING. The host's component load gate
+     * (component_load_gate.mjs) reads this key with THREE answers: JSON =
+     * declared, "" = served and empty (fall back at once), error/null = the
+     * read did not complete (hold and ask again). Returning -1 was the third
+     * answer, so a Swap Module INTO this drum machine sat on the host's
+     * "Loading..." card until the user pressed Back. Reported from hardware
+     * on 9W9; the same -1 was here. */
+    if(!strcmp(_key, "ui_hierarchy"))
+    {
+        if(_len < 1) return -1;
+        _buf[0] = 0;
+        return 0;
+    }
     /* ...and is published under a key the host does not probe, for
      * ui_chain.js to feed the shared param_pages controller. */
     if(!strcmp(_key, "ui_pages"))

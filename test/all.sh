@@ -34,15 +34,13 @@ have()    { command -v "$1" >/dev/null 2>&1; }
 
 step "generator is in sync with the checked-in header"
 # gen_params.py is the single source of truth for the pot table, chain_params,
-# the page hierarchy and movy_config.json. If someone edits the generated
-# header by hand, everything downstream silently disagrees with it.
+# and the page hierarchy. If someone edits the generated header by hand,
+# everything downstream silently disagrees with it.
 cp src/dsp/sc808_params.h build-native/params.before
-cp src/movy_config.json   build-native/movy.before
 python3 scripts/gen_params.py >/dev/null
-if diff -q build-native/params.before src/dsp/sc808_params.h >/dev/null &&
-   diff -q build-native/movy.before   src/movy_config.json   >/dev/null
+if diff -q build-native/params.before src/dsp/sc808_params.h >/dev/null
 then verdict 0; else
-  echo "   sc808_params.h or movy_config.json differ from what gen_params.py emits"
+  echo "   sc808_params.h differs from what gen_params.py emits"
   verdict 1
 fi
 
