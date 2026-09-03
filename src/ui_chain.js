@@ -32,7 +32,24 @@
 
 import { createController } from '/data/UserData/schwung/shared/param_pages/page_controller.mjs';
 import { decodeInput, applyInput } from '/data/UserData/schwung/shared/param_pages/page_input.mjs';
-import { PAGE_KNOBS, PAGE_MENU } from '/data/UserData/schwung/shared/param_pages/page_plan.mjs';
+/*
+ * NAMESPACE import, not a named one, and the difference is load-bearing.
+ *
+ * PAGE_MENU does not exist in host 0.12.1 — this module's declared minimum —
+ * and a named import of an export the module does not provide is a
+ * SyntaxError, not an undefined. It fails at PARSE time, so ui_chain.js never
+ * loads at all: no pages, no pad gestures, nothing. Every other call added
+ * for the host's trailing pages is typeof-guarded and degrades to silence;
+ * this one line would have taken the whole editor down on a stock host.
+ * Caught by the build VPS, which carries the 0.12.1 library.
+ *
+ * A namespace import always succeeds; a name the host has not got is simply
+ * undefined, which is exactly the graceful degradation the rest of the wiring
+ * already has.
+ */
+import * as PagePlan from '/data/UserData/schwung/shared/param_pages/page_plan.mjs';
+const PAGE_KNOBS = PagePlan.PAGE_KNOBS;
+const PAGE_MENU  = PagePlan.PAGE_MENU;   /* undefined before the host had it */
 import { LAYOUT_MOVY } from '/data/UserData/schwung/shared/param_pages/render_page_movy.mjs';
 
 (function () {
@@ -276,7 +293,8 @@ import { LAYOUT_MOVY } from '/data/UserData/schwung/shared/param_pages/render_pa
          * My Presets and Module pages arrive as.
          */
         if (controller.pickerOpen ||
-            (page && (page.kind === PAGE_KNOBS || page.kind === PAGE_MENU))) {
+            (page && (page.kind === PAGE_KNOBS ||
+                      (PAGE_MENU !== undefined && page.kind === PAGE_MENU)))) {
             controller.render(
                 {
                     fillRect: fill_rect, print: print, textWidth: text_width,
