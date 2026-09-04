@@ -48,9 +48,12 @@ static void ok(const int cond, const char *what, const char *detail)
 
 static void host_log(const char *msg) { printf("  [dsp] %s\n", msg); }
 
-/* A transport the test can drive. The step sequencer is clocked from
- * get_beat_position(), so without these two the lanes never fire and the
- * whole feature goes untested — which it did until this was added. */
+/* A complete host, transport included, because that is what the plugin is
+ * handed in the field. get_clock_status() is called on every hand-played note
+ * — it is what stops pad-follow yanking the page while a pattern runs — and
+ * the whole test runs with it STOPPED, which is the branch that follows.
+ * get_beat_position is supplied and never read: the module has no clocked
+ * behaviour of its own, and a host that omitted it would still be a host. */
 static int    g_clock = MOVE_CLOCK_STATUS_STOPPED;
 static double g_beat  = -1.0;
 static int    host_clock(void) { return g_clock; }
@@ -391,7 +394,6 @@ int main(int argc, char **argv)
         api->set_param(inst, "bd_tune", "17");
         api->set_param(inst, "cy_decay", "111");
         api->set_param(inst, "master_dist", "3");
-        api->set_param(inst, "seq_cy", "4369");
         const int n = api->get_param(inst, "state", before, sizeof(before));
         ok(n > 0, "state serialises", NULL);
 
@@ -399,7 +401,6 @@ int main(int argc, char **argv)
         api->set_param(inst, "bd_tune", "0");
         api->set_param(inst, "cy_decay", "0");
         api->set_param(inst, "master_dist", "0");
-        api->set_param(inst, "seq_cy", "0");
         api->set_param(inst, "state", before);
         api->get_param(inst, "state", after, sizeof(after));
         ok(strcmp(before, after) == 0, "state round-trips exactly", NULL);
@@ -407,8 +408,6 @@ int main(int argc, char **argv)
         char buf[32];
         api->get_param(inst, "bd_tune", buf, sizeof(buf));
         ok(atoi(buf) == 17, "a pot came back", buf);
-        api->get_param(inst, "seq_cy", buf, sizeof(buf));
-        ok(atoi(buf) == 4369, "a sequencer lane came back", buf);
 
         /* A blob from an older build, missing the tail, must not read garbage. */
         api->set_param(inst, "state", "{\"v\":1,\"pots\":[10,20],\"enums\":[1]}");
@@ -439,39 +438,7 @@ int main(int argc, char **argv)
         api->set_param(inst, "note_map", "default");
     }
 
-    /* ---- 11. the step sequencer ---- */
-    printf("\nstep sequencer\n");
-    {
-        quiesce(api, inst);
-        api->set_param(inst, "seq_bd", "1");      /* step 0 only */
-        g_clock = MOVE_CLOCK_STATUS_RUNNING;
-
-        /* Beat 0 lands on step 0 and should fire the kick. */
-        g_beat = 0.0;
-        const int fired = render_peak(api, inst, 60);
-        ok(fired > 0, "a programmed step fires its lane when the transport runs",
-           NULL);
-
-        /* Step 1 is empty: nothing new should start. */
-        quiesce(api, inst);
-        g_beat = 0.25;                             /* step 1 */
-        ok(render_peak(api, inst, 20) == 0, "an empty step fires nothing", NULL);
-
-        /* Transport stopped: the lane re-arms and stays quiet. */
-        quiesce(api, inst);
-        g_clock = MOVE_CLOCK_STATUS_STOPPED;
-        g_beat = -1.0;
-        api->set_param(inst, "seq_bd", "65535");   /* every step */
-        ok(render_peak(api, inst, 40) == 0,
-           "with no transport the sequencer stays silent", NULL);
-
-        char buf[32];
-        api->get_param(inst, "seq_bd", buf, sizeof(buf));
-        ok(atoi(buf) == 65535, "a sequencer lane reads back", buf);
-        api->set_param(inst, "seq_bd", "0");
-    }
-
-    /* ---- 12. the two-in-one lanes and the kick's two engines ---- */
+    /* ---- 11. the two-in-one lanes and the kick's two engines ---- */
     printf("\nmodes\n");
     {
         /* Rim and Clave have a pad each now, and must be different sounds. */
@@ -502,7 +469,7 @@ int main(int argc, char **argv)
         ok(circ > 0, "and the kick still sounds without them", d);
     }
 
-    /* ---- 13. free-running metal oscillators ----
+    /* ---- 12. free-running metal oscillators ----
      *
      * On the hardware the hats' and cymbal's six Schmitt-trigger oscillators
      * never stop; the envelopes gate them, so every hit catches the bank at a
@@ -532,7 +499,7 @@ int main(int argc, char **argv)
         }
     }
 
-    /* ---- 13b. the send buses and the bus glue ---- */
+    /* ---- 12b. the send buses and the bus glue ---- */
     printf("\nsend FX and glue\n");
     {
         char d[96];
@@ -596,7 +563,7 @@ int main(int argc, char **argv)
            "dly_bpm is the host's, not the panel's", NULL);
     }
 
-    /* ---- 14. nothing pathological in the output ---- */
+    /* ---- 13. nothing pathological in the output ---- */
     printf("\noutput sanity\n");
     {
         quiesce(api, inst);

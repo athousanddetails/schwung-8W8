@@ -34,8 +34,8 @@ done
 # Atomic swap. Do NOT replace this with a direct scp.
 ssh "$HOST" "cd $DEST && for f in *.new; do mv -f \"\$f\" \"\${f%.new}\"; done && chmod 755 dsp.so && ls -l"
 
-# The chain patch: gives the slot its capture rule (step buttons -> the
-# built-in sequencer) so the editor works the moment 8W8 is picked.
+# The chain patch: gives the slot its pad input and synth, so the editor works
+# the moment 8W8 is picked.
 if [ -f "$SRC/src/patches/8W8.json" ]; then
     scp -q "$SRC/src/patches/8W8.json" "$HOST:/data/UserData/schwung/patches/8W8.json.new"
     ssh "$HOST" "cd /data/UserData/schwung/patches && mv -f 8W8.json.new 8W8.json"

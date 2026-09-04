@@ -5,8 +5,5 @@
         "input": "pads",
         "synth": { "module": "8w8", "config": {} },
         "audio_fx": []
-    },
-    "capture": {
-        "groups": ["steps"]
     }
 }
