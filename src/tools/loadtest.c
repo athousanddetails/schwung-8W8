@@ -246,6 +246,14 @@ int main(int argc, char **argv)
         ok(m == SC808_UI_PAGES_LEN, "ui_pages length", NULL);
         ok(m > 0 && buf[0] == '{', "ui_pages is an object", NULL);
 
+        /* Schwung 0.13's voices contract rides this key. Inert on a 0.12 host
+         * — nothing reads it — so the shape is asserted here and the note maps
+         * themselves in tools/voices_check.py. */
+        ok(strstr(buf, "\"pad_layout\":\"drums\"") != NULL,
+           "ui_pages declares pad_layout \"drums\"", NULL);
+        ok(strstr(buf, "\"focus_param\":\"ui_focus_level\"") != NULL,
+           "and names ui_focus_level as the focus key", NULL);
+
         /* ui_hierarchy must be EMPTY — served, and zero length. Absent it
          * must be, or enterComponentEdit prefers it and never loads
          * ui_chain.js and the pad gestures silently stop working. But the
@@ -435,6 +443,28 @@ int main(int argc, char **argv)
         note_on(api, inst, 56, 100);
         ok(render_peak(api, inst, 60) == 0,
            "and is silent again on the drum-rack map", NULL);
+
+        /* The voices contract has to follow the switch. The map is a runtime
+         * choice, so one static hierarchy would be right half the time and a
+         * 0.13 host would lay every pad out wrongly with nothing to say why.
+         *
+         * Probed on notes only ONE map has, and in both directions. The two
+         * blobs are the same LENGTH and share ten of their sixteen notes, so a
+         * length check or a shared note proves nothing — 51 is the cymbal on
+         * the rack and appears nowhere in GM, 56 is the GM cowbell and is past
+         * the rack's 36..51 entirely. */
+        {
+            static char pg[65536];
+            api->get_param(inst, "ui_pages", pg, sizeof(pg));
+            ok(strstr(pg, "\"note\":51") != NULL &&
+               strstr(pg, "\"note\":56") == NULL,
+               "ui_pages carries the drum-rack notes on the drum-rack map", NULL);
+            api->set_param(inst, "note_map", "1");
+            api->get_param(inst, "ui_pages", pg, sizeof(pg));
+            ok(strstr(pg, "\"note\":56") != NULL &&
+               strstr(pg, "\"note\":51") == NULL,
+               "and the GM notes once the map is switched", NULL);
+        }
         api->set_param(inst, "note_map", "default");
     }
 

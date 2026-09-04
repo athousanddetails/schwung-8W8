@@ -21,7 +21,15 @@
 
 static const host_api_v1_t *g_host = NULL;
 
-/* Page ids from gen_params.py. Pad-follow publishes one of these. */
+/* Page ids from gen_params.py, IN TRIGGER ORDER — sc808_voice_t, not the nav
+ * list. Pad-follow publishes one of these as "<count>:<id>", which is also the
+ * form the voices contract's focus_param names.
+ *
+ * Every id here must be a level the generator actually emits. 9W9's table said
+ * "hat","hat","cym","cym" for levels it does not emit, so four of its eleven
+ * voices silently never followed the pad — for months, with no error anywhere.
+ * tools/voices_check.py resolves all sixteen of these against the declared
+ * levels rather than leaving it to the eye. */
 static const char *const kLevelOf[SC808_NUM_VOICES] = {
     "bd", "sd", "lt", "mt", "ht", "lc", "mc", "hc",
     "rs", "cl", "ma", "cp", "cb", "ch", "oh", "cy"
@@ -301,12 +309,24 @@ static int get_param(void *_instance, const char *_key, char *_buf, const int _l
         return 0;
     }
     /* ...and is published under a key the host does not probe, for
-     * ui_chain.js to feed the shared param_pages controller. */
+     * ui_chain.js to feed the shared param_pages controller.
+     *
+     * It also carries Schwung 0.13's voices contract — pad_layout "drums" and
+     * a MIDI note per voice — so a 0.13 host can lay out the pad grid and
+     * follow the voice being edited. WHICHEVER NOTE MAP THE ENGINE IS ON:
+     * note_map is switchable at runtime, so one static answer would be wrong
+     * half the time and a host laying out pads from it would place every voice
+     * somewhere else with nothing to indicate why. Two strings, one pointer
+     * choice, nothing built on the audio thread. A pre-0.13 host ignores the
+     * extra keys and reads "levels" exactly as it always did. */
     if(!strcmp(_key, "ui_pages"))
     {
-        if(_len <= SC808_UI_PAGES_LEN) return -1;
-        memcpy(_buf, sc808_ui_pages_json, SC808_UI_PAGES_LEN + 1);
-        return SC808_UI_PAGES_LEN;
+        const int gm = (g_note_map != 0);
+        const char *const j = gm ? sc808_ui_pages_gm_json : sc808_ui_pages_json;
+        const int n = gm ? SC808_UI_PAGES_GM_LEN : SC808_UI_PAGES_LEN;
+        if(_len <= n) return -1;
+        memcpy(_buf, j, (size_t)n + 1);
+        return n;
     }
 
     /*

@@ -18,6 +18,49 @@ served dynamically from the DSP via get_param().
 """
 import json, pathlib, re
 
+# ---- Schwung's voices contract (pad_layout + per-voice note) ---------------
+#
+# Schwung 0.13 lets a module say that its surface is a drum rack and which MIDI
+# note plays each voice, so the host lays out the pads and follows the voice
+# you are editing without keeping a per-module table. Additive: a pre-0.13 host
+# ignores it, and nothing about 8W8's own editor changes.
+#
+# KEYED BY LEVEL ID, never by position. Three orders exist in a kit like this
+# — the nav list below, sc808_voice_t, and the note numbers — and in 9W9 no two
+# of them agreed, so a positional map silently mislabelled its two hats and its
+# two cymbals. 8W8's three DO agree, all sixteen of them, and the drum-rack map
+# is a plain 36 + index. That is worth nothing as an assumption and something
+# as an assertion: tools/voices_check.py proves it against the plugin's own
+# routers rather than trusting this comment.
+#
+# src/dsp/sc808_plugin.cpp stays the authority — drumrack_to_voice() and the GM
+# switch in note_to_voice(). If those change, change these with them; the check
+# fails if they drift.
+NOTE_MAPS = {
+    # A Move drum rack is notes 36..51, and sixteen voices fill it exactly.
+    # There is no voice past the rack's range and so nothing to invent.
+    "drumrack": {"bd": 36, "sd": 37, "lt": 38, "mt": 39,
+                 "ht": 40, "lc": 41, "mc": 42, "hc": 43,
+                 "rs": 44, "cl": 45, "ma": 46, "cp": 47,
+                 "cb": 48, "ch": 49, "oh": 50, "cy": 51},
+    # Real General MIDI percussion. Where the plugin accepts a pair for one
+    # voice (41/43 toms, 45/47, 48/50, 42/44 closed hat, 49/51/57/59 cymbal)
+    # the FIRST of the pair is the one declared — a voice may carry only one
+    # note, and the host places the pad on the note it is given.
+    "gm":       {"bd": 36, "sd": 38, "lt": 41, "mt": 45,
+                 "ht": 48, "lc": 64, "mc": 62, "hc": 63,
+                 "rs": 37, "cl": 75, "ma": 70, "cp": 39,
+                 "cb": 56, "ch": 42, "oh": 46, "cy": 49},
+}
+
+# Free-form hints. No host behaviour depends on them; a consumer that does not
+# recognise a value ignores it.
+ROLES = {"bd": "kick", "sd": "snare",
+         "lt": "tom", "mt": "tom", "ht": "tom",
+         "lc": "conga", "mc": "conga", "hc": "conga",
+         "rs": "rim", "cl": "clave", "ma": "shaker", "cp": "clap",
+         "cb": "cowbell", "ch": "hat", "oh": "hat", "cy": "cymbal"}
+
 LIN, EXP = 0, 1
 
 # Every continuous control is a 0..127 pot, exactly like a hardware panel.
@@ -468,7 +511,44 @@ if _clash:
                      + "; ".join(f"{n!r} <- {', '.join(k)}" for n, k in _clash.items()))
 
 cpj = json.dumps(cp, separators=(",", ":"))
-uhj = json.dumps({"levels": levels}, separators=(",", ":"))
+
+
+def hierarchy_for(map_name):
+    """The page hierarchy, plus the voices contract for one note map.
+
+    TWO of these are emitted, because note_map is switchable at RUNTIME. One
+    static hierarchy would be wrong half the time, and a host laying out pads
+    from it would put every voice somewhere else with nothing to say why.
+    get_param picks between them — a pointer choice, nothing built on the
+    audio thread. This is exactly why the declaration rides ui_pages and not
+    module.json, which cannot change its mind.
+
+    ONLY VOICES GET A NOTE. Reverb, Delay and the root Main page make no
+    sound, and a page without a note is how the contract says so — declaring
+    one there would put a pad on something that cannot play.
+    """
+    notes = NOTE_MAPS[map_name]
+    out = {}
+    for lid, lvl in levels.items():
+        e = dict(lvl)
+        if lid in notes:
+            e["note"] = notes[lid]
+            e["role"] = ROLES[lid]
+        out[lid] = e
+    # focus_param names a key this plugin ALREADY publishes: ui_focus_level,
+    # as "<hit-count>:<level-id>". Nothing new is written for it. The count is
+    # what makes re-hitting the pad you are already on navigate again, and the
+    # host accepts the counted form for that reason.
+    #
+    # A NAME, not an index. sc808_voice_t happens to agree with the nav order
+    # here, but that is a fact about today's roster and not a guarantee; a
+    # name stays right whatever order anything else grows into.
+    return {"pad_layout": "drums", "focus_param": "ui_focus_level",
+            "levels": out}
+
+
+uhj  = json.dumps(hierarchy_for("drumrack"), separators=(",", ":"))
+uhjg = json.dumps(hierarchy_for("gm"),       separators=(",", ":"))
 
 # ---- the host's parameter channel ------------------------------------------
 #
@@ -488,7 +568,8 @@ uhj = json.dumps({"levels": levels}, separators=(",", ":"))
 # over 16 pages, so there is room for roughly another hundred before this is
 # a real constraint.
 HOST_PARAM_MAX = 65536
-for name, payload in (("chain_params", cpj), ("ui_pages", uhj)):
+for name, payload in (("chain_params", cpj), ("ui_pages", uhj),
+                      ("ui_pages (GM)", uhjg)):
     if len(payload) > HOST_PARAM_MAX // 2:
         raise SystemExit(
             f"{name} is {len(payload)} B — over half the host's "
@@ -559,10 +640,17 @@ static const char sc808_chain_params_json[] =
 static const char sc808_ui_pages_json[] =
 {cstr(uhj)};
 
+/* The same hierarchy carrying the General MIDI note map, for note_map == 1.
+ * The map is switchable at runtime, so one static answer would be wrong half
+ * the time; get_param picks. */
+#define SC808_UI_PAGES_GM_LEN {len(uhjg)}
+static const char sc808_ui_pages_gm_json[] =
+{cstr(uhjg)};
+
 #endif /* SC808_PARAMS_H */
 """)
 
-print(f"chain_params {len(cpj)}B  ui_pages {len(uhj)}B  "
+print(f"chain_params {len(cpj)}B  ui_pages {len(uhj)}B  gm {len(uhjg)}B  "
       f"(host buffer {HOST_PARAM_MAX}B)  "
       f"pages={len(levels)}  pots={len(pots)}  enums={len(enums)}  "
       f"params={len(cp)}")

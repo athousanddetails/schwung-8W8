@@ -44,6 +44,18 @@ then verdict 0; else
   verdict 1
 fi
 
+step "Schwung's voices contract — pad_layout and a note per voice"
+# INERT until a device runs Schwung 0.13: nothing on today's host reads
+# pad_layout, so a wrong note map produces no crash, no log line and no pad in
+# the wrong place. 9W9 shipped a focus table naming levels its generator never
+# emitted and four of eleven voices silently never followed the pad, for
+# months. This is the only thing that would have caught it.
+python3 tools/voices_check.py >build-native/voices.log 2>&1
+vc=$?
+tail -1 build-native/voices.log
+[ $vc -ne 0 ] && grep '^FAIL' build-native/voices.log
+verdict $vc
+
 step "the module builds clean, natively"
 # Warning-free is only half of it: the build has to have SUCCEEDED and to have
 # produced the artefacts. Grepping the log for "warning" said PASS on a host
