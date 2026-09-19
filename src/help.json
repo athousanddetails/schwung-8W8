@@ -49,14 +49,34 @@
         " and fine mode.",
         "Mute+knob: reset",
         " that pot.",
-        "Jog click on Main:",
+        "SHIFT + jog click",
+        "on Main:",
         " locks the page.",
         " Pads still play,",
         " page stays put.",
         " ([L] in the bar)",
         " Shift+Pad still",
-        " selects. Click",
-        " again to unlock."
+        " selects. Again to",
+        " unlock."
+      ]
+    },
+    {
+      "title": "Screen Reader",
+      "lines": [
+        "Uses Schwung's Screen",
+        "Reader setting.",
+        "",
+        "Schwung 1.0 or newer:",
+        "pages use a spoken",
+        "parameter list.",
+        "Click enters the list;",
+        "jog selects a control;",
+        "click edits; jog sets",
+        "the value; Back exits.",
+        "",
+        "Mute+Pad says the voice",
+        "and mute state. Main",
+        "lock changes are spoken."
       ]
     },
     {

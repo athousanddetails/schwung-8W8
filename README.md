@@ -111,10 +111,10 @@ sound and not only a louder one.
   are reached by the jog rather than by a pad. **Shift+Pad** selects silently
   (works during playback). **Mute+Pad** mutes that drum (`[M]` in the title
   bar).
-- **Main-page lock:** press the **jog while on Main** to lock it (`[L]` in the
+- **Main-page lock:** **Shift + jog click while on Main** locks it (`[L]` in the
   title bar). Pads still play and record, but the page stops following them,
   so the master knobs stay under your hands while you jam. Shift+Pad still
-  selects, and another jog click unlocks.
+  selects, and another Shift + jog click unlocks.
 - **Knobs 1–8** edit the visible page, drawn with Schwung's stock knob grid
   (host 0.12.1+): **jog** cycles pages, **Shift+Jog** jumps sections, **jog
   click** opens the section list, **Shift** reveals values / fine mode,
@@ -122,6 +122,20 @@ sound and not only a louder one.
 - **Sequencing:** use Move's own sequencer — a drum track with a kit, muted
   (HiJack), track MIDI OUT on the slot's channel. Each drum is its own lane.
   Note map: drum rack (36–51, default) or General MIDI, switchable.
+
+## Accessibility
+
+8W8 follows Schwung's Screen Reader setting. On hosts with the accessible
+parameter-list controller (Schwung 1.0+), enabling Screen Reader replaces the
+eight-cell knob grid with a jog-navigated list: click to enter a page, jog to
+choose a control, click to edit it, and jog to change its value. Page, control,
+enum and value announcements come from Schwung's shared parameter controller.
+8W8 also announces its own Mute+Pad changes by voice name and Main-page lock
+state.
+
+On Schwung 0.12.1 through 0.13.x, 8W8 keeps the knob grid and announces knob
+touches and value changes; update Schwung to 1.0 or newer for the navigable
+screen-reader list.
 
 ## Remote panel
 

@@ -167,9 +167,10 @@ verdict $t
 
 step "editor and remote panel"
 if have node; then
-  node test/ui_chain.test.mjs >build-native/ui.log 2>&1
+  { node test/ui_chain.test.mjs && node tests/test_screen_reader_ui.mjs; } \
+    >build-native/ui.log 2>&1
   u=$?
-  tail -1 build-native/ui.log
+  tail -2 build-native/ui.log
   grep -q '^SKIP' build-native/ui.log && sed -n '/^SKIP/,$p' build-native/ui.log | head -4
   verdict $u
 else
