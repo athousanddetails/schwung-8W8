@@ -1,12 +1,12 @@
 /*
- * sc808_rs_circuit.h — the TR-808 claves, from the circuit, and the maracas.
+ * w8_rs_circuit.h — the TR-808 claves, from the circuit, and the maracas.
  *
  * WHAT HAPPENED TO THE RIM SHOT. This file used to model both sides of the
  * hardware's RS/CL channel. The rim was built twice from the schematic —
  * first as the two bridged-T networks alone, then with the trigger edge's
- * wideband crack over them — and both lost to sc808's algorithm on
- * hardware, the second badly ("not good at all, I prefer sc808"). The rim
- * lane now runs the sc808 voice with no switch, tuned to rim808.wav, and
+ * wideband crack over them — and both lost to Engine A's algorithm on
+ * hardware, the second badly ("not good at all, I prefer Engine A"). The rim
+ * lane now runs the Engine A voice with no switch, tuned to rim808.wav, and
  * the rim modelling is GONE from here rather than left as unreachable code
  * pretending to be a rim shot.
  *
@@ -33,15 +33,15 @@
  *
  * GPL-3.0.
  */
-#ifndef SC808_RS_CIRCUIT_H
-#define SC808_RS_CIRCUIT_H
+#ifndef W8_RS_CIRCUIT_H
+#define W8_RS_CIRCUIT_H
 
 #include <math.h>
 
-#include "sc_ugens.h"
-#include "sc808_circuit_common.h"
+#include "w8_ugens.h"
+#include "w8_circuit_common.h"
 
-namespace sc808 {
+namespace w8 {
 
 /* the claves' network — IC20 with SW11 in the CL position */
 static const double kRS_R308  = 820.0e3;
@@ -155,7 +155,7 @@ public:
     /*
      * attack01  the Attack pot's POSITION, 0..1 — not a time in seconds.
      *
-     * THE POT USED TO DO NOTHING. It fed the sc808 maracas, and when the
+     * THE POT USED TO DO NOTHING. It fed the Engine A maracas, and when the
      * Engine switches came off that branch went with it while this trigger
      * never took an attack at all: the knob stayed on the panel, resolved a
      * slot, and changed not one sample. Measured, not guessed — every
@@ -234,6 +234,6 @@ private:
     sc::RGen  rng_;
 };
 
-} /* namespace sc808 */
+} /* namespace w8 */
 
-#endif /* SC808_RS_CIRCUIT_H */
+#endif /* W8_RS_CIRCUIT_H */

@@ -1,7 +1,7 @@
 /*
- * sc808_tom_circuit.h — the TR-808 tom / conga channel, from the circuit.
+ * w8_tom_circuit.h — the TR-808 tom / conga channel, from the circuit.
  *
- * Engine B for all six tom and conga lanes. sc808's transcription stays
+ * Engine B for all six tom and conga lanes. Engine A's transcription stays
  * exactly as it is and keeps its place in the null test; this runs alongside
  * it and the panel switches.
  *
@@ -50,15 +50,15 @@
  *
  * GPL-3.0.
  */
-#ifndef SC808_TOM_CIRCUIT_H
-#define SC808_TOM_CIRCUIT_H
+#ifndef W8_TOM_CIRCUIT_H
+#define W8_TOM_CIRCUIT_H
 
 #include <math.h>
 
-#include "sc_ugens.h"
-#include "sc808_circuit_common.h"
+#include "w8_ugens.h"
+#include "w8_circuit_common.h"
 
-namespace sc808 {
+namespace w8 {
 
 /* ---- component values, TR-808 service notes, voicing board ------------- */
 
@@ -123,7 +123,7 @@ static const double kTOM_FwdPowerTom = 0.224;
 static const double kTOM_FwdPowerCga = 0.90;
 
 /*
- * Fitted so an unaccented hit at the default pots peaks where the sc808
+ * Fitted so an unaccented hit at the default pots peaks where the Engine A
  * voice does — each lane has ONE trim shared by both engines, and
  * tools/tom_check asserts they still agree.
  */
@@ -151,7 +151,7 @@ public:
         /*
          * init(), not reset().
          *
-         * sc808_create() allocates the engine with calloc, so no constructor
+         * w8_create() allocates the engine with calloc, so no constructor
          * ever runs on anything inside it and C++ default member initialisers
          * are silently replaced by zero bytes. PulseShaper's dc_ defaults to
          * 0.045 and came out 0, which makes it return exactly zero for any
@@ -315,6 +315,6 @@ private:
     sc::RGen    rng_;
 };
 
-} /* namespace sc808 */
+} /* namespace w8 */
 
-#endif /* SC808_TOM_CIRCUIT_H */
+#endif /* W8_TOM_CIRCUIT_H */

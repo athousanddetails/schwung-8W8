@@ -6,7 +6,7 @@
  * the same code with different tables.
  *
  * 8W8 fills the pad block where 6W6 half-filled it — SIXTEEN drums, one per
- * sc808 SynthDef — so the tables below are the only real difference, plus a
+ * Engine A SynthDef — so the tables below are the only real difference, plus a
  * mute mask that needs sixteen bits rather than eight. There is no Master pad
  * to handle, because there is no pad left for it.
  *
@@ -57,7 +57,7 @@ import { LAYOUT_MOVY } from '/data/UserData/schwung/shared/param_pages/render_pa
 
     /* raw pad note -> page key (page-follow). The left 4x4 block, bottom row
      * first: BD SD LT MT / HT LC MC HC / RS CL MA CP / CB CH OH CY. These
-     * must match pad_to_voice() in sc808_plugin.cpp — the DSP decides what
+     * must match pad_to_voice() in w8_plugin.cpp — the DSP decides what
      * sounds, this decides what the screen shows, and them disagreeing is a
      * bug nobody would spot quickly. */
     var PAD2LEVEL = { 68: "bd", 69: "sd", 70: "lt", 71: "mt",

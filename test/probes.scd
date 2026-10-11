@@ -5,7 +5,7 @@
  * whether the oscillator, the envelope or one filter in a chain of six is at
  * fault. These probes render each primitive on its own, driven by a
  * DETERMINISTIC source, so the comparison points at a single line of
- * sc_ugens.h.
+ * w8_ugens.h.
  *
  * Everything is mono and un-panned: no Pan2, so no sqrt(1/2) to undo.
  * Filters are excited by LFPulse rather than noise because noise cannot null.

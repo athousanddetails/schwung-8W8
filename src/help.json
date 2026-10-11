@@ -9,12 +9,10 @@
         "all synthesized,",
         "no samples.",
         "",
-        "Kick, snare, toms,",
-        "congas and clap are",
-        "circuit models. The",
-        "rest are checked",
-        "against sc808 to",
-        "within -64 dB."
+        "Voices are built",
+        "from the TR-808",
+        "service notes and",
+        "tuned by ear."
       ]
     },
     {

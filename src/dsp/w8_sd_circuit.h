@@ -1,5 +1,5 @@
 /*
- * sc808_sd_circuit.h — the TR-808 snare drum, as a circuit.
+ * w8_sd_circuit.h — the TR-808 snare drum, as a circuit.
  *
  * The second Engine B voice, and the second one there is real evidence for.
  *
@@ -13,7 +13,7 @@
  * networks. The noise runs through a swing-type VCA and a high-pass and is
  * summed in.
  *
- * Three things follow that sc808's two-sines-and-a-crossfade does not do:
+ * Three things follow that Engine A's two-sines-and-a-crossfade does not do:
  *
  *   - TONE moves the balance between a 173 Hz shell and a 336 Hz one, so it
  *     changes which drum you are hearing rather than how bright it is
@@ -43,20 +43,20 @@
  *
  * WHAT IS NOT DERIVED, and is marked where it happens: the noise high-pass
  * corner, and the envelope times. Those stages' component values are not in
- * the sources used here, so they take sc808's fitted values instead. That is
+ * the sources used here, so they take Engine A's fitted values instead. That is
  * a weaker footing than the kick, where every block came from the paper.
  *
  * GPL-3.0.
  */
-#ifndef SC808_SD_CIRCUIT_H
-#define SC808_SD_CIRCUIT_H
+#ifndef W8_SD_CIRCUIT_H
+#define W8_SD_CIRCUIT_H
 
 #include <math.h>
 
-#include "sc_ugens.h"
-#include "sc808_circuit_common.h"
+#include "w8_ugens.h"
+#include "w8_circuit_common.h"
 
-namespace sc808 {
+namespace w8 {
 
 /* Service-note component values for the two bridged-T networks. */
 static const double kSD_R196 = 680.0,  kSD_R197 = 820.0e3;   /* fundamental */
@@ -200,7 +200,7 @@ public:
 
 private:
     /* NOT derived from the circuit — the service notes' values for the noise
-     * stage are not in the sources this file is built from. sc808's fitted
+     * stage are not in the sources this file is built from. Engine A's fitted
      * high-pass corner (its `hpf` default, MIDI note 93) stands in, and the
      * noise decay is fitted by ear against an 808 snare's tail. Marked
      * because the rest of this file is not like this. */
@@ -223,13 +223,13 @@ private:
 
     /*
      * Level staging, set so an unaccented hit at the engine's default pot
-     * positions peaks at 2.09 — which is exactly where the sc808 snare lands
+     * positions peaks at 2.09 — which is exactly where the Engine A snare lands
      * at ITS defaults.
      *
      * The two engines share one per-lane trim, so they have to agree about
      * what a snare comes out at or switching engines moves the whole kit
      * balance by 12 dB. Matching is done HERE rather than by scaling the
-     * sc808 voice, because that voice is what the null test renders and
+     * Engine A voice, because that voice is what the null test renders and
      * putting a gain in it would break the one measurement this project's
      * fidelity claim rests on.
      *
@@ -257,6 +257,6 @@ private:
     bool active_ = false;
 };
 
-} /* namespace sc808 */
+} /* namespace w8 */
 
-#endif /* SC808_SD_CIRCUIT_H */
+#endif /* W8_SD_CIRCUIT_H */

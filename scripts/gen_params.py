@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Single source of truth for 8W8's parameter surface.
 
-Emits src/dsp/sc808_params.h, which carries THREE things that must never
+Emits src/dsp/w8_params.h, which carries THREE things that must never
 drift apart:
 
   * chain_params   — types/ranges/options the Shadow UI needs (JSON)
@@ -26,14 +26,14 @@ import json, pathlib, re
 # ignores it, and nothing about 8W8's own editor changes.
 #
 # KEYED BY LEVEL ID, never by position. Three orders exist in a kit like this
-# — the nav list below, sc808_voice_t, and the note numbers — and in 9W9 no two
+# — the nav list below, w8_voice_t, and the note numbers — and in 9W9 no two
 # of them agreed, so a positional map silently mislabelled its two hats and its
 # two cymbals. 8W8's three DO agree, all sixteen of them, and the drum-rack map
 # is a plain 36 + index. That is worth nothing as an assumption and something
 # as an assertion: tools/voices_check.py proves it against the plugin's own
 # routers rather than trusting this comment.
 #
-# src/dsp/sc808_plugin.cpp stays the authority — drumrack_to_voice() and the GM
+# src/dsp/w8_plugin.cpp stays the authority — drumrack_to_voice() and the GM
 # switch in note_to_voice(). If those change, change these with them; the check
 # fails if they drift.
 NOTE_MAPS = {
@@ -67,9 +67,9 @@ LIN, EXP = 0, 1
 # Nobody dials an 808 in milliseconds. The DSP maps each pot to its real range
 # with a musical curve, so the UI only ever shows a pot position.
 #
-# DEFAULTS ARE sc808's OWN ARGUMENTS, converted to pot positions. Pot centre
+# DEFAULTS ARE Engine A's OWN ARGUMENTS, converted to pot positions. Pot centre
 # is NOT the default here and is not meant to be: the default is "the sound
-# sc808 makes", which is the thing 8W8's null test verifies. The one
+# Engine A makes", which is the thing 8W8's null test verifies. The one
 # exception is called out at the high conga.
 
 
@@ -86,7 +86,7 @@ def E(key, label, options, default=0):
 def pot_for(value, lo, hi, curve):
     """The pot position whose mapped value is `value`.
 
-    Defaults are written as the ENGINEERING value sc808 declares — decay=4.2
+    Defaults are written as the ENGINEERING value Engine A declares — decay=4.2
     seconds, click=0.11 — and converted here. Writing pot numbers by hand and
     hoping they land on the right seconds is how a kit drifts away from the
     thing it is supposed to reproduce.
@@ -111,7 +111,7 @@ def PV(key, label, lo, hi, curve, value):
 # knows what BFZ at 90 does on the 909 knows what it does here.
 #
 # ORDER IS STORAGE ORDER, and it changed when SAT/BFZ/PDIST arrived: Fold
-# moved 2 -> 5 and Crush 3 -> 6. sc808_deserialize remaps older blobs. Never
+# moved 2 -> 5 and Crush 3 -> 6. w8_deserialize remaps older blobs. Never
 # reorder again without extending that migration.
 #
 # Option text is sized for the stock grid's enum box: TWO LINES OF THREE
@@ -121,7 +121,7 @@ def PV(key, label, lo, hi, curve, value):
 DIST = ["Diode", "Clip", "SAT", "BFZ", "PDIST", "Fold", "Crush"]
 
 
-# Drive is LINEAR 0..10 and DEFAULTS TO 0, which sc808_shape.h treats as a
+# Drive is LINEAR 0..10 and DEFAULTS TO 0, which w8_shape.h treats as a
 # bit-exact bypass. It was 0.2..8.0 EXP defaulting to 1.0, and that shipped
 # two faults at once: half the throw did nothing (a tanh below unity input is
 # nearly straight) and the normalisation added up to +18 dB of hidden gain
@@ -144,7 +144,7 @@ def SENDS(v):  return [P(f"{v}_rev", "Rev", 0.0, 1.0, LIN, 0),
                        P(f"{v}_dly", "Dly", 0.0, 1.0, LIN, 0)]
 
 # Pitch as a SEMITONE OFFSET around the voice's own base note, so pot 64 is
-# always "as sc808 has it" whatever that voice is tuned to. +/- an octave.
+# always "as Engine A has it" whatever that voice is tuned to. +/- an octave.
 def TUNE(v):   return P(f"{v}_tune", "Tune", -12.0, 12.0, LIN, 64)
 
 # The metal voices have no note — they are six fixed oscillators — so their
@@ -155,7 +155,7 @@ def RATIO(v):  return P(f"{v}_tune", "Tune", 0.5, 2.0, EXP, 64)
 # ---- Pages. One per voice, in TR-808 front-panel order. --------------------
 #
 # SIXTEEN voices, which is exactly what Move's left 4x4 pad block holds — one
-# per sc808 SynthDef. 6W6 uses half the block and 9W9 eleven pads.
+# per Engine A SynthDef. 6W6 uses half the block and 9W9 eleven pads.
 #
 # The rim shot and the claves get a pad each even though the hardware runs
 # them off one channel behind an RS/CL selector. The cost is the Master pad:
@@ -181,7 +181,7 @@ PAGES = [
         # describes. The default is LOW because the reference kick peaks at
         # its body (21.7 ms in), not at a click — the pot 100 that made sense
         # when Attack was only the inaudible frequency jump would now put a
-        # beater on every fresh patch. The sc808 engine reads the same pot as
+        # beater on every fresh patch. The Engine A engine reads the same pot as
         # its `click` pre-level.
         P("bd_attack", "Attack", 0.0, 1.0, LIN, 24),
         PV("bd_decay",  "Decay",   0.1,  8.0, EXP,  2.0),
@@ -190,7 +190,7 @@ PAGES = [
     ]),
     ("sd", "Snare", [
         # note 65, detune -11, mix 0.7, lpf 121, decay 4.2 s.
-        # Snappy is sc808's `mix`: 0 is all shell, 1 is all wires.
+        # Snappy is Engine A's `mix`: 0 is all shell, 1 is all wires.
         TUNE("sd"),   # semitone offset, see bd_tune
         PV("sd_decay",  "Decay",   0.1,  8.0, EXP,  4.2),
         PV("sd_snappy", "Snappy",  0.0,  1.0, LIN,  0.7),
@@ -228,8 +228,8 @@ PAGES = [
     ("rs", "Rim Shot", [
         TUNE("rs"),
         # Two circuit rim shots were built from the schematic and both lost
-        # to the sc808 algorithm on hardware — the second badly enough that
-        # the verdict was "not good at all, I prefer sc808". So the sc808
+        # to the Engine A algorithm on hardware — the second badly enough that
+        # the verdict was "not good at all, I prefer Engine A". So the Engine A
         # rim IS the rim here, tuned to rim808.wav. It is the one lane whose
         # voice did not come from the circuit, and the reason is the ear's.
         # Decay is SECONDS of audible ring.
@@ -242,7 +242,7 @@ PAGES = [
     ("cl", "Claves", [
         # A pad of their own. On the hardware the claves share the rim shot's
         # channel behind an RS/CL selector, and 8W8 ran them as one lane with
-        # a Mode switch for that reason — but sc808 ships them as two
+        # a Mode switch for that reason — but Engine A ships them as two
         # SynthDefs, wanting both in one pattern is normal, and sixteen voices
         # is exactly what the pad block holds.
         TUNE("cl"),
@@ -262,7 +262,7 @@ PAGES = [
         TUNE("ma"),
         # A POSITION, not seconds: the voice scales its fitted 1.2 ms attack
         # by (position/default) squared, so the default is bit-identical and
-        # the knob spans about 0.2 ms to 19 ms. It fed the sc808 maracas
+        # the knob spans about 0.2 ms to 19 ms. It fed the Engine A maracas
         # before the Engine switches came off, and was dead from then until
         # someone measured it.
         P("ma_attack", "Attack", 0.0, 1.0, LIN, 32),
@@ -316,7 +316,7 @@ PAGES = [
 ]
 
 # Tempo-synced delay: Time is a note DIVISION, not milliseconds, so it is an
-# enum. Order must match kSC808DlyBeats in sc808_fx.h.
+# enum. Order must match kW8DlyBeats in w8_fx.h.
 DIVS = ["1/32", "1/16T", "1/16", "1/8T", "1/16.", "1/8", "1/4T", "1/8.",
         "1/4", "1/2T", "1/4.", "1/2", "1/2."]
 
@@ -352,7 +352,7 @@ GLOBALS = [
     P("volume", "Volume", 0.0, 1.0, LIN, 100),
     # No Accent pot. Velocity replaced it: accent WAS the level a hard hit
     # reached, and that is now simply the top of the velocity range. Its gain
-    # is folded into SC808_FULL_VELOCITY_GAIN so nothing gets quieter —
+    # is folded into W8_FULL_VELOCITY_GAIN so nothing gets quieter —
     # deleting it and anchoring the velocity line at 1.0 instead would drop
     # the whole kit 6 dB, because 1.0 is the UNACCENTED level and a pattern
     # from Move (which sends velocity 100 and up) had always been playing at
@@ -421,7 +421,7 @@ def chain_param(p):
     else:
         d = {"key": p["key"], "name": picker_name(p["key"], p["name"]),
              "type": "int", "min": 0, "max": 127}
-    # The sc808 default, so a reset gesture (stock Mute+knob, the web
+    # The Engine A default, so a reset gesture (stock Mute+knob, the web
     # panel's double-click) lands on the verified sound and not on a guessed 64.
     d["default"] = p["default"]
     v = viz_for(p)
@@ -540,7 +540,7 @@ def hierarchy_for(map_name):
     # what makes re-hitting the pad you are already on navigate again, and the
     # host accepts the counted form for that reason.
     #
-    # A NAME, not an index. sc808_voice_t happens to agree with the nav order
+    # A NAME, not an index. w8_voice_t happens to agree with the nav order
     # here, but that is a fact about today's roster and not a guarantee; a
     # name stays right whatever order anything else grows into.
     return {"pad_layout": "drums", "focus_param": "ui_focus_level",
@@ -558,7 +558,7 @@ uhjg = json.dumps(hierarchy_for("gm"),       separators=(",", ":"))
 #
 #     #define SHADOW_PARAM_VALUE_LEN 65536  /* 64KB for large ui_hierarchy and state */
 #
-# and get_param() in sc808_plugin.cpp REFUSES to truncate — it returns -1
+# and get_param() in w8_plugin.cpp REFUSES to truncate — it returns -1
 # rather than hand back half a JSON document. So overrunning this does not
 # corrupt anything; it makes the entire parameter surface vanish, and the
 # editor comes up with nothing on it. That is a bad failure to discover on a
@@ -586,14 +586,14 @@ def cstr(s):
 
 pot_rows = "\n".join(
     f'    {{ "{p["key"]}", {p["min"]:>10.4f}f, {p["max"]:>10.4f}f, '
-    f'{"SC808_EXP" if p["curve"] == EXP else "SC808_LIN"}, {p["default"]:>3} }},'
+    f'{"W8_EXP" if p["curve"] == EXP else "W8_LIN"}, {p["default"]:>3} }},'
     for p in pots)
 enum_rows = "\n".join(
     f'    {{ "{p["key"]}", {len(p["options"]):>2}, {p["default"]:>2} }},'
     for p in enums)
 
 root_dir = pathlib.Path(__file__).resolve().parent.parent
-(root_dir / "src/dsp/sc808_params.h").write_text(f"""\
+(root_dir / "src/dsp/w8_params.h").write_text(f"""\
 /* Generated by scripts/gen_params.py — DO NOT EDIT BY HAND.
  *
  * module.json is capped at 8 KB by Schwung's loader, so chain_params and the
@@ -602,52 +602,52 @@ root_dir = pathlib.Path(__file__).resolve().parent.parent
  * The pot and enum tables below define storage order for the state blob.
  * Appending is safe; reordering breaks every saved patch.
  */
-#ifndef SC808_PARAMS_H
-#define SC808_PARAMS_H
+#ifndef W8_PARAMS_H
+#define W8_PARAMS_H
 
-typedef enum {{ SC808_LIN = 0, SC808_EXP = 1 }} sc808_curve_t;
+typedef enum {{ W8_LIN = 0, W8_EXP = 1 }} w8_curve_t;
 
 typedef struct {{
     const char    *key;
     float          min;
     float          max;
-    sc808_curve_t  curve;
+    w8_curve_t  curve;
     int            def;      /* default POT position, 0..127 */
-}} sc808_pot_t;
+}} w8_pot_t;
 
 typedef struct {{
     const char *key;
     int         count;      /* number of options */
     int         def;
-}} sc808_enum_t;
+}} w8_enum_t;
 
-#define SC808_NUM_POTS  {len(pots)}
-#define SC808_NUM_ENUMS {len(enums)}
+#define W8_NUM_POTS  {len(pots)}
+#define W8_NUM_ENUMS {len(enums)}
 
-static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {{
+static const w8_pot_t g_w8_pots[W8_NUM_POTS] = {{
 {pot_rows}
 }};
 
-static const sc808_enum_t g_sc808_enums[SC808_NUM_ENUMS] = {{
+static const w8_enum_t g_w8_enums[W8_NUM_ENUMS] = {{
 {enum_rows}
 }};
 
-#define SC808_CHAIN_PARAMS_LEN {len(cpj)}
-static const char sc808_chain_params_json[] =
+#define W8_CHAIN_PARAMS_LEN {len(cpj)}
+static const char w8_chain_params_json[] =
 {cstr(cpj)};
 
-#define SC808_UI_PAGES_LEN {len(uhj)}
-static const char sc808_ui_pages_json[] =
+#define W8_UI_PAGES_LEN {len(uhj)}
+static const char w8_ui_pages_json[] =
 {cstr(uhj)};
 
 /* The same hierarchy carrying the General MIDI note map, for note_map == 1.
  * The map is switchable at runtime, so one static answer would be wrong half
  * the time; get_param picks. */
-#define SC808_UI_PAGES_GM_LEN {len(uhjg)}
-static const char sc808_ui_pages_gm_json[] =
+#define W8_UI_PAGES_GM_LEN {len(uhjg)}
+static const char w8_ui_pages_gm_json[] =
 {cstr(uhjg)};
 
-#endif /* SC808_PARAMS_H */
+#endif /* W8_PARAMS_H */
 """)
 
 print(f"chain_params {len(cpj)}B  ui_pages {len(uhj)}B  gm {len(uhjg)}B  "

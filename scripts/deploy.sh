@@ -20,7 +20,7 @@ SRC="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="/data/UserData/schwung/modules/sound_generators/8w8"
 BUILD="$SRC/build/dsp.so"
 
-[ -f "$BUILD" ] || { echo "no build/dsp.so — run ./scripts/build.sh sc808 first" >&2; exit 1; }
+[ -f "$BUILD" ] || { echo "no build/dsp.so — run ./scripts/build.sh first" >&2; exit 1; }
 
 echo "==> $HOST:$DEST"
 ssh "$HOST" "mkdir -p $DEST"

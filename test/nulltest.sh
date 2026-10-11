@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# The null test: prove Engine A is a transcription of sc808 and not an
+# The null test: prove Engine A is a transcription of Engine A and not an
 # impression of it.
 #
 # Renders every voice twice — once by scsynth from the vendored SynthDefs,
-# once by src/dsp/sc808_voices.h — and subtracts them. A voice that nulls at
+# once by src/dsp/w8_voices.h — and subtracts them. A voice that nulls at
 # -90 dB is the same signal; a voice that nulls at -25 dB is a different voice
 # that happens to sound similar, which is exactly the failure this project
 # exists to avoid.
@@ -20,7 +20,7 @@
 # control-period count, while the development branch reworked it to use a
 # fractional duration with a residual carried between segments. The two
 # produce audibly identical envelopes and numerically different ones, and
-# sc_ugens.h implements 3.11.2. Moving the reference to a newer SC without
+# w8_ugens.h implements 3.11.2. Moving the reference to a newer SC without
 # updating Env::armSegment() will show up here as the envelopes and the swept
 # voices falling from -150 dB to about -40 dB.
 #
@@ -29,7 +29,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$HERE")"
-IMAGE="sc808-sc"
+IMAGE="w8-sc"
 PROBES=0
 [ "${1:-}" = "--probes" ] && PROBES=1
 
@@ -56,11 +56,11 @@ sc() {
 # original author's home directory.
 echo "==> preparing synthdefs"
 sed 's#/Users/sam/Development/sonic-pi/etc/synthdefs/compiled/#/work/sc/defs/#g' \
-    src/vendor/sc808/sc808.scd | grep -v '^[()]$' > sc/sc808_defs.scd
+    src/vendor/sc808/sc808.scd | grep -v '^[()]$' > sc/w8_defs.scd
 
-# The engine is built WITHOUT SC808_NULLTEST; only these tools define it, and
-# only they emulate SC's per-note construction sample. See sc_ugens.h.
-CXXFLAGS="-std=c++14 -O2 -DSC808_NULLTEST -Isrc/dsp"
+# The engine is built WITHOUT W8_NULLTEST; only these tools define it, and
+# only they emulate SC's per-note construction sample. See w8_ugens.h.
+CXXFLAGS="-std=c++14 -O2 -DW8_NULLTEST -Isrc/dsp"
 
 if [ "$PROBES" = "1" ]; then
     echo "==> probes: one UGen at a time"
@@ -76,7 +76,7 @@ echo "==> reference: scsynth NRT"
 rm -f sc/out/* sc/defs/*
 sc sclang test/nrt_render.scd >/dev/null 2>&1
 
-echo "==> engine: sc808_voices.h"
+echo "==> engine: w8_voices.h"
 mkdir -p build-native
 g++ $CXXFLAGS -o build-native/nullref src/tools/nullref.cpp
 ./build-native/nullref sc/mine sc/ctrl >/dev/null

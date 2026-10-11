@@ -5,7 +5,7 @@
  * A/B'd against 808 recordings without a Move in the loop. This is the same
  * engine the module runs, through the same pot mapping — not a shortcut path.
  *
- *   sc808_render <outdir> [--pattern-only]
+ *   w8_render <outdir> [--pattern-only]
  *
  * GPL-3.0.
  */
@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sc808_engine.h"
+#include "w8_engine.h"
 #include "demo_pattern.h"
 
 static const double SR = 44100.0;
@@ -59,18 +59,18 @@ int main(int argc, char **argv)
     if(!pattern_only)
     {
         const int frames = (int)(SR * 3);
-        for(int v = 0; v < SC808_NUM_VOICES; ++v)
+        for(int v = 0; v < W8_NUM_VOICES; ++v)
         {
-            sc808_engine_t *e = sc808_create((float)SR);
-            sc808_trigger(e, v, 100);
-            sc808_render(e, g_buf, frames);
-            sc808_destroy(e);
+            w8_engine_t *e = w8_create((float)SR);
+            w8_trigger(e, v, 100);
+            w8_render(e, g_buf, frames);
+            w8_destroy(e);
 
             double peak = 0.0;
             for(int i = 0; i < frames; ++i)
             { const double a = fabs((double)g_buf[i]); if(a > peak) peak = a; }
-            printf("%-3s peak %6.3f\n", sc808_voice_id(v), peak);
-            write_wav(dir, sc808_voice_id(v), g_buf, frames);
+            printf("%-3s peak %6.3f\n", w8_voice_id(v), peak);
+            write_wav(dir, w8_voice_id(v), g_buf, frames);
         }
     }
 
@@ -79,11 +79,11 @@ int main(int argc, char **argv)
      * the kit's absolute level to, which is the point of it being shared.
      */
     {
-        sc808_engine_t *e = sc808_create((float)SR);
-        const int done = sc808_render_demo(e, g_buf,
+        w8_engine_t *e = w8_create((float)SR);
+        const int done = w8_render_demo(e, g_buf,
                                            (int)(sizeof(g_buf) / sizeof(g_buf[0])),
                                            SR, 3.0);
-        sc808_destroy(e);
+        w8_destroy(e);
         if(done == 0) { fprintf(stderr, "pattern buffer too small\n"); return 1; }
 
         double peak = 0.0;

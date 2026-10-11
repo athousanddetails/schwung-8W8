@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare Engine A's renders against SuperCollider's, voice by voice.
 
-The claim 8W8 makes about Engine A is that it is a TRANSCRIPTION of sc808,
+The claim 8W8 makes about Engine A is that it is a TRANSCRIPTION of Engine A,
 not an impression of it. This is what makes that claim checkable: render each
 voice in scsynth, render it here, and measure how much is left when you
 subtract one from the other.

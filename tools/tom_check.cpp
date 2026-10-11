@@ -17,8 +17,8 @@
  *
  * GPL-3.0.
  */
-#include "sc808_tom_circuit.h"
-#include "sc808_voices.h"
+#include "w8_tom_circuit.h"
+#include "w8_voices.h"
 
 #include <cmath>
 #include <cstdio>
@@ -41,7 +41,7 @@ static std::vector<float> circuitHit(const int mode, const double hz,
                                      const float decay01, const float accentV = 8.0f,
                                      const double seconds = 4.0)
 {
-    sc808::TomCircuit t;
+    w8::TomCircuit t;
     t.init(SR, mode);
     t.trigger(hz, decay01, accentV);
     std::vector<float> v((size_t)(SR * seconds), 0.0f);
@@ -49,10 +49,10 @@ static std::vector<float> circuitHit(const int mode, const double hz,
     return v;
 }
 
-static std::vector<float> sc808Hit(const sc808::TomSpec &spec, const double hz,
+static std::vector<float> refHit(const w8::TomSpec &spec, const double hz,
                                    const float decaySec, const double seconds = 4.0)
 {
-    sc808::Tom t;
+    w8::Tom t;
     t.init(SR);
     t.trigger(spec, hz, decaySec);
     std::vector<float> v((size_t)(SR * seconds), 0.0f);
@@ -102,10 +102,10 @@ int main()
 
     /* ---- the one derived number ---------------------------------------- */
     {
-        const double q = sc808::bridgedTQ(sc808::kTOM_R1, sc808::kTOM_R2);
+        const double q = w8::bridgedTQ(w8::kTOM_R1, w8::kTOM_R2);
         char d[96];
         snprintf(d, sizeof d, "R218/R219 = 2.2M/4.7k gives Q %.3f", q);
-        check(fabs(q - sc808::kTOM_Q) < 1e-9, "Q comes from the component values", d);
+        check(fabs(q - w8::kTOM_Q) < 1e-9, "Q comes from the component values", d);
     }
 
     /* ---- each lane reproduces its sample ------------------------------- *
@@ -228,7 +228,7 @@ int main()
 
     /* ---- the circuit sits where the transcription sat ------------------ *
      *
-     * The sc808 tom is no longer a voice anybody can select — the Engine
+     * The Engine A tom is no longer a voice anybody can select — the Engine
      * switches are gone and every lane is its circuit. It is still the
      * LEVEL REFERENCE the kit was balanced against, though: the lane trims
      * were fitted when both existed, so a circuit tom that drifts far from
@@ -239,15 +239,15 @@ int main()
         const char *worstId = "";
         for(const Lane &L : lanes)
         {
-            static const sc808::TomSpec *const spec[6] = {
-                &sc808::kTomLo, &sc808::kTomMid, &sc808::kTomHi,
-                &sc808::kCongaLo, &sc808::kCongaMid, &sc808::kCongaHi };
+            static const w8::TomSpec *const spec[6] = {
+                &w8::kTomLo, &w8::kTomMid, &w8::kTomHi,
+                &w8::kCongaLo, &w8::kCongaMid, &w8::kCongaHi };
             const int idx = (int)(&L - lanes);
             const double hz = midicps(L.note);
-            const double pa = peakOf(sc808Hit(*spec[idx], hz, L.pot * 54.0f));
+            const double pa = peakOf(refHit(*spec[idx], hz, L.pot * 54.0f));
             const double pb = peakOf(circuitHit(L.mode, hz, L.pot));
             const double db = 20.0 * log10((pb + 1e-30) / (pa + 1e-30));
-            printf("     %s  sc808 %.4f   circuit %.4f   %+.1f dB\n", L.id, pa, pb, db);
+            printf("     %s  Engine A %.4f   circuit %.4f   %+.1f dB\n", L.id, pa, pb, db);
             if(fabs(db) > fabs(worst)) { worst = db; worstId = L.id; }
         }
         char d[96];

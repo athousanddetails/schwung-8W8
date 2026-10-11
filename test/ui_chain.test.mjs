@@ -5,7 +5,7 @@
  * throwing, and the pad gestures do what the help text says.
  *
  * It also cross-checks the pad tables in ui_chain.js against the ones in
- * sc808_plugin.cpp. Those two files independently decide what pad 87 is, and
+ * w8_plugin.cpp. Those two files independently decide what pad 87 is, and
  * nothing at runtime would notice them disagreeing — the drum would sound and
  * the WRONG page would open, which is the kind of bug that survives to a
  * release because it looks like a UI quirk.
@@ -43,27 +43,27 @@ const SHARED = findShared();
 const check = (c, m) => { console.log((c ? "ok  : " : "FAIL: ") + m); if (!c) fails++; };
 
 /* the DSP's two payloads, straight from the generated header */
-const hdr = fs.readFileSync(path.join(ROOT, "src/dsp/sc808_params.h"), "utf8");
+const hdr = fs.readFileSync(path.join(ROOT, "src/dsp/w8_params.h"), "utf8");
 function cstr(name) {
   const i = hdr.indexOf(name + "[] =");
   const body = hdr.slice(i, hdr.indexOf(";", i));
   return body.split("\n").slice(1).map(l => l.trim()).filter(l => l.startsWith('"'))
     .map(l => JSON.parse(l)).join("");
 }
-const CHAIN_PARAMS = cstr("sc808_chain_params_json");
-const UI_PAGES = cstr("sc808_ui_pages_json");
+const CHAIN_PARAMS = cstr("w8_chain_params_json");
+const UI_PAGES = cstr("w8_ui_pages_json");
 JSON.parse(CHAIN_PARAMS); JSON.parse(UI_PAGES);
 
 /* ---- the two files must agree about the pads ------------------------- */
 {
-  const cpp = fs.readFileSync(path.join(ROOT, "src/dsp/sc808_plugin.cpp"), "utf8");
+  const cpp = fs.readFileSync(path.join(ROOT, "src/dsp/w8_plugin.cpp"), "utf8");
   const js  = fs.readFileSync(path.join(ROOT, "src/ui_chain.js"), "utf8");
 
-  /* the DSP: pad_to_voice()'s case labels, note -> SC808_XX */
+  /* the DSP: pad_to_voice()'s case labels, note -> W8_XX */
   const body = cpp.slice(cpp.indexOf("static int pad_to_voice"),
                          cpp.indexOf("static int drumrack_to_voice"));
   const dsp = {};
-  for (const m of body.matchAll(/case\s+(\d+):\s*return\s+SC808_([A-Z]+)\s*;/g))
+  for (const m of body.matchAll(/case\s+(\d+):\s*return\s+W8_([A-Z]+)\s*;/g))
     dsp[m[1]] = m[2].toLowerCase();
 
   /* the editor: PAD2LEVEL, note -> page id */
@@ -75,7 +75,7 @@ JSON.parse(CHAIN_PARAMS); JSON.parse(UI_PAGES);
   /* the editor has one extra: the Master pad, which sounds nothing */
   const uiPads = Object.keys(ui).filter(k => ui[k] !== "root").sort();
   check(JSON.stringify(dspPads) === JSON.stringify(uiPads),
-        "ui_chain.js and sc808_plugin.cpp cover the same pads");
+        "ui_chain.js and w8_plugin.cpp cover the same pads");
   let mismatch = null;
   for (const p of dspPads) if (dsp[p] !== ui[p]) mismatch = `${p}: dsp ${dsp[p]} vs ui ${ui[p]}`;
   check(!mismatch, "every pad maps to the same voice in both" + (mismatch ? " — " + mismatch : ""));

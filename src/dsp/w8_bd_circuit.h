@@ -1,9 +1,9 @@
 /*
- * sc808_bd_circuit.h — the TR-808 bass drum, as a circuit.
+ * w8_bd_circuit.h — the TR-808 bass drum, as a circuit.
  *
  * This is the voice 8W8 exists for. Everything else in the kit can be a
- * faithful transcription of sc808 and be fine; the kick cannot, because
- * sc808's kick is a sine on a pitch envelope and an 808's kick is not.
+ * faithful transcription of Engine A and be fine; the kick cannot, because
+ * Engine A's kick is a sine on a pitch envelope and an 808's kick is not.
  *
  * WHAT AN 808 KICK ACTUALLY IS
  *
@@ -54,15 +54,15 @@
  *
  * GPL-3.0.
  */
-#ifndef SC808_BD_CIRCUIT_H
-#define SC808_BD_CIRCUIT_H
+#ifndef W8_BD_CIRCUIT_H
+#define W8_BD_CIRCUIT_H
 
 #include <math.h>
 #include <stdint.h>
 
-#include "sc808_circuit_common.h"
+#include "w8_circuit_common.h"
 
-namespace sc808 {
+namespace w8 {
 
 /*
  * Component values, from the TR-808 service notes as reproduced in the
@@ -136,7 +136,7 @@ public:
         sr_ = _sampleRate >= 8000.0 ? _sampleRate : 44100.0;
 
         /* Pulse shaper with the bass drum's own component values. See
-         * sc808_circuit_common.h for what it does and why. */
+         * w8_circuit_common.h for what it does and why. */
         shaper_.init(sr_, kBD_R162, kBD_R163, kBD_C40);
 
         reset();
@@ -351,7 +351,7 @@ private:
     static constexpr double kClickLevel  = 0.16;
     /*
      * Set so an UNACCENTED hit at the default pots peaks at 1.0 — the same
-     * place the sc808 kick lands. The two engines share one per-lane trim, so
+     * place the Engine A kick lands. The two engines share one per-lane trim, so
      * if they do not agree on what "a kick" comes out at, switching engines
      * changes the level by 11 dB and the kit balance is wrong for one of them.
      */
@@ -380,6 +380,6 @@ private:
     bool active_ = false;
 };
 
-} /* namespace sc808 */
+} /* namespace w8 */
 
-#endif /* SC808_BD_CIRCUIT_H */
+#endif /* W8_BD_CIRCUIT_H */

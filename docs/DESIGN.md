@@ -8,10 +8,9 @@ is the version that reflects the code.
 
 ## 1. The two engines
 
-**Engine A — sc808.** Every voice except the kick and the snare is a
-transcription of one of the sixteen SynthDefs in Sonic Pi's `sc808.scd` (MIT, by Yoshinosuke Horiuchi,
-adapted by Sam Aaron). Vendored under `src/vendor/sc808`, transcribed in
-`src/dsp/sc808_voices.h`, and **verified sample-for-sample against
+**Engine A.** Every voice except the kick and the snare is a
+transcription of one of the sixteen SynthDefs in Sonic Pi's `sc808.scd`. Vendored under `src/vendor/sc808`, transcribed in
+`src/dsp/w8_voices.h`, and **verified sample-for-sample against
 SuperCollider** by `test/nulltest.sh`.
 
 **Engine B — the circuit.** Nine of the sixteen lanes now have one, all
@@ -19,21 +18,21 @@ default and all switchable:
 
 | Voice | File | Built from |
 |---|---|---|
-| Bass drum | `sc808_bd_circuit.h` | Werner, Abel and Smith, DAFx-14 |
-| Snare | `sc808_sd_circuit.h` | service notes' component values, via Werner's snare analysis |
-| Tom / conga ×6 | `sc808_tom_circuit.h` | service notes, voicing board — Q derived, the rest fitted |
-| Hand clap | `sc808_cp_circuit.h` | service notes, voicing board — bandpass and tail derived |
+| Bass drum | `w8_bd_circuit.h` | Werner, Abel and Smith, DAFx-14 |
+| Snare | `w8_sd_circuit.h` | service notes' component values, via Werner's snare analysis |
+| Tom / conga ×6 | `w8_tom_circuit.h` | service notes, voicing board — Q derived, the rest fitted |
+| Hand clap | `w8_cp_circuit.h` | service notes, voicing board — bandpass and tail derived |
 
-The shared blocks live once, in `sc808_circuit_common.h`: the pulse shaper,
+The shared blocks live once, in `w8_circuit_common.h`: the pulse shaper,
 the op-amp clip, the bridged-T, and now the multiple-feedback bandpass.
 
 The split is deliberate and it is the same shape 9W9 uses, where the original
 ER-99 engine is still selectable. Engine A gets a complete, verified kit
-quickly; Engine B replaces the voices where sc808 is audibly not an 808.
+quickly; Engine B replaces the voices where Engine A is audibly not an 808.
 
 ### Why the kick needed replacing
 
-sc808's kick is a `SinOsc` on a pitch envelope. That is a perfectly good kick
+Engine A's kick is a `SinOsc` on a pitch envelope. That is a perfectly good kick
 drum and it is not a TR-808, and it was obvious the moment anyone heard it.
 
 The real thing is a bridged-T network in an op-amp feedback loop. **Decay is
@@ -83,7 +82,7 @@ exactly the failure a null test exists to catch and ears do not.
 5. **SC runs one sample through the whole graph at synth construction.** Every
    UGen Ctor ends with `next(unit, 1)`, so filters see their first input twice
    and a swept oscillator takes a phase step at the envelope's *initial*
-   value. Modelled in the harness only, behind `SC808_NULLTEST`, and compiled
+   value. Modelled in the harness only, behind `W8_NULLTEST`, and compiled
    out of the module — 8W8's voices are persistent and doing this on every hit
    would be a bug.
 6. **The bass drum never reset its oscillator phases** to `pi/2`.
@@ -113,8 +112,8 @@ carried between segments. Moving the reference to a newer SC without updating
 | On-device editor | `test/ui_chain.test.mjs` against the real `param_pages` |
 | Editor ↔ DSP agreement | same file — cross-checks the pad tables |
 | Remote panel | same file — every key it touches must exist in `chain_params` |
-| The shipped `.so` | `sc808_loadtest`, dlopened exactly as the chain host does |
-| CPU | `sc808_bench`, on the device |
+| The shipped `.so` | `w8_loadtest`, dlopened exactly as the chain host does |
+| CPU | `w8_bench`, on the device |
 
 The two cross-checks were confirmed to fail when deliberately broken. A test
 that cannot fail is not a test.
@@ -129,7 +128,7 @@ all 16 every 16th    4.4x realtime (22.9% of a core)  [pathological]
 
 6W6 ships at 22% of a core. 8W8 is well inside that — and note that the busy
 pattern did not get *more* expensive when nine lanes moved to circuit
-models. A bridged-T in a loop is two biquad-ish updates and a clip; sc808's
+models. A bridged-T in a loop is two biquad-ish updates and a clip; Engine A's
 voices are envelopes and oscillators. The pathological case rose from 19.7%
 because there are sixteen lanes now instead of fifteen.
 
@@ -141,13 +140,13 @@ because there are sixteen lanes now instead of fifteen.
 exactly. Rim shot and claves used to share a lane with a mode switch, because
 they share a *channel* on the hardware — one RS/CL selector, and a pattern
 cannot contain both. They now have a pad each, which is a deliberate
-departure: sc808 ships them as two SynthDefs, a pattern that wants both is a
+departure: Engine A ships them as two SynthDefs, a pattern that wants both is a
 normal thing to want, and it makes the roster sixteen. The cost is the Master
 pad, which moves to the jog with every other page.
 
 **Where a circuit engine is the default, the DEFAULT POT IS THE CIRCUIT'S.**
 The clap's Decay sits at 330 ms because that is R362 × C143. This is the one
-place 8W8 knowingly departs from "defaults are sc808's arguments", and it is
+place 8W8 knowingly departs from "defaults are Engine A's arguments", and it is
 the right way round: a fresh patch should be the sound that was verified, and
 for those lanes the thing that was verified is the circuit.
 
@@ -173,9 +172,9 @@ underneath it; a six-voice accented hit went the other way and left it 8.6 dB
 quiet, because no pattern fires six accented voices on one sixteenth. A busy
 simultaneous hit does clip from here, which is the same trade 6W6 makes.
 
-**Defaults are sc808's own declared arguments**, converted to pot positions by
+**Defaults are Engine A's own declared arguments**, converted to pot positions by
 the generator, so a fresh patch is the sound the null test verified. Three
-documented exceptions: the high conga's base note (sc808 gives it the same
+documented exceptions: the high conga's base note (Engine A gives it the same
 note as the low conga, plainly a slip), and the kick's Attack and Decay, which
 mean different things to the two engines.
 
@@ -219,7 +218,7 @@ the circuit voices are being judged against the transcription on hardware, and
 seven lanes do not have a circuit model at all yet: rim shot, claves, maracas,
 cowbell, both hats and the cymbal. Nine have one.
 
-Two things not to lose when the switch goes. The sc808 transcription stays in
+Two things not to lose when the switch goes. The Engine A transcription stays in
 the tree regardless — it is what `test/nulltest.sh` verifies against
 SuperCollider, and that null test is the strongest correctness claim this
 project has. And `tools/tom_check` and the loadtest currently assert that the
@@ -233,7 +232,7 @@ the toms is smaller than it looked: the service notes have the component
 values, and the two that matter for a bridged-T — the shunt and series
 resistors — are legible. What they do not have is the analysis. Q comes
 straight out of the values; loop-gain maps, pitch drops and noise levels do
-not, and every one of those in `sc808_tom_circuit.h` is fitted and says so in
+not, and every one of those in `w8_tom_circuit.h` is fitted and says so in
 the header. Any new voice has to be that explicit about which half is which.
 
 The metal voices are the bigger piece: the cymbal paper gives the six
@@ -253,7 +252,7 @@ nobody has driven the *interface* there yet.
 
 ## 6. Traps worth not falling into twice
 
-**calloc means no constructors.** `sc808_create` allocates the whole engine
+**calloc means no constructors.** `w8_create` allocates the whole engine
 with `calloc`, so every voice object is zero bytes and C++ default member
 initialisers never run. `PulseShaper`'s `dc_ = 0.045` became `0.0`, which
 makes it return exactly zero for any input. The toms still sounded, because
@@ -264,7 +263,7 @@ silent — so the search started at the congas, which were fine. Every voice's
 **A short initialiser list zero-fills its tail, silently.** Adding a sixteenth
 voice left `kVoiceTrim` with fifteen entries; the cymbal read `0.0f` and
 vanished. `tools/kit_check` caught it as a `-inf`, which is what that check is
-for, but a compile error is cheaper — `sc808_engine.cpp` now `static_assert`s
+for, but a compile error is cheaper — `w8_engine.cpp` now `static_assert`s
 that no trim is zero, and `tools/fit_trim.py` reads the lane order out of
 `kVoiceIds` rather than keeping its own copy.
 

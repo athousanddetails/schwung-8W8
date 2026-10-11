@@ -1,13 +1,13 @@
 /*
- * sc808_cp_circuit.h — the TR-808 hand clap, from the circuit.
+ * w8_cp_circuit.h — the TR-808 hand clap, from the circuit.
  *
  * Engine B for the clap lane, the same arrangement the bass drum and the
- * snare already use: sc808's transcription stays exactly as it is and keeps
+ * snare already use: Engine A's transcription stays exactly as it is and keeps
  * its place in the null test, this runs alongside it, and the panel switches.
  *
  * WHY THIS EXISTS
  *
- * sc808's clap is one immediate noise burst, a second one 26 ms later, and a
+ * Engine A's clap is one immediate noise burst, a second one 26 ms later, and a
  * long diffuse tail. Two things follow from that shape and both of them were
  * reported as faults, correctly:
  *
@@ -30,7 +30,7 @@
  *
  *   - C143 (1 uF) charges on the trigger and bleeds off through R362 (330k).
  *     That is the tail, and its time constant is a number you can read
- *     straight off the schematic: 330k x 1 uF = 330 ms. sc808's `decay`
+ *     straight off the schematic: 330k x 1 uF = 330 ms. Engine A's `decay`
  *     default is 0.3, so somebody knew; it just never reached the tail.
  *
  *   - The noise runs through IC22 (BA662, the same swing-type VCA the snare
@@ -59,15 +59,15 @@
  *
  * GPL-3.0.
  */
-#ifndef SC808_CP_CIRCUIT_H
-#define SC808_CP_CIRCUIT_H
+#ifndef W8_CP_CIRCUIT_H
+#define W8_CP_CIRCUIT_H
 
 #include <math.h>
 
-#include "sc_ugens.h"
-#include "sc808_circuit_common.h"
+#include "w8_ugens.h"
+#include "w8_circuit_common.h"
 
-namespace sc808 {
+namespace w8 {
 
 /* ---- component values, TR-808 service notes, voicing board ------------- */
 
@@ -96,7 +96,7 @@ static const int    kCP_PULSES    = 3;
 static const double kCP_PulseTau  = 0.0026;  /* per-pulse collapse, by ear  */
 
 /*
- * Output level, fitted so that the circuit clap and the sc808 clap sit at the
+ * Output level, fitted so that the circuit clap and the Engine A clap sit at the
  * same loudness when the panel switches between them. Neither engine should
  * change the mix.
  */
@@ -246,6 +246,6 @@ private:
     sc::RGen rng_;
 };
 
-} /* namespace sc808 */
+} /* namespace w8 */
 
-#endif /* SC808_CP_CIRCUIT_H */
+#endif /* W8_CP_CIRCUIT_H */

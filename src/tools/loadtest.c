@@ -11,7 +11,7 @@
  * the generator emitted and the engine never resolved, a state blob that does
  * not round-trip, a lane that is silent because its pad note is wrong.
  *
- *   sc808_loadtest /path/to/dsp.so
+ *   w8_loadtest /path/to/dsp.so
  *
  * GPL-3.0.
  */
@@ -23,16 +23,16 @@
 #include <string.h>
 
 #include "plugin_api_v1.h"
-#include "sc808_engine.h"
-#include "sc808_params.h"
+#include "w8_engine.h"
+#include "w8_params.h"
 
 static int g_fail = 0;
 
-/* Its own copy of the lane names: sc808_voice_id lives INSIDE dsp.so, and
+/* Its own copy of the lane names: w8_voice_id lives INSIDE dsp.so, and
  * this program is a host, not a link-time consumer of the engine. Linking
  * against the engine here would test a second copy of it and prove nothing
  * about the shared object we are loading. */
-static const char *const kLane[SC808_NUM_VOICES] = {
+static const char *const kLane[W8_NUM_VOICES] = {
     "bd", "sd", "lt", "mt", "ht", "lc", "mc", "hc",
     "rs", "cl", "ma", "cp", "cb", "ch", "oh", "cy"
 };
@@ -231,7 +231,7 @@ int main(int argc, char **argv)
     {
         static char buf[65536];
         const int n = api->get_param(inst, "chain_params", buf, sizeof(buf));
-        ok(n == SC808_CHAIN_PARAMS_LEN, "chain_params length", NULL);
+        ok(n == W8_CHAIN_PARAMS_LEN, "chain_params length", NULL);
         ok(n > 0 && buf[0] == '[', "chain_params is an array", NULL);
 
         /* Every voice and bus qualifies its params for the LFO picker, or
@@ -243,7 +243,7 @@ int main(int argc, char **argv)
            "chain_params qualifies its names for the picker", NULL);
 
         const int m = api->get_param(inst, "ui_pages", buf, sizeof(buf));
-        ok(m == SC808_UI_PAGES_LEN, "ui_pages length", NULL);
+        ok(m == W8_UI_PAGES_LEN, "ui_pages length", NULL);
         ok(m > 0 && buf[0] == '{', "ui_pages is an object", NULL);
 
         /* Schwung 0.13's voices contract rides this key. Inert on a 0.12 host
@@ -274,26 +274,26 @@ int main(int argc, char **argv)
     {
         char buf[64];
         int missing = 0;
-        for(int i = 0; i < SC808_NUM_POTS; ++i)
-            if(api->get_param(inst, g_sc808_pots[i].key, buf, sizeof(buf)) < 0)
-            { printf("  FAIL  pot %s does not resolve\n", g_sc808_pots[i].key);
+        for(int i = 0; i < W8_NUM_POTS; ++i)
+            if(api->get_param(inst, g_w8_pots[i].key, buf, sizeof(buf)) < 0)
+            { printf("  FAIL  pot %s does not resolve\n", g_w8_pots[i].key);
               ++missing; }
-        for(int i = 0; i < SC808_NUM_ENUMS; ++i)
-            if(api->get_param(inst, g_sc808_enums[i].key, buf, sizeof(buf)) < 0)
-            { printf("  FAIL  enum %s does not resolve\n", g_sc808_enums[i].key);
+        for(int i = 0; i < W8_NUM_ENUMS; ++i)
+            if(api->get_param(inst, g_w8_enums[i].key, buf, sizeof(buf)) < 0)
+            { printf("  FAIL  enum %s does not resolve\n", g_w8_enums[i].key);
               ++missing; }
         g_fail += missing;
         if(!missing)
             printf("  ok    all %d pots and %d enums resolve\n",
-                   SC808_NUM_POTS, SC808_NUM_ENUMS);
+                   W8_NUM_POTS, W8_NUM_ENUMS);
 
         /* Defaults must match the table, or a fresh patch is not the kit the
          * null test verified. */
         int wrong = 0;
-        for(int i = 0; i < SC808_NUM_POTS; ++i)
+        for(int i = 0; i < W8_NUM_POTS; ++i)
         {
-            api->get_param(inst, g_sc808_pots[i].key, buf, sizeof(buf));
-            if(atoi(buf) != g_sc808_pots[i].def) ++wrong;
+            api->get_param(inst, g_w8_pots[i].key, buf, sizeof(buf));
+            if(atoi(buf) != g_w8_pots[i].def) ++wrong;
         }
         ok(wrong == 0, "pot defaults match the generated table", NULL);
     }
@@ -303,7 +303,7 @@ int main(int argc, char **argv)
     printf("\nvoices\n");
     {
         int silent = 0;
-        for(int v = 0; v < SC808_NUM_VOICES; ++v)
+        for(int v = 0; v < W8_NUM_VOICES; ++v)
         {
             note_on(api, inst, 36 + v, 100);
             /* The bass drum's lookahead limiter delays it by 20 ms, so a
@@ -315,17 +315,17 @@ int main(int argc, char **argv)
         }
         g_fail += silent;
         if(!silent) printf("  ok    all %d lanes sound on notes 36-%d\n",
-                           SC808_NUM_VOICES, 36 + SC808_NUM_VOICES - 1);
+                           W8_NUM_VOICES, 36 + W8_NUM_VOICES - 1);
     }
 
     /* Pad notes: the left 4x4 block. Pad 95 is Master and must NOT sound. */
     {
         quiesce(api, inst);
-        static const int pads[SC808_NUM_VOICES] = {
+        static const int pads[W8_NUM_VOICES] = {
             68, 69, 70, 71, 76, 77, 78, 79, 84, 85, 86, 87, 92, 93, 94, 95
         };
         int silent = 0;
-        for(int v = 0; v < SC808_NUM_VOICES; ++v)
+        for(int v = 0; v < W8_NUM_VOICES; ++v)
         {
             note_on(api, inst, pads[v], 100);
             if(render_peak(api, inst, 60) == 0)
@@ -333,7 +333,7 @@ int main(int argc, char **argv)
                      pads[v], kLane[v]); ++silent; }
         }
         g_fail += silent;
-        if(!silent) printf("  ok    all %d pads sound\n", SC808_NUM_VOICES);
+        if(!silent) printf("  ok    all %d pads sound\n", W8_NUM_VOICES);
 
         /* Pad 95 is the cymbal now, not Master — with sixteen drums there is
          * no spare pad. What must NOT sound is a pad outside the block. */
@@ -382,9 +382,9 @@ int main(int argc, char **argv)
     {
         quiesce(api, inst);
         api->set_param(inst, "hh_choke", "1");         /* CH > OH */
-        note_on(api, inst, 36 + SC808_OH, 100);
+        note_on(api, inst, 36 + W8_OH, 100);
         render_peak(api, inst, 4);
-        note_on(api, inst, 36 + SC808_CH, 100);
+        note_on(api, inst, 36 + W8_CH, 100);
         render_peak(api, inst, 40);
         /* The open hat should be gone; the closed hat is short too, so this
          * only asserts that the pair does not ring on for its full length. */
@@ -422,7 +422,7 @@ int main(int argc, char **argv)
         api->get_param(inst, "bd_tune", buf, sizeof(buf));
         ok(atoi(buf) == 10, "a short blob applies what it has", buf);
         api->get_param(inst, "cy_level", buf, sizeof(buf));
-        ok(atoi(buf) == g_sc808_pots[SC808_NUM_POTS - 1].def
+        ok(atoi(buf) == g_w8_pots[W8_NUM_POTS - 1].def
            || atoi(buf) >= 0, "and leaves the rest alone", buf);
     }
 
@@ -473,10 +473,10 @@ int main(int argc, char **argv)
     {
         /* Rim and Clave have a pad each now, and must be different sounds. */
         quiesce(api, inst);
-        note_on(api, inst, 36 + SC808_RS, 100);
+        note_on(api, inst, 36 + W8_RS, 100);
         const int rim = render_peak(api, inst, 60);
         quiesce(api, inst);
-        note_on(api, inst, 36 + SC808_CL, 100);
+        note_on(api, inst, 36 + W8_CL, 100);
         const int clave = render_peak(api, inst, 60);
         ok(rim > 0 && clave > 0, "Rim and Clave both sound, on their own lanes", NULL);
         ok(rim != clave, "and they are not the same sound", NULL);
@@ -503,7 +503,7 @@ int main(int argc, char **argv)
      *
      * On the hardware the hats' and cymbal's six Schmitt-trigger oscillators
      * never stop; the envelopes gate them, so every hit catches the bank at a
-     * different phase and no two are the same. sc808 restarts them per note
+     * different phase and no two are the same. Engine A restarts them per note
      * because in SuperCollider every note is a new synth.
      *
      * The test is exact: in Retrig the two hits must be BIT-IDENTICAL, and in
@@ -514,14 +514,14 @@ int main(int argc, char **argv)
     printf("\nfree-running metal\n");
     {
         /* There is no Retrig any more: the Metal switch existed to choose
-         * between the circuit's free-running bank and the sc808 voices,
+         * between the circuit's free-running bank and the Engine A voices,
          * which restarted their oscillators every note because in
-         * SuperCollider every note is a new synth. The sc808 metal is off
+         * SuperCollider every note is a new synth. The Engine A metal is off
          * the surface, so free-running is simply what the module does —
          * and that makes this the assertion that matters, unconditionally. */
         fresh(api, &inst);
-        note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 0);
-        note_on(api, inst, 36 + SC808_CH, 100); capture(api, inst, 1);
+        note_on(api, inst, 36 + W8_CH, 100); capture(api, inst, 0);
+        note_on(api, inst, 36 + W8_CH, 100); capture(api, inst, 1);
         {
             const double diff = captures_diff();
             char d[64]; snprintf(d, sizeof(d), "relative difference %.5f", diff);
@@ -554,12 +554,12 @@ int main(int argc, char **argv)
          * roughly triples the tail.
          */
         fresh(api, &inst);
-        note_on(api, inst, 36 + SC808_SD, 110);
+        note_on(api, inst, 36 + W8_SD, 110);
         render_peak(api, inst, 40);                  /* past the transient */
         const int dryTail = render_peak(api, inst, 120);
         fresh(api, &inst);
         api->set_param(inst, "sd_rev", "110");
-        note_on(api, inst, 36 + SC808_SD, 110);
+        note_on(api, inst, 36 + W8_SD, 110);
         render_peak(api, inst, 40);
         const int wetTail = render_peak(api, inst, 120);
         snprintf(d, sizeof(d), "dry tail %d, with reverb %d", dryTail, wetTail);
@@ -597,7 +597,7 @@ int main(int argc, char **argv)
     printf("\noutput sanity\n");
     {
         quiesce(api, inst);
-        for(int v = 0; v < SC808_NUM_VOICES; ++v) note_on(api, inst, 36 + v, 127);
+        for(int v = 0; v < W8_NUM_VOICES; ++v) note_on(api, inst, 36 + v, 127);
         api->set_param(inst, "master_dist", "4");      /* crush, worst case */
         api->set_param(inst, "master_drive", "127");
         int peak = render_peak(api, inst, 400);

@@ -57,5 +57,5 @@ if [ "${NATIVE:-0}" != "1" ] && [ -f "$BUILD_DIR/dsp.so" ]; then
 fi
 
 echo; echo "=== Artifacts ==="
-find "$BUILD_DIR" -maxdepth 1 -type f \( -name "*.so" -o -name "sc808_*" \) \
+find "$BUILD_DIR" -maxdepth 1 -type f \( -name "*.so" -o -name "w8_*" \) \
      -exec sh -c 'printf "%s\n  " "$1"; file -b "$1"' _ {} \;

@@ -1,14 +1,14 @@
 /*
- * sc808_voices.h — Engine A: sc808.scd, voice by voice, in C++.
+ * w8_voices.h — Engine A: sc808.scd, voice by voice, in C++.
  *
  * Each class below is one SynthDef from src/vendor/sc808/sc808.scd, kept in
  * the same order and using the same variable names as the original so the two
- * can be read side by side. Where sc808 does something surprising, the
+ * can be read side by side. Where the original does something surprising, the
  * comment says what and why it was NOT "fixed" — this is a transcription, and
  * a transcription that improves things does not null against SuperCollider.
  *
- * The knobs are ours. sc808 exposes MIDI-note and second arguments; 8W8
- * exposes 0-127 pots and maps them onto those arguments in sc808_engine.cpp.
+ * The knobs are ours. The original exposes MIDI-note and second arguments; 8W8
+ * exposes 0-127 pots and maps them onto those arguments in w8_engine.cpp.
  * Every trigger() below takes engineering values, already mapped.
  *
  * One structural difference from SC, and it is deliberate: SC creates a new
@@ -20,26 +20,26 @@
  * sc808.scd is MIT (Sonic Pi, etc/synthdefs); 8W8 is GPL-3.0.
  * Original 808 SynthDefs by Yoshinosuke Horiuchi, adapted by Sam Aaron.
  */
-#ifndef SC808_VOICES_H
-#define SC808_VOICES_H
+#ifndef W8_VOICES_H
+#define W8_VOICES_H
 
-#include "sc_ugens.h"
+#include "w8_ugens.h"
 
-namespace sc808 {
+namespace w8 {
 
 using namespace sc;
 
 /*
  * The six Schmitt-trigger oscillators.
  *
- * sc808 uses 203.52, 366.31, 301.77, 518.19, 811.16, 538.75 Hz. Werner, Abel
+ * Engine A uses 203.52, 366.31, 301.77, 518.19, 811.16, 538.75 Hz. Werner, Abel
  * and Smith measured the real HD14584 bank at 205.3, 369.6, 304.4, 522.7 Hz
  * hardwired plus two factory-trimmed to 800 and 540 — so Horiuchi's set is
- * within about 1% of the hardware. They are kept as sc808 has them, because
- * this engine's job is to reproduce sc808; Engine B will use the measured set.
+ * within about 1% of the hardware. They are kept as Engine A has them, because
+ * this engine's job is to reproduce Engine A; Engine B will use the measured set.
  *
  * The real machine shares one chip between the cowbell, cymbal, open hat and
- * closed hat, and sc808 preserves that: the cowbell's two "notes" resolve to
+ * closed hat, and Engine A preserves that: the cowbell's two "notes" resolve to
  * 811.4 and 538.7 Hz, which are oscillators 5 and 6 of this bank.
  *
  * LFPulse is unipolar, so this sum sits around +3 and every voice's filter
@@ -53,7 +53,7 @@ class MetalBank {
 public:
     /*
      * SC starts every LFPulse at phase 0 in a fresh synth, so a trigger
-     * restarts the bank — and that is why sc808's hats are identical hit to
+     * restarts the bank — and that is why Engine A's hats are identical hit to
      * hit.
      *
      * The hardware does not do this. The HD14584's six oscillators free-run
@@ -78,7 +78,7 @@ private:
 };
 
 /* Every voice reports when it has gone quiet so the engine can stop calling
- * it. sc808 uses DetectSilence for this; we use an explicit envelope-done
+ * it. Engine A uses DetectSilence for this; we use an explicit envelope-done
  * flag plus a decayed-output test, because a filter tail can outlive its
  * envelope and cutting it dead would click. */
 class VoiceBase {
@@ -107,7 +107,7 @@ protected:
  * faster envelope, highpassed at 350 Hz — the click you hear is the top of
  * that sweep before it drops out of the passband.
  *
- * THE LIMITER. sc808 ends with Limiter.ar(sig, 0.5), and SC's Limiter is a
+ * THE LIMITER. Engine A ends with Limiter.ar(sig, 0.5), and SC's Limiter is a
  * lookahead design: it delays by two buffers, 20 ms at its default, and it is
  * doing about 23 dB of gain reduction on the way through.
  *
@@ -116,7 +116,7 @@ protected:
  * kick, and squashing the first 100 ms flattens exactly the attack and decay
  * that make one.
  *
- * So the limiter is REPRODUCED (the null test needs it, and it is what sc808
+ * So the limiter is REPRODUCED (the null test needs it, and it is what Engine A
  * sounds like) but the engine switches it off with setLimiter(false). With it
  * off the voice emits the raw sum and the engine's own per-voice Drive stage
  * catches the peaks — which is the stage that exists for exactly that, and
@@ -138,13 +138,13 @@ public:
         lim_.set(0.01f, sr_);
     }
 
-    /* sc808's lookahead limiter: on for the null test, off in the engine.
+    /* Engine A's lookahead limiter: on for the null test, off in the engine.
      * See the note above — it costs 20 ms of latency and 23 dB of the
      * dynamics, and it is not what a drum machine wants. */
     void setLimiter(const bool _on) { useLimiter_ = _on; }
 
     /* freqHz: the note. click: the 1.45 ms pre-level. decay: seconds.
-     * punch: sc808's fixed 2.0, exposed here as Tone. */
+     * punch: Engine A's fixed 2.0, exposed here as Tone. */
     void trigger(const double _freqHz, const float _click, const float _decay,
                  const float _punch)
     {
@@ -230,7 +230,7 @@ private:
  * an octave apart less a semitone) crossfaded against bandpassed noise. `mix`
  * is the 808's Snappy: 0 is all shell, 1 is all wires.
  *
- * sc808's `click` argument is inverted and clipped —
+ * Engine A's `click` argument is inverted and clipped —
  * click = clip(0.1 - click/10, 0, 0.1) — so a HIGHER click value gives a
  * SHORTER attack segment. Kept as-is; the engine maps the pot so the panel
  * still reads the sensible way round.
@@ -304,10 +304,10 @@ private:
  * decay, click and the two detune ratios. One class, six parameter sets.
  *
  * That is not a shortcut: on a real 808 the low tom and low conga ARE one
- * circuit with a panel switch, and likewise mid and high. sc808 splits them
+ * circuit with a panel switch, and likewise mid and high. Engine A splits them
  * into six SynthDefs; the hardware has three.
  *
- * sc808 sets congahi's note to 52, the same as congalo — plainly a copy-paste
+ * Engine A sets congahi's note to 52, the same as congalo — plainly a copy-paste
  * slip, since the mid conga sits at 57 between them. The transcription keeps
  * the graph honest and the engine's DEFAULT POT for the high conga is raised
  * instead, which is a knob position rather than a change to this code.
@@ -320,7 +320,7 @@ struct TomSpec {
     float detune2;   /* middle node, x note */
 };
 
-/* sc808's values, verbatim. */
+/* Engine A's values, verbatim. */
 static const TomSpec kTomLo   = { 40.0f, 20.0f, 0.40f, 1.25f,     1.125f    };
 static const TomSpec kTomMid  = { 44.0f, 16.0f, 0.40f, 1.3333f,   1.125f    };
 static const TomSpec kTomHi   = { 52.0f, 11.0f, 0.40f, 1.3333f,   1.121212f };
@@ -408,7 +408,7 @@ public:
             const EnvSeg a[2] = { { 1.0f, 0.0f,   -20.0f },
                                   { 0.0f, _decay, -20.0f } };
             env_.set(1.0f, a, 2, sr_);
-            /* Claves sit far above the rim shot: sc808 puts them at note 99
+            /* Claves sit far above the rim shot: Engine A puts them at note 99
              * against the rim's 92, so the lane's Tune pot moves both and the
              * offset is applied here. */
             clvHz_ = _freqHz * powf(2.0f, 7.0f / 12.0f);
@@ -460,7 +460,7 @@ private:
 /*
  * sonic-pi-sc808_maracas. Noise, a highpass at about 5.6 kHz, and an envelope
  * that ramps 0.3 -> 1 over 27 ms before collapsing. That short RAMP UP is the
- * shaker's rattle and is the one place in sc808 where the first envelope
+ * shaker's rattle and is the one place in Engine A where the first envelope
  * segment has a real duration rather than being an instant jump.
  */
 class Maracas : public VoiceBase {
@@ -498,13 +498,13 @@ private:
  * sonic-pi-sc808_clap.
  *
  * Not the hardware's clap. A real 808 fires three fast noise bursts about
- * 10 ms apart before the tail; sc808 uses one immediate burst plus a second
+ * 10 ms apart before the tail; Engine A uses one immediate burst plus a second
  * one delayed 26 ms, then a long diffuse "reverb" of quiet noise. It reads as
  * a clap and it is what we are transcribing, but it is the voice with the
- * most daylight between sc808 and an 808, and the first candidate for
+ * most daylight between Engine A and an 808, and the first candidate for
  * Engine B.
  *
- * Two sc808 quirks preserved: `amp` scales only the delayed burst and the
+ * Two Engine A quirks preserved: `amp` scales only the delayed burst and the
  * tail, never the attack burst; and the SynthDef reuses the name `decay` for
  * a signal after using it as a time, so the tail's length ends up read off an
  * audio-rate value. We use the nominal 4 s + decay and note that the clap is
@@ -525,7 +525,7 @@ public:
 
         /* Env.dadsr(delay, attack=0, decay=6, sustain=0, ...): silence for
          * `spread`, then an instant jump to 1 and a 6 s collapse. `spread` is
-         * sc808's fixed 26 ms, exposed on the panel. */
+         * Engine A's fixed 26 ms, exposed on the panel. */
         const EnvSeg d[3] = { { 0.0f, _spread, -160.0f },
                               { 1.0f, 0.0f,    -160.0f },
                               { 0.0f, 6.0f,    -160.0f } };
@@ -573,7 +573,7 @@ private:
  * edges beyond a 247 Hz highpass and a 4.4 kHz lowpass, and two envelopes
  * summed: a 1 s spike at 6x for the attack and the long body.
  *
- * sc808 writes the notes as 79.58979585613574 and 72.50534928521387, which
+ * Engine A writes the notes as 79.58979585613574 and 72.50534928521387, which
  * resolve to 811.4 and 538.7 Hz — oscillators 5 and 6 of the metal bank,
  * exactly as the real 808 wires them. The odd decimals are somebody having
  * back-solved the frequencies into MIDI notes.
@@ -769,7 +769,7 @@ private:
  * is really "how much low band", and even at maximum it is a whisper next to
  * sig2. That is correct: an 808 cymbal is mostly the 7 kHz band.
  *
- * sc808 includes BLowShelf(sig1, 1000, 1, 0) — a 0 dB shelf, which is a
+ * Engine A includes BLowShelf(sig1, 1000, 1, 0) — a 0 dB shelf, which is a
  * no-op. It is kept so the chain matches line for line; the compiler is
  * welcome to notice.
  */
@@ -880,6 +880,6 @@ private:
     LPF    out_lp_;
 };
 
-} /* namespace sc808 */
+} /* namespace w8 */
 
-#endif /* SC808_VOICES_H */
+#endif /* W8_VOICES_H */

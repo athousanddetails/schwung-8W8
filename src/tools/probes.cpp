@@ -6,11 +6,11 @@
  * leaving a six-filter chain to be bisected by hand.
  *
  * Every probe renders one CONSTRUCTION SAMPLE first and throws it away — see
- * the note on SC's per-note construction step in sc_ugens.h. SC builds a
+ * the note on SC's per-note construction step in w8_ugens.h. SC builds a
  * synth per note and every UGen Ctor runs one sample through the graph before
  * the first real block, so a comparison that skips it is comparing two
  * different things. The engine itself never does this: the flag and its
- * branch are compiled out unless SC808_NULLTEST is defined, which only these
+ * branch are compiled out unless W8_NULLTEST is defined, which only these
  * test tools do.
  *
  * GPL-3.0.
@@ -20,11 +20,11 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "sc_ugens.h"
+#include "w8_ugens.h"
 
 using namespace sc;
 
-/* Storage behind the harness-only flag declared in sc_ugens.h. */
+/* Storage behind the harness-only flag declared in w8_ugens.h. */
 namespace sc { bool g_scPriming = false; }
 
 static const double SR     = 44100.0;

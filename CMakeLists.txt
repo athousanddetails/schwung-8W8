@@ -11,53 +11,53 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 # No -ffast-math: it lets the compiler assume no NaN/Inf, which would remove
 # the safety of the clamps on the realtime path. It would also break the null
-# test — sc_ugens.h reproduces SuperCollider's arithmetic, and a compiler free
+# test — w8_ugens.h reproduces SuperCollider's arithmetic, and a compiler free
 # to reassociate it does not reproduce anything.
 set(CMAKE_C_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-set(SC808_SOURCES
-    src/dsp/sc808_plugin.cpp
-    src/dsp/sc808_engine.cpp
+set(W8_SOURCES
+    src/dsp/w8_plugin.cpp
+    src/dsp/w8_engine.cpp
 )
 
 # The Move module: dlopen'd by Schwung's chain host as dsp.so
-add_library(sc808 SHARED ${SC808_SOURCES})
-target_include_directories(sc808 PRIVATE src src/dsp src/host)
-target_link_libraries(sc808 PRIVATE m)
-set_target_properties(sc808 PROPERTIES OUTPUT_NAME "dsp" PREFIX "" SUFFIX ".so")
+add_library(w8 SHARED ${W8_SOURCES})
+target_include_directories(w8 PRIVATE src src/dsp src/host)
+target_link_libraries(w8 PRIVATE m)
+set_target_properties(w8 PROPERTIES OUTPUT_NAME "dsp" PREFIX "" SUFFIX ".so")
 # libstdc++ static: the Move ships 6.0.29 and we will not gamble on it.
-target_link_options(sc808 PRIVATE -static-libstdc++ -static-libgcc)
+target_link_options(w8 PRIVATE -static-libstdc++ -static-libgcc)
 
 # End-to-end loader test: dlopens the real dsp.so like the chain host does.
 # Cross-compiled and run ON the Move.
-add_executable(sc808_loadtest src/tools/loadtest.c)
-target_include_directories(sc808_loadtest PRIVATE src src/dsp src/host)
-target_link_libraries(sc808_loadtest PRIVATE dl m)
+add_executable(w8_loadtest src/tools/loadtest.c)
+target_include_directories(w8_loadtest PRIVATE src src/dsp src/host)
+target_link_libraries(w8_loadtest PRIVATE dl m)
 
 # CPU gate: renders each voice in isolation and reports realtime factor.
 # 6W6's metal voices took 55% of the block budget before they were rewritten;
 # this is here so 8W8 finds that out on the device rather than in a gig.
-add_executable(sc808_bench src/tools/bench.cpp src/dsp/sc808_engine.cpp)
-target_include_directories(sc808_bench PRIVATE src src/dsp src/host)
-target_link_libraries(sc808_bench PRIVATE m)
-target_link_options(sc808_bench PRIVATE -static-libstdc++ -static-libgcc)
+add_executable(w8_bench src/tools/bench.cpp src/dsp/w8_engine.cpp)
+target_include_directories(w8_bench PRIVATE src src/dsp src/host)
+target_link_libraries(w8_bench PRIVATE m)
+target_link_options(w8_bench PRIVATE -static-libstdc++ -static-libgcc)
 
 # Offline renderer: same engine, writes WAVs so the kit can be heard and A/B'd
 # against hardware without a device in the loop.
-add_executable(sc808_render src/tools/render.cpp src/dsp/sc808_engine.cpp)
-target_include_directories(sc808_render PRIVATE src src/dsp src/host)
-target_link_libraries(sc808_render PRIVATE m)
-target_link_options(sc808_render PRIVATE -static-libstdc++ -static-libgcc)
+add_executable(w8_render src/tools/render.cpp src/dsp/w8_engine.cpp)
+target_include_directories(w8_render PRIVATE src src/dsp src/host)
+target_link_libraries(w8_render PRIVATE m)
+target_link_options(w8_render PRIVATE -static-libstdc++ -static-libgcc)
 
 # The circuit kick, held to the paper's claims. Native only: it is a test, and
 # it is the only verification that voice has — there is nothing to null it
 # against. See tools/bd_check.cpp.
-add_executable(sc808_bd_check tools/bd_check.cpp)
-target_include_directories(sc808_bd_check PRIVATE src src/dsp)
-target_link_libraries(sc808_bd_check PRIVATE m)
+add_executable(w8_bd_check tools/bd_check.cpp)
+target_include_directories(w8_bd_check PRIVATE src src/dsp)
+target_link_libraries(w8_bd_check PRIVATE m)
 
 # Kit balance: fits the per-lane trims. Native only — it is a design tool.
-add_executable(sc808_kit_check tools/kit_check.cpp src/dsp/sc808_engine.cpp)
-target_include_directories(sc808_kit_check PRIVATE src src/dsp src/host)
-target_link_libraries(sc808_kit_check PRIVATE m)
+add_executable(w8_kit_check tools/kit_check.cpp src/dsp/w8_engine.cpp)
+target_include_directories(w8_kit_check PRIVATE src src/dsp src/host)
+target_link_libraries(w8_kit_check PRIVATE m)

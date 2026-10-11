@@ -7,7 +7,7 @@ the next, against the player's own Desktop references.
 
 1. **TOMS** — "better; not 1:1". Revisit someday, low priority.
 2. **CONGAS** — "Congas and Toms OK. i like them."
-3. **RIM SHOT** — the sc808 algorithm IS the rim, after two circuit
+3. **RIM SHOT** — the Engine A algorithm IS the rim, after two circuit
    builds lost on hardware. The one transcription voice still in the
    audio path.
 4. **HAND CLAP** — "fucking good."
@@ -26,7 +26,7 @@ below was done without moving a single sample of it.
 ## Structural work — DONE
 
 - **Circuit is the engine.** Fifteen Engine enums and the master Metal
-  enum are gone. sc808_voices.h stays for the null test, which reaches
+  enum are gone. w8_voices.h stays for the null test, which reaches
   it through `src/tools/nullref.cpp` rather than the engine.
 - **Seven distortion characters** — 9W9's curves under 8W8's own
   contract (linear 0..10, bit-exact bypass at 0). Makeup exponents

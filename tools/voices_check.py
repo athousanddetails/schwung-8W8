@@ -9,7 +9,7 @@ levels its generator never emitted and four of eleven voices silently never
 followed the pad, for months.
 
 This reads the two hierarchy blobs straight out of the GENERATED header and
-checks them against src/dsp/sc808_plugin.cpp's own note routers, which stay the
+checks them against src/dsp/w8_plugin.cpp's own note routers, which stay the
 authority. A map that drifts from the router fails here.
 
     python3 tools/voices_check.py
@@ -22,9 +22,9 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-HDR = (ROOT / "src/dsp/sc808_params.h").read_text()
-PLUG = (ROOT / "src/dsp/sc808_plugin.cpp").read_text()
-ENG = (ROOT / "src/dsp/sc808_engine.cpp").read_text()
+HDR = (ROOT / "src/dsp/w8_params.h").read_text()
+PLUG = (ROOT / "src/dsp/w8_plugin.cpp").read_text()
+ENG = (ROOT / "src/dsp/w8_engine.cpp").read_text()
 
 fails = []
 
@@ -39,23 +39,23 @@ def blob(sym):
     """The C string literal `sym` in the generated header, back as a value."""
     m = re.search(re.escape(sym) + r"\[\]\s*=\s*(.*?);", HDR, re.S)
     if not m:
-        sys.exit(f"{sym} not found in sc808_params.h")
+        sys.exit(f"{sym} not found in w8_params.h")
     parts = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))
     return json.loads("".join(parts).replace('\\"', '"').replace("\\\\", "\\"))
 
 
 # ---- the orders the plugin and engine actually use -------------------------
 
-VOICE_IDS = re.search(r"kVoiceIds\[SC808_NUM_VOICES\]\s*=\s*\{(.*?)\}", ENG, re.S)
+VOICE_IDS = re.search(r"kVoiceIds\[W8_NUM_VOICES\]\s*=\s*\{(.*?)\}", ENG, re.S)
 VOICE_IDS = re.findall(r'"(\w+)"', VOICE_IDS.group(1))
 
-LEVEL_OF = re.search(r"kLevelOf\[SC808_NUM_VOICES\]\s*=\s*\{(.*?)\}", PLUG, re.S)
+LEVEL_OF = re.search(r"kLevelOf\[W8_NUM_VOICES\]\s*=\s*\{(.*?)\}", PLUG, re.S)
 LEVEL_OF = re.findall(r'"(\w+)"', LEVEL_OF.group(1))
 
 # The GM switch, as the router actually spells it: a run of `case N:` labels
-# followed by `return SC808_XX;`. First case of a run is the canonical note.
+# followed by `return W8_XX;`. First case of a run is the canonical note.
 GM = {}
-for cases, voice in re.findall(r"((?:case\s+\d+:\s*)+)return\s+SC808_(\w+);", PLUG):
+for cases, voice in re.findall(r"((?:case\s+\d+:\s*)+)return\s+W8_(\w+);", PLUG):
     ns = [int(n) for n in re.findall(r"case\s+(\d+):", cases)]
     GM.setdefault(voice.lower(), []).extend(ns)
 
@@ -67,7 +67,7 @@ NOT_VOICES = {"rev", "dly", "root"}
 print("Schwung voices contract — 8W8\n")
 
 # ---- 0. the table that has already cost 9W9 four voices --------------------
-drum = blob("sc808_ui_pages_json")
+drum = blob("w8_ui_pages_json")
 levels = drum["levels"]
 
 check(LEVEL_OF == VOICE_IDS,
@@ -79,8 +79,8 @@ check(not missing,
       "all 16 resolve" if not missing else f"missing: {missing}")
 
 # ---- the two maps ----------------------------------------------------------
-for name, sym in (("drum rack", "sc808_ui_pages_json"),
-                  ("GM", "sc808_ui_pages_gm_json")):
+for name, sym in (("drum rack", "w8_ui_pages_json"),
+                  ("GM", "w8_ui_pages_gm_json")):
     print(f"\n  {name}")
     h = blob(sym)
     lv = h["levels"]
@@ -113,7 +113,7 @@ for name, sym in (("drum rack", "sc808_ui_pages_json"),
 # ---- drum rack: must BE the router, not merely resemble it -----------------
 print("\n  against the plugin's routers")
 want = {vid: DRUMRACK_BASE + i for i, vid in enumerate(VOICE_IDS)}
-got = {i: e["note"] for i, e in blob("sc808_ui_pages_json")["levels"].items()
+got = {i: e["note"] for i, e in blob("w8_ui_pages_json")["levels"].items()
        if "note" in e}
 off = sorted(set(want) | set(got))
 off = [k for k in off if got.get(k) != want.get(k)]
@@ -122,7 +122,7 @@ check(got == want,
       f"{min(want.values())}..{max(want.values())}" if got == want else
       "; ".join(f"{k}: declared {got.get(k)}, router {want.get(k)}" for k in off))
 
-gmdecl = {i: e["note"] for i, e in blob("sc808_ui_pages_gm_json")["levels"].items()
+gmdecl = {i: e["note"] for i, e in blob("w8_ui_pages_gm_json")["levels"].items()
           if "note" in e}
 wrong = [f"{v}={n} (router: {GM.get(v)})"
          for v, n in gmdecl.items() if n not in GM.get(v, [])]

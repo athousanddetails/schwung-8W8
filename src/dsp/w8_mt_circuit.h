@@ -1,5 +1,5 @@
 /*
- * sc808_mt_circuit.h — the TR-808 metal voices, from the circuit.
+ * w8_mt_circuit.h — the TR-808 metal voices, from the circuit.
  *
  * One file because it is one circuit: the 808 generates its cowbell, cymbal,
  * open hat and closed hat from a SINGLE bank of six Schmitt-trigger square
@@ -60,15 +60,15 @@
  *
  * GPL-3.0.
  */
-#ifndef SC808_MT_CIRCUIT_H
-#define SC808_MT_CIRCUIT_H
+#ifndef W8_MT_CIRCUIT_H
+#define W8_MT_CIRCUIT_H
 
 #include <math.h>
 
-#include "sc_ugens.h"
-#include "sc808_circuit_common.h"
+#include "w8_ugens.h"
+#include "w8_circuit_common.h"
 
-namespace sc808 {
+namespace w8 {
 
 /* ---- the oscillator bank ---------------------------------------------- */
 
@@ -110,7 +110,7 @@ public:
     }
 
     /* Tune, as a ratio on the whole bank — the "circuit bend" every 808
-     * modder does first, and the same control the sc808 metal had. */
+     * modder does first, and the same control the Engine A metal had. */
     void setRatio(const double _r)
     {
         const double r = _r < 0.25 ? 0.25 : (_r > 4.0 ? 4.0 : _r);
@@ -875,6 +875,6 @@ private:
     int  quiet_ = 0;
 };
 
-} /* namespace sc808 */
+} /* namespace w8 */
 
-#endif /* SC808_MT_CIRCUIT_H */
+#endif /* W8_MT_CIRCUIT_H */

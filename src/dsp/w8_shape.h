@@ -1,5 +1,5 @@
 /*
- * sc808_shape.h — the post-voice drive stage.
+ * w8_shape.h — the post-voice drive stage.
  *
  * SEVEN characters, the same seven 9W9 and 6W6 offer, so a player who knows
  * what BFZ does on the 909 knows what it does here. The CURVES are 9W9's,
@@ -39,14 +39,14 @@
  *
  * GPL-3.0.
  */
-#ifndef SC808_SHAPE_H
-#define SC808_SHAPE_H
+#ifndef W8_SHAPE_H
+#define W8_SHAPE_H
 
 #include <math.h>
 
 /* Below this the stage is a wire. Explicit, so "0 means off" is a promise
  * about the code and not about float behaviour. */
-#define SC808_DRIVE_BYPASS 1.0e-3f
+#define W8_DRIVE_BYPASS 1.0e-3f
 
 /*
  * Crush decimates as well as quantises, so it carries state: the held sample
@@ -54,11 +54,11 @@
  * master stage — sharing one would make the hats' sample-and-hold audible on
  * the kick.
  */
-#define SC808_CRUSH_STATE 2
+#define W8_CRUSH_STATE 2
 
-static inline float sc808_diode_round(const float _x, const float _k)
+static inline float w8_diode_round(const float _x, const float _k)
 {
-    if(_k < SC808_DRIVE_BYPASS) return _x;
+    if(_k < W8_DRIVE_BYPASS) return _x;
     /* Normalised at x = 0.5: tanh(k*0.5) * 0.5/tanh(0.5k) == 0.5. */
     return tanhf(_k * _x) * (0.5f / tanhf(0.5f * _k));
 }
@@ -66,14 +66,14 @@ static inline float sc808_diode_round(const float _x, const float _k)
 /* The SAT / BFZ / PDIST cores, exactly 9W9's algebra, kept as their own
  * functions so the makeup exponents below are visibly the only thing this
  * module adds to them. */
-static inline float sc808_sat_core(const float _x, const float _k)
+static inline float w8_sat_core(const float _x, const float _k)
 {
     const float u   = _x * _k + 0.08f * _k * _x * _x;
     const float wet = u / (1.0f + fabsf(u));
     return 0.35f * _x + 0.8775f * wet;
 }
 
-static inline float sc808_bfz_core(const float _x, const float _k)
+static inline float w8_bfz_core(const float _x, const float _k)
 {
     /* The 2.5x pre-gain fuzzes even at the bottom of the knob, so the fuzz
      * is crossfaded in over the first of the range — 9W9's own guard, and it
@@ -92,7 +92,7 @@ static inline float sc808_bfz_core(const float _x, const float _k)
     return (1.0f - m) * _x + m * wet;
 }
 
-static inline float sc808_pdist_core(const float _x, const float _k)
+static inline float w8_pdist_core(const float _x, const float _k)
 {
     float u = _x * _k + 0.12f;
     if(u >  1.0f) u =  1.0f;
@@ -105,16 +105,16 @@ static inline float sc808_pdist_core(const float _x, const float _k)
  * 0 Diode, 1 Clip, 2 SAT, 3 BFZ, 4 PDIST, 5 Fold, 6 Crush.
  *
  * MENU ORDER IS STORAGE ORDER and it changed when SAT/BFZ/PDIST arrived:
- * Fold moved 2 -> 5 and Crush 3 -> 6. sc808_deserialize remaps blobs written
+ * Fold moved 2 -> 5 and Crush 3 -> 6. w8_deserialize remaps blobs written
  * before that. Never reorder again without extending the migration.
  *
- * `_st` is SC808_CRUSH_STATE floats, or null for a stateless call — only
+ * `_st` is W8_CRUSH_STATE floats, or null for a stateless call — only
  * Crush reads it, and without it Crush quantises but does not decimate.
  */
-static inline float sc808_shape_st(const float _x, const float _drive,
+static inline float w8_shape_st(const float _x, const float _drive,
                                    const int _type, float *_st)
 {
-    if(_drive < SC808_DRIVE_BYPASS) return _x;
+    if(_drive < W8_DRIVE_BYPASS) return _x;
     /* k = 1 + drive: k = 1 is the transparent point every curve below is
      * written around, and the knob climbs from there. */
     const float k = 1.0f + _drive;
@@ -129,11 +129,11 @@ static inline float sc808_shape_st(const float _x, const float _drive,
         return v / powf(k, 0.6f);
     }
     case 2:     /* SAT — warm, parallel, keeps the transient */
-        return sc808_sat_core(_x, k)   / powf(k, 0.42f);
+        return w8_sat_core(_x, k)   / powf(k, 0.42f);
     case 3:     /* BFZ — thick fuzz wall */
-        return sc808_bfz_core(_x, k)   / powf(k, 0.65f);
+        return w8_bfz_core(_x, k)   / powf(k, 0.65f);
     case 4:     /* PDIST — biased cubic crunch */
-        return sc808_pdist_core(_x, k) / powf(k, 0.45f);
+        return w8_pdist_core(_x, k) / powf(k, 0.45f);
     case 5: {   /* wavefolder — metallic, odd harmonics rise with drive */
         float v = _x * k;
         for(int i = 0; i < 3; ++i)
@@ -159,15 +159,15 @@ static inline float sc808_shape_st(const float _x, const float _drive,
     }
     case 0:
     default:
-        return sc808_diode_round(_x, _drive);
+        return w8_diode_round(_x, _drive);
     }
 }
 
 /* Stateless call, for the checks and tools that have no per-voice state.
  * Crush quantises without decimating through this door. */
-static inline float sc808_shape(const float _x, const float _drive, const int _type)
+static inline float w8_shape(const float _x, const float _drive, const int _type)
 {
-    return sc808_shape_st(_x, _drive, _type, 0);
+    return w8_shape_st(_x, _drive, _type, 0);
 }
 
-#endif /* SC808_SHAPE_H */
+#endif /* W8_SHAPE_H */

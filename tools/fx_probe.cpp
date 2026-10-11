@@ -24,9 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sc808_engine.h"
-#include "sc808_fx.h"
-#include "sc808_shape.h"
+#include "w8_engine.h"
+#include "w8_fx.h"
+#include "w8_shape.h"
 
 static int fails = 0;
 
@@ -72,9 +72,9 @@ int main()
         bool allDry = true;
         for(int t = 0; t < 7; ++t)
         {
-            float st[SC808_CRUSH_STATE] = { 0.0f, 0.0f };
+            float st[W8_CRUSH_STATE] = { 0.0f, 0.0f };
             for(int i = 0; i < N; ++i)
-                if(sc808_shape_st(dry[i], 0.0f, t, st) != dry[i]) { allDry = false; break; }
+                if(w8_shape_st(dry[i], 0.0f, t, st) != dry[i]) { allDry = false; break; }
             if(!allDry) { printf("      first divergence in %s\n", kNames[t]); break; }
         }
         check(allDry, "drive 0 is bit-exactly dry for all seven types",
@@ -88,9 +88,9 @@ int main()
         for(int t = 0; t < 7; ++t)
             for(int k = 1; k <= 10; ++k)
             {
-                float st[SC808_CRUSH_STATE] = { 0.0f, 0.0f };
+                float st[W8_CRUSH_STATE] = { 0.0f, 0.0f };
                 for(int i = 0; i < N; ++i)
-                    wet[i] = sc808_shape_st(dry[i], (float)k, t, st);
+                    wet[i] = w8_shape_st(dry[i], (float)k, t, st);
                 const double db = 20.0 * log10((rms(wet, N) + 1e-30) / dryRms);
                 if(fabs(db) > fabs(worst)) { worst = db; worstName = kNames[t]; }
             }
@@ -106,11 +106,11 @@ int main()
         bool allMove = true; char d[128]; double least = 1e9; const char *leastName = "";
         for(int t = 0; t < 7; ++t)
         {
-            float st[SC808_CRUSH_STATE] = { 0.0f, 0.0f };
+            float st[W8_CRUSH_STATE] = { 0.0f, 0.0f };
             double diff = 0.0;
             for(int i = 0; i < N; ++i)
             {
-                const float y = sc808_shape_st(dry[i], 5.0f, t, st);
+                const float y = w8_shape_st(dry[i], 5.0f, t, st);
                 diff += fabs((double)y - (double)dry[i]);
             }
             diff /= N;
@@ -127,9 +127,9 @@ int main()
         for(int t = 0; t < 7; ++t)
             for(int k = 1; k <= 10; ++k)
             {
-                float st[SC808_CRUSH_STATE] = { 0.0f, 0.0f };
+                float st[W8_CRUSH_STATE] = { 0.0f, 0.0f };
                 double o = 0.0;
-                for(int i = 0; i < 64; ++i) o = sc808_shape_st(0.0f, (float)k, t, st);
+                for(int i = 0; i < 64; ++i) o = w8_shape_st(0.0f, (float)k, t, st);
                 if(fabs(o) > fabs(worst)) { worst = o; worstName = kNames[t]; }
                 if(fabs(o) > 1e-6) clean = false;
             }
@@ -139,12 +139,12 @@ int main()
 
     /* ---- 5. Crush really decimates when given state -------------------- */
     {
-        float st[SC808_CRUSH_STATE] = { 0.0f, 0.0f };
+        float st[W8_CRUSH_STATE] = { 0.0f, 0.0f };
         int held = 0;
-        float prev = sc808_shape_st(dry[0], 8.0f, 6, st);
+        float prev = w8_shape_st(dry[0], 8.0f, 6, st);
         for(int i = 1; i < 2000; ++i)
         {
-            const float y = sc808_shape_st(dry[i], 8.0f, 6, st);
+            const float y = w8_shape_st(dry[i], 8.0f, 6, st);
             if(y == prev) ++held;
             prev = y;
         }
@@ -161,21 +161,21 @@ int main()
      * from that, not from a bypass branch.
      */
     {
-        sc808_verb_t *r = (sc808_verb_t *)calloc(1, sizeof *r);
-        sc808_dly_t  *d = (sc808_dly_t  *)calloc(1, sizeof *d);
+        w8_verb_t *r = (w8_verb_t *)calloc(1, sizeof *r);
+        w8_dly_t  *d = (w8_dly_t  *)calloc(1, sizeof *d);
         r->hpf_hz = 150.0f; r->decay = 0.62f; r->tone = 0.45f; r->level = 0.8f;
         d->hpf_hz = 150.0f; d->fdbk = 0.35f;  d->tone = 0.40f; d->level = 0.8f;
         d->bpm = 120.0f; d->divi = 7;
-        sc808_verb_init(r, 44100.0f);
-        sc808_dly_init(d, 44100.0f);
-        sc808_dly_retime(d, 44100.0f);
+        w8_verb_init(r, 44100.0f);
+        w8_dly_init(d, 44100.0f);
+        w8_dly_retime(d, 44100.0f);
         d->dcur = d->time_ms * 0.001f * 44100.0f;
 
         bool silent = true;
         for(int i = 0; i < 44100 && silent; ++i)
         {
-            if(sc808_verb_tick(r, 0.0f) != 0.0f) silent = false;
-            if(sc808_dly_tick(d, 0.0f, 44100.0f) != 0.0f) silent = false;
+            if(w8_verb_tick(r, 0.0f) != 0.0f) silent = false;
+            if(w8_dly_tick(d, 0.0f, 44100.0f) != 0.0f) silent = false;
         }
         check(silent, "silent in, exactly zero out — for a whole second",
               "which is what keeps the kit bit-identical with the sends down");
@@ -184,8 +184,8 @@ int main()
         double we = 0.0, de = 0.0;
         for(int i = 0; i < N; ++i)
         {
-            we += fabs((double)sc808_verb_tick(r, dry[i]));
-            de += fabs((double)sc808_dly_tick(d, dry[i], 44100.0f));
+            we += fabs((double)w8_verb_tick(r, dry[i]));
+            de += fabs((double)w8_dly_tick(d, dry[i], 44100.0f));
         }
         char dd[128];
         snprintf(dd, sizeof dd, "reverb %.1f, delay %.1f (mean |wet| x1e3)",
@@ -194,7 +194,7 @@ int main()
 
         /* the tail outlives the input, which is the point of a reverb */
         double tail = 0.0;
-        for(int i = 0; i < 22050; ++i) tail += fabs((double)sc808_verb_tick(r, 0.0f));
+        for(int i = 0; i < 22050; ++i) tail += fabs((double)w8_verb_tick(r, 0.0f));
         snprintf(dd, sizeof dd, "half a second of tail sums to %.3f", tail);
         check(tail > 0.0, "the reverb rings on after the input stops", dd);
         free(r); free(d);
@@ -202,19 +202,19 @@ int main()
 
     /* ---- 7. the delay division table matches the panel ----------------- */
     {
-        sc808_dly_t *d = (sc808_dly_t *)calloc(1, sizeof *d);
+        w8_dly_t *d = (w8_dly_t *)calloc(1, sizeof *d);
         d->bpm = 120.0f;
         bool rising = true; char dd[128];
         float prev = -1.0f;
-        for(int i = 0; i < SC808_DLY_DIVS; ++i)
+        for(int i = 0; i < W8_DLY_DIVS; ++i)
         {
             d->divi = i;
-            sc808_dly_retime(d, 44100.0f);
+            w8_dly_retime(d, 44100.0f);
             if(d->time_ms <= prev) rising = false;
             prev = d->time_ms;
         }
         /* at 120 BPM a quarter is 500 ms and it is index 8 */
-        d->divi = 8; sc808_dly_retime(d, 44100.0f);
+        d->divi = 8; w8_dly_retime(d, 44100.0f);
         snprintf(dd, sizeof dd, "1/4 at 120 BPM is %.1f ms, longest is %.1f ms",
                  d->time_ms, prev);
         check(rising && fabs(d->time_ms - 500.0) < 1.0,
@@ -222,15 +222,15 @@ int main()
 
         /* the longest division at a slow tempo must still fit the line, with
          * daylight between the read and the write — 6W6 leaves one sample */
-        d->bpm = 40.0f; d->divi = SC808_DLY_DIVS - 1;
-        sc808_dly_retime(d, 44100.0f);
+        d->bpm = 40.0f; d->divi = W8_DLY_DIVS - 1;
+        w8_dly_retime(d, 44100.0f);
         const double maxSamples = (double)d->time_ms * 0.001 * 44100.0;
         snprintf(dd, sizeof dd, "%.0f samples of %d, %.0f spare",
-                 maxSamples, SC808_DLY_MAX, SC808_DLY_MAX - maxSamples);
+                 maxSamples, W8_DLY_MAX, W8_DLY_MAX - maxSamples);
         /* 250 not 256: the margin is applied in milliseconds and comes back
          * through a float multiply, so the sample count lands within an ulp
          * of the target rather than exactly on it. */
-        check(maxSamples <= SC808_DLY_MAX - 250,
+        check(maxSamples <= W8_DLY_MAX - 250,
               "the longest delay keeps clear of the write head", dd);
         free(d);
     }
@@ -254,9 +254,9 @@ int main()
         for(int k = 0; k <= 10; ++k)
         {
             const float a = (float)k / 10.0f;
-            sc808_glue_t g = { 0.0f, 0.0f };
+            w8_glue_t g = { 0.0f, 0.0f };
             for(int i = 0; i < N; ++i)
-                out[i] = a > 0.001f ? sc808_glue_tick(&g, busy[i], a, 44100.0f)
+                out[i] = a > 0.001f ? w8_glue_tick(&g, busy[i], a, 44100.0f)
                                     : busy[i];
             const double db = 20.0 * log10((rms(out, N) + 1e-30) / busyRms);
             if(fabs(db) > fabs(worst)) { worst = db; at = a; }
@@ -283,13 +283,13 @@ int main()
         for(int k = 0; k < 2; ++k)
         {
             const float a = k ? 1.0f : 0.0f;
-            sc808_glue_t gl = { 0.0f, 0.0f }, gq = { 0.0f, 0.0f };
+            w8_glue_t gl = { 0.0f, 0.0f }, gq = { 0.0f, 0.0f };
             for(int i = 0; i < N; ++i)
-                out[i] = a > 0.001f ? sc808_glue_tick(&gl, busy[i], a, 44100.0f)
+                out[i] = a > 0.001f ? w8_glue_tick(&gl, busy[i], a, 44100.0f)
                                     : busy[i];
             const double lr = rms(out, N);
             for(int i = 0; i < N; ++i)
-                outQ[i] = a > 0.001f ? sc808_glue_tick(&gq, quietP[i], a, 44100.0f)
+                outQ[i] = a > 0.001f ? w8_glue_tick(&gq, quietP[i], a, 44100.0f)
                                      : quietP[i];
             const double qr = rms(outQ, N);
             (k ? range1 : range0) = 20.0 * log10((lr + 1e-30) / (qr + 1e-30));
@@ -302,7 +302,7 @@ int main()
         /* at zero the caller skips it entirely — assert the contract the
          * render loop relies on rather than the function's behaviour */
         check(true, "at zero the render loop does not call it at all",
-              "the > 0.001 guard in sc808_render");
+              "the > 0.001 guard in w8_render");
     }
 
     printf(fails ? "\nFAILED (%d)\n" : "\nALL PASS\n", fails);

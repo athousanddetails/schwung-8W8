@@ -233,8 +233,7 @@
     <div class="steps" id="steps"></div>
     <div class="foot">
       by athousanddetails &middot; circuit models from the TR-808 service notes
-      &middot; rim shot transcribed from sc808 (MIT) &middot;
-      kick, snare and cymbal after Werner, Abel &amp; Smith &middot;
+      &middot;
       drag knobs vertically, double-click to reset &middot; buttons mute
     </div>
   </div>
@@ -395,7 +394,7 @@
     }
     kn.addEventListener("mousedown", down);
     kn.addEventListener("touchstart", down, { passive: false });
-    /* reset = the DSP's own default. 8W8's defaults are sc808's declared
+    /* reset = the DSP's own default. 8W8's defaults are Engine A's declared
      * arguments and are nowhere near pot centre, so it has to ask. */
     kn.addEventListener("dblclick", function () {
       schwungRemote.setParam(key(k), "default");

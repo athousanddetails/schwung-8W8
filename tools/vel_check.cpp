@@ -24,7 +24,7 @@
  * half. The monotonicity check below is what proves the two halves join up.
  *
  * Build: clang++ -std=c++14 -O2 -Isrc/dsp -o build-native/vel_check \
- *            tools/vel_check.cpp src/dsp/sc808_engine.cpp
+ *            tools/vel_check.cpp src/dsp/w8_engine.cpp
  *
  * GPL-3.0.
  */
@@ -32,7 +32,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "sc808_engine.h"
+#include "w8_engine.h"
 
 static const double SR = 44100.0;
 static int fails = 0;
@@ -48,17 +48,17 @@ static void check(const bool ok, const char *what, const char *detail = "")
  * one that does not mistake a short note for a quiet one. */
 static double hit_level(const int voice, const int velocity, const int depthPot)
 {
-    sc808_engine_t *e = sc808_create((float)SR);
+    w8_engine_t *e = w8_create((float)SR);
     char b[16];
     snprintf(b, sizeof b, "%d", depthPot);
-    sc808_set_param(e, "vel_depth", b);
+    w8_set_param(e, "vel_depth", b);
 
     static const int N = (int)(SR * 2.0);
     static float buf[(int)(44100 * 2.0)];
     memset(buf, 0, sizeof buf);
-    sc808_trigger(e, voice, velocity);
-    sc808_render(e, buf, N);
-    sc808_destroy(e);
+    w8_trigger(e, voice, velocity);
+    w8_render(e, buf, N);
+    w8_destroy(e);
 
     const int w = (int)(SR * 0.020);
     double acc = 0.0, best = 0.0;
@@ -77,8 +77,8 @@ int main()
 
     /* One voltage lane, one gain lane: the two halves of this kit. */
     static const struct { int v; const char *id; } kProbe[2] = {
-        { SC808_BD, "bass drum (trigger volts)" },
-        { SC808_CH, "closed hat (gain)" }
+        { W8_BD, "bass drum (trigger volts)" },
+        { W8_CH, "closed hat (gain)" }
     };
     static const int kVel[6] = { 20, 64, 90, 99, 100, 127 };
 

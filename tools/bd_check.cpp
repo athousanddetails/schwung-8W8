@@ -21,9 +21,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sc808_bd_circuit.h"
+#include "w8_bd_circuit.h"
 
-using namespace sc808;
+using namespace w8;
 
 static const double SR = 44100.0;
 static const int    N  = (int)(44100 * 4);

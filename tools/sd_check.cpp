@@ -15,7 +15,7 @@
  * anywhere in this voice fails this.
  *
  * Build: clang++ -std=c++14 -O2 -Isrc/dsp -o build-native/sd_check \
- *            tools/sd_check.cpp src/dsp/sc808_engine.cpp
+ *            tools/sd_check.cpp src/dsp/w8_engine.cpp
  *
  * GPL-3.0.
  */
@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "sc808_engine.h"
+#include "w8_engine.h"
 
 static const double SR = 44100.0;
 static int fails = 0;
@@ -38,17 +38,17 @@ static void check(const bool ok, const char *what, const char *detail = "")
 /* Seconds until the note falls below 1% of its own peak and stays there. */
 static double note_len(int decayPot, int snappyPot)
 {
-    sc808_engine_t *e = sc808_create((float)SR);
+    w8_engine_t *e = w8_create((float)SR);
     char b[16];
-    snprintf(b, sizeof b, "%d", decayPot);  sc808_set_param(e, "sd_decay", b);
-    snprintf(b, sizeof b, "%d", snappyPot); sc808_set_param(e, "sd_snappy", b);
+    snprintf(b, sizeof b, "%d", decayPot);  w8_set_param(e, "sd_decay", b);
+    snprintf(b, sizeof b, "%d", snappyPot); w8_set_param(e, "sd_snappy", b);
 
     static const int N = (int)(SR * 3.0);
     static float buf[(int)(44100 * 3)];
     memset(buf, 0, sizeof buf);
-    sc808_trigger(e, SC808_SD, 110);
-    sc808_render(e, buf, N);
-    sc808_destroy(e);
+    w8_trigger(e, W8_SD, 110);
+    w8_render(e, buf, N);
+    w8_destroy(e);
 
     double pk = 0.0;
     for(int i = 0; i < N; ++i) { const double a = fabs((double)buf[i]); if(a > pk) pk = a; }

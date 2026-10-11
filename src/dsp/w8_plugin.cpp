@@ -1,5 +1,5 @@
 /*
- * sc808_plugin.cpp — Schwung plugin_api_v2 wrapper for the 8W8 engine.
+ * w8_plugin.cpp — Schwung plugin_api_v2 wrapper for the 8W8 engine.
  *
  * Runs in-process inside the shim's SPI callback (SCHED_FIFO 90). render_block
  * therefore does no allocation, no file I/O and takes no locks — all of that
@@ -15,13 +15,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sc808_engine.h"
-#include "sc808_params.h"
+#include "w8_engine.h"
+#include "w8_params.h"
 #include "plugin_api_v1.h"   /* defines both v1 and v2 */
 
 static const host_api_v1_t *g_host = NULL;
 
-/* Page ids from gen_params.py, IN TRIGGER ORDER — sc808_voice_t, not the nav
+/* Page ids from gen_params.py, IN TRIGGER ORDER — w8_voice_t, not the nav
  * list. Pad-follow publishes one of these as "<count>:<id>", which is also the
  * form the voices contract's focus_param names.
  *
@@ -30,13 +30,13 @@ static const host_api_v1_t *g_host = NULL;
  * voices silently never followed the pad — for months, with no error anywhere.
  * tools/voices_check.py resolves all sixteen of these against the declared
  * levels rather than leaving it to the eye. */
-static const char *const kLevelOf[SC808_NUM_VOICES] = {
+static const char *const kLevelOf[W8_NUM_VOICES] = {
     "bd", "sd", "lt", "mt", "ht", "lc", "mc", "hc",
     "rs", "cl", "ma", "cp", "cb", "ch", "oh", "cy"
 };
 
 typedef struct {
-    sc808_engine_t *engine;
+    w8_engine_t *engine;
     char            module_dir[512];
 
     /* Pad-follow state. Deliberately NOT updated while the transport runs —
@@ -65,7 +65,7 @@ typedef struct {
      * computes (ui_focus_level) never reaches the browser. */
     char            ui_focus[16];   /* wide enough for any int %d, not just
                                      * the 0..15 we actually write */
-} sc808_instance_t;
+} w8_instance_t;
 
 /* ---- MIDI note map -------------------------------------------------- */
 /*
@@ -80,7 +80,7 @@ typedef struct {
  *
  * The kit lives in the LEFT block so it reads like a drum machine instead of
  * being smeared across the grid. SIXTEEN voices fill it exactly, one per
- * sc808 SynthDef — 6W6 used half this block and 9W9 eleven pads.
+ * Engine A SynthDef — 6W6 used half this block and 9W9 eleven pads.
  *
  * Bottom row is the 808's front-panel order (BD SD LT MT); the toms continue
  * into the congas above them, then the percussion, then the metal on top.
@@ -94,17 +94,17 @@ static int pad_to_voice(const uint8_t _note)
     switch(_note)
     {
     /* row 0 */
-    case 68: return SC808_BD;   case 69: return SC808_SD;
-    case 70: return SC808_LT;   case 71: return SC808_MT;
+    case 68: return W8_BD;   case 69: return W8_SD;
+    case 70: return W8_LT;   case 71: return W8_MT;
     /* row 1 */
-    case 76: return SC808_HT;   case 77: return SC808_LC;
-    case 78: return SC808_MC;   case 79: return SC808_HC;
+    case 76: return W8_HT;   case 77: return W8_LC;
+    case 78: return W8_MC;   case 79: return W8_HC;
     /* row 2 */
-    case 84: return SC808_RS;   case 85: return SC808_CL;
-    case 86: return SC808_MA;   case 87: return SC808_CP;
+    case 84: return W8_RS;   case 85: return W8_CL;
+    case 86: return W8_MA;   case 87: return W8_CP;
     /* row 3 */
-    case 92: return SC808_CB;   case 93: return SC808_CH;
-    case 94: return SC808_OH;   case 95: return SC808_CY;
+    case 92: return W8_CB;   case 93: return W8_CH;
+    case 94: return W8_OH;   case 95: return W8_CY;
     default: return -1;
     }
 }
@@ -134,22 +134,22 @@ static int note_to_voice(const uint8_t _note)
 
     switch(_note)   /* GM drum map */
     {
-    case 35: case 36: return SC808_BD;
-    case 38: case 40: return SC808_SD;
-    case 41: case 43: return SC808_LT;
-    case 45: case 47: return SC808_MT;
-    case 48: case 50: return SC808_HT;
-    case 64:          return SC808_LC;   /* low conga        */
-    case 62:          return SC808_MC;   /* mute high conga  */
-    case 63:          return SC808_HC;   /* open high conga  */
-    case 37:          return SC808_RS;   /* side stick */
-    case 75:          return SC808_CL;   /* claves — their own lane now */
-    case 70:          return SC808_MA;
-    case 39:          return SC808_CP;
-    case 56:          return SC808_CB;
-    case 42: case 44: return SC808_CH;
-    case 46:          return SC808_OH;
-    case 49: case 51: case 57: case 59: return SC808_CY;
+    case 35: case 36: return W8_BD;
+    case 38: case 40: return W8_SD;
+    case 41: case 43: return W8_LT;
+    case 45: case 47: return W8_MT;
+    case 48: case 50: return W8_HT;
+    case 64:          return W8_LC;   /* low conga        */
+    case 62:          return W8_MC;   /* mute high conga  */
+    case 63:          return W8_HC;   /* open high conga  */
+    case 37:          return W8_RS;   /* side stick */
+    case 75:          return W8_CL;   /* claves — their own lane now */
+    case 70:          return W8_MA;
+    case 39:          return W8_CP;
+    case 56:          return W8_CB;
+    case 42: case 44: return W8_CH;
+    case 46:          return W8_OH;
+    case 49: case 51: case 57: case 59: return W8_CY;
     default:          return -1;
     }
 }
@@ -159,7 +159,7 @@ static int note_to_voice(const uint8_t _note)
 static void *create_instance(const char *_module_dir, const char *_json_defaults)
 {
     (void)_json_defaults;
-    sc808_instance_t *inst = (sc808_instance_t *)calloc(1, sizeof(sc808_instance_t));
+    w8_instance_t *inst = (w8_instance_t *)calloc(1, sizeof(w8_instance_t));
     if(!inst) return NULL;
 
     if(_module_dir)
@@ -168,7 +168,7 @@ static void *create_instance(const char *_module_dir, const char *_json_defaults
     const float sr = (g_host && g_host->sample_rate > 0)
                    ? (float)g_host->sample_rate : 44100.0f;
 
-    inst->engine = sc808_create(sr);
+    inst->engine = w8_create(sr);
     if(!inst->engine) { free(inst); return NULL; }
 
     if(g_host && g_host->log) g_host->log("8w8: engine ready");
@@ -177,9 +177,9 @@ static void *create_instance(const char *_module_dir, const char *_json_defaults
 
 static void destroy_instance(void *_instance)
 {
-    sc808_instance_t *inst = (sc808_instance_t *)_instance;
+    w8_instance_t *inst = (w8_instance_t *)_instance;
     if(!inst) return;
-    sc808_destroy(inst->engine);
+    w8_destroy(inst->engine);
     free(inst);
 }
 
@@ -188,7 +188,7 @@ static void on_midi(void *_instance, const uint8_t *_msg, const int _len, const 
     /* Every note is played the same way whatever sent it — pads, the slot's
      * MIDI in, external gear. Nothing here routes on the source any more. */
     (void)_source;
-    sc808_instance_t *inst = (sc808_instance_t *)_instance;
+    w8_instance_t *inst = (w8_instance_t *)_instance;
     if(!inst || _len < 3) return;
 
     const uint8_t status = _msg[0] & 0xF0u;
@@ -209,7 +209,7 @@ static void on_midi(void *_instance, const uint8_t *_msg, const int _len, const 
         return;
     }
 
-    sc808_trigger(inst->engine, v, (int)vel);
+    w8_trigger(inst->engine, v, (int)vel);
 
     /* Only a hand-played hit moves the editor. While the transport runs, notes
      * arrive constantly and following them makes the UI unusable. */
@@ -228,14 +228,14 @@ static void on_midi(void *_instance, const uint8_t *_msg, const int _len, const 
 
 static void set_param(void *_instance, const char *_key, const char *_val)
 {
-    sc808_instance_t *inst = (sc808_instance_t *)_instance;
+    w8_instance_t *inst = (w8_instance_t *)_instance;
     if(!inst || !_key || !_val) return;
 
     if(!strcmp(_key, "note_map"))
     {
         g_note_map = atoi(_val) != 0;
         /* Also stored in the engine's enum table so it survives a state cycle. */
-        sc808_set_param(inst->engine, _key, _val);
+        w8_set_param(inst->engine, _key, _val);
         return;
     }
     if(!strcmp(_key, "ui_focus"))
@@ -255,41 +255,41 @@ static void set_param(void *_instance, const char *_key, const char *_val)
     }
     if(!strcmp(_key, "mutes"))
     {
-        sc808_set_mutes(inst->engine, (unsigned)atoi(_val));
+        w8_set_mutes(inst->engine, (unsigned)atoi(_val));
         return;
     }
     /* Slot autosave and preset recall both arrive here. */
     if(!strcmp(_key, "state"))
     {
-        sc808_deserialize(inst->engine, _val);
+        w8_deserialize(inst->engine, _val);
         /* note_map lives in the engine's enum table; mirror it back out to the
          * file-static the note router reads. */
         {
             char b[16];
-            if(sc808_get_param(inst->engine, "note_map", b, sizeof(b)) > 0)
+            if(w8_get_param(inst->engine, "note_map", b, sizeof(b)) > 0)
                 g_note_map = atoi(b) != 0;
         }
         /* Blobs written before 1.4.0 carry a "seq_xx=N;" tail after the JSON,
-         * from the step sequencer this module no longer has. sc808_deserialize
+         * from the step sequencer this module no longer has. w8_deserialize
          * looks up "pots", "enums" and "mutes" by name and reads nothing else,
          * so the tail is inert and an old preset still loads clean. */
         return;
     }
-    sc808_set_param(inst->engine, _key, _val);
+    w8_set_param(inst->engine, _key, _val);
 }
 
 static int get_param(void *_instance, const char *_key, char *_buf, const int _len)
 {
-    sc808_instance_t *inst = (sc808_instance_t *)_instance;
+    w8_instance_t *inst = (w8_instance_t *)_instance;
     if(!inst || !_key || !_buf || _len <= 0) return -1;
 
     /* Served dynamically: module.json is capped at 8 KB by the loader and the
      * parameter surface is larger than that — 92 params over 16 pages. */
     if(!strcmp(_key, "chain_params"))
     {
-        if(_len <= SC808_CHAIN_PARAMS_LEN) return -1;   /* refuse to truncate */
-        memcpy(_buf, sc808_chain_params_json, SC808_CHAIN_PARAMS_LEN + 1);
-        return SC808_CHAIN_PARAMS_LEN;
+        if(_len <= W8_CHAIN_PARAMS_LEN) return -1;   /* refuse to truncate */
+        memcpy(_buf, w8_chain_params_json, W8_CHAIN_PARAMS_LEN + 1);
+        return W8_CHAIN_PARAMS_LEN;
     }
     /* ui_hierarchy is deliberately served EMPTY, not refused.
      * enterComponentEdit prefers a module's hierarchy and only falls back to
@@ -322,8 +322,8 @@ static int get_param(void *_instance, const char *_key, char *_buf, const int _l
     if(!strcmp(_key, "ui_pages"))
     {
         const int gm = (g_note_map != 0);
-        const char *const j = gm ? sc808_ui_pages_gm_json : sc808_ui_pages_json;
-        const int n = gm ? SC808_UI_PAGES_GM_LEN : SC808_UI_PAGES_LEN;
+        const char *const j = gm ? w8_ui_pages_gm_json : w8_ui_pages_json;
+        const int n = gm ? W8_UI_PAGES_GM_LEN : W8_UI_PAGES_LEN;
         if(_len <= n) return -1;
         memcpy(_buf, j, (size_t)n + 1);
         return n;
@@ -338,7 +338,7 @@ static int get_param(void *_instance, const char *_key, char *_buf, const int _l
     if(!strcmp(_key, "ui_focus_level"))
     {
         const int v = inst->focus_voice;
-        if(inst->focus_count == 0 || v < 0 || v >= SC808_NUM_VOICES) return -1;
+        if(inst->focus_count == 0 || v < 0 || v >= W8_NUM_VOICES) return -1;
         return snprintf(_buf, (size_t)_len, "%u:%s", inst->focus_count, kLevelOf[v]);
     }
 
@@ -352,17 +352,17 @@ static int get_param(void *_instance, const char *_key, char *_buf, const int _l
                         clock == MOVE_CLOCK_STATUS_RUNNING ? 1 : 0);
     }
     if(!strcmp(_key, "mutes"))
-        return snprintf(_buf, (size_t)_len, "%u", sc808_get_mutes(inst->engine));
+        return snprintf(_buf, (size_t)_len, "%u", w8_get_mutes(inst->engine));
     if(!strcmp(_key, "state"))
     {
-        /* snprintf semantics: sc808_serialize reports what the blob WOULD have
+        /* snprintf semantics: w8_serialize reports what the blob WOULD have
          * needed, so a truncating buffer must not be reported as filled. */
-        const int n = sc808_serialize(inst->engine, _buf, _len);
+        const int n = w8_serialize(inst->engine, _buf, _len);
         if(n < 0) return n;
         return n < _len ? n : _len - 1;
     }
 
-    return sc808_get_param(inst->engine, _key, _buf, _len);
+    return w8_get_param(inst->engine, _key, _buf, _len);
 }
 
 static int get_error(void *_instance, char *_buf, const int _len)
@@ -373,7 +373,7 @@ static int get_error(void *_instance, char *_buf, const int _len)
 
 static void render_block(void *_instance, int16_t *_out_lr, const int _frames)
 {
-    sc808_instance_t *inst = (sc808_instance_t *)_instance;
+    w8_instance_t *inst = (w8_instance_t *)_instance;
     if(!inst) { memset(_out_lr, 0, (size_t)_frames * 2 * sizeof(int16_t)); return; }
 
     inst->samples_rendered += (uint64_t)_frames;
@@ -387,7 +387,7 @@ static void render_block(void *_instance, int16_t *_out_lr, const int _frames)
             inst->last_bpm = bpm;
             char b[24];
             snprintf(b, sizeof(b), "%.4f", bpm);
-            sc808_set_param(inst->engine, "dly_bpm", b);
+            w8_set_param(inst->engine, "dly_bpm", b);
         }
     }
 
@@ -401,7 +401,7 @@ static void render_block(void *_instance, int16_t *_out_lr, const int _frames)
         int chunk = _frames - done;
         if(chunk > cap) chunk = cap;
 
-        sc808_render(inst->engine, mono, chunk);
+        w8_render(inst->engine, mono, chunk);
 
         for(int i = 0; i < chunk; ++i)
         {

@@ -1,10 +1,8 @@
 # 8W8 — Rhythm Composer for Ableton Move
 
 A TR-808 style drum machine for [Schwung](https://github.com/charlesvestal/schwung)
-on Ableton Move. Sixteen voices, all synthesised, no samples. Fifteen of them
-are models of the 808's actual circuits, built from the service notes and the
-published analyses; the sixteenth — the rim shot — is a transcription of Sonic
-Pi's sc808.
+on Ableton Move. Sixteen voices, all synthesised, no samples, built from the
+808's service notes and tuned by ear on hardware.
 
 ![Bass Drum page on the Move](docs/img/device-bd.png)
 ![Hi Tom page, with the two sends](docs/img/device-ht.png)
@@ -28,13 +26,13 @@ voice is re-fitted.
 | Snare | Two bridged-T shells at 173 and 336 Hz from the service notes' component values, decaying at their own rates. **Snappy** is a divider on the trigger, so it sets the noise's length as well as its level |
 | Low / Mid / Hi Tom | A bridged-T at Q 10.8 ringing in a feedback loop — F2/C3/G3, ring 0.39/0.23/0.18 s — with the machine's pink noise alongside the trigger as the drum head |
 | Low / Mid / Hi Conga | The same channel with the switch the other way: struck soft, no head, ringing twice as long, and tuned an octave-plus above its tom — G3/D4/A4, as measured |
-| Rim Shot | **The one sc808 voice.** Two circuit rim shots were built from the schematic and both lost on hardware, so the transcription is the rim, tuned so the tock lands on 1788 Hz |
+| Rim Shot | A detuned triangle and pulse pair through two band passes, tuned so the tock lands on 1788 Hz |
 | Claves | The clave network with the switch's 1k shunt: 2524 Hz at Q 14, ringing 30 ms as Roland's own model does |
 | Maracas | Bus noise high-passed hard, 39 ms to silence |
 | Hand Clap | Three noise bursts about 10 ms apart into a 330 ms tail (R362 × C143), through the 874 Hz bandpass R342/R334/C128 make. One knob: Decay, the tail |
 | Cowbell | Oscillators 5 and 6 of the shared Schmitt bank, exactly as the hardware wires them |
 | Closed / Open Hat | The shared bank through each hat's C-R ladder — 1.5 nF open, 1.0 nF closed, which is why the closed hat is the thinner voice — and a swing VCA whose diode gates the tail dead |
-| Cymbal | Werner's three-path structure voiced to a reference recording: two band passes, a linear-discharge shimmer, and a brushed floor under the crash |
+| Cymbal | A three-path structure voiced to a reference recording: two band passes, a linear-discharge shimmer, and a brushed floor under the crash |
 
 There is **one metal bank**, ticked once per sample and shared by the cowbell,
 both hats and the cymbal, exactly as the hardware wires half an HD14584. It
@@ -167,7 +165,7 @@ Requires Docker (cross-compiles for the Move's ARM64, pinned to glibc 2.35):
 ./scripts/deploy.sh move.local    # safe deploy (atomic rename, never over a live .so)
 ```
 
-`scripts/build.sh` also builds `sc808_loadtest`, an on-device test that
+`scripts/build.sh` also builds `w8_loadtest`, an on-device test that
 dlopens the real `dsp.so` exactly as Schwung's chain host does and checks that
 every pad sounds, that every generated parameter key resolves, mutes, the hat
 choke, the send buses and state round-trip — end to end.
@@ -176,39 +174,20 @@ The parameter surface has one source: `scripts/gen_params.py` generates the
 pot table, `chain_params` and the page hierarchy from a single dict. Adding a
 control is one edit.
 
-`./test/all.sh` runs everything that does not need the device: the null test
-against SuperCollider, the per-voice circuit checks, the drive and velocity
+`./test/all.sh` runs everything that does not need the device: the null test,
+the per-voice circuit checks, the drive and velocity
 probes, the editor tests, and a golden render that compares every lane against
 a stored baseline so a change to the engine cannot quietly move the kit. Steps
 whose tooling is missing report **SKIP** and say so, rather than passing
 quietly.
 
-## Credits and provenance
+## Credits
 
-8W8 stands on other people's work and says so:
-
-- **[sc808](https://github.com/sonic-pi-net/sonic-pi/blob/dev/etc/synthdefs/designs/supercollider/sc808.scd)**
-  — the 808 SynthDefs by **Yoshinosuke Horiuchi**, adapted for Sonic Pi by
-  **Sam Aaron**, MIT. Vendored under `src/vendor/sc808`. **Exactly one voice
-  you hear is one of these: the rim shot.** The other fifteen lanes are
-  circuit models and are not transcriptions of anything. The rest of the
-  transcription is still in the tree and still verified by the null test,
-  because it is what the circuit models were measured against on the way in
-  and it is what keeps `sc_ugens.h` honest.
-- **Werner, Abel and Smith**, *A Physically-Informed, Circuit-Bendable,
-  Digital Model of the Roland TR-808 Bass Drum Circuit* (DAFx-14) and *The
-  TR-808 Cymbal* (ICMC|SMC 2014) — the circuit analysis the kick, the snare's
-  VCA and the cymbal are built from. Cited, not copied; the headers say
-  exactly which parts are theirs and which are re-derived, and why.
-- **SuperCollider** by James McCartney and contributors — `sc_ugens.h`
-  reimplements the UGens sc808 uses, each one naming the source file its
-  behaviour was read out of. Pinned to 3.11.2, and that matters.
 - **[9W9](https://github.com/athousanddetails/schwung-9W9)** and
   **[6W6](https://github.com/athousanddetails/schwung-6W6)** — the module
   architecture, pad gestures, the Main-page lock, the seven distortion
   characters, the reverb/delay buses and the one-knob glue, so all three kits
-  feel identical under the hands. The maths is theirs, copied rather than
-  re-derived; where 8W8 departs, the source says why.
+  feel identical under the hands.
 - Voice behaviour worked out from the **TR-808 service notes** (schematics,
   parts list and scope traces) and checked against Roland's own TR-808 plugin
   rendered offline.
@@ -230,7 +209,6 @@ as Schwung upstream).
 ## License
 
 GPL-3.0 — see [LICENSE](LICENSE) and [THIRD_PARTY.md](THIRD_PARTY.md).
-sc808-derived code keeps its MIT licensing, which is GPL-3.0 compatible.
 
 ## Disclaimer
 

@@ -28,7 +28,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#include "sc808_engine.h"
+#include "w8_engine.h"
 
 static const double SR     = 44100.0;
 static const int    BLOCK  = 128;          /* Schwung's block */
@@ -55,7 +55,7 @@ static double now_seconds(void)
  */
 static double measure(int voice, const char *label)
 {
-    sc808_engine_t *e = sc808_create((float)SR);
+    w8_engine_t *e = w8_create((float)SR);
     const int total  = (int)(SR * SECS);
     const int period = (int)(SR * 60.0 / 140.0 / 4.0);
 
@@ -65,27 +65,27 @@ static double measure(int voice, const char *label)
     {
         if(i >= next)
         {
-            if(voice >= 0) sc808_trigger(e, voice, 127);
+            if(voice >= 0) w8_trigger(e, voice, 127);
             else if(voice == -1)
-                for(int v = 0; v < SC808_NUM_VOICES; ++v)
-                    sc808_trigger(e, v, 127);
+                for(int v = 0; v < W8_NUM_VOICES; ++v)
+                    w8_trigger(e, v, 127);
             else
             {
                 const int s = step & 15;
-                sc808_trigger(e, (s & 1) ? SC808_CH : SC808_CH, 90);
-                if(s == 0 || s == 6 || s == 8)  sc808_trigger(e, SC808_BD, 120);
-                if(s == 4 || s == 12)           sc808_trigger(e, SC808_SD, 110);
-                if(s == 14)                     sc808_trigger(e, SC808_CP, 110);
-                if(s == 7)                      sc808_trigger(e, SC808_OH, 100);
-                if(s == 11)                     sc808_trigger(e, SC808_CB,  90);
+                w8_trigger(e, (s & 1) ? W8_CH : W8_CH, 90);
+                if(s == 0 || s == 6 || s == 8)  w8_trigger(e, W8_BD, 120);
+                if(s == 4 || s == 12)           w8_trigger(e, W8_SD, 110);
+                if(s == 14)                     w8_trigger(e, W8_CP, 110);
+                if(s == 7)                      w8_trigger(e, W8_OH, 100);
+                if(s == 11)                     w8_trigger(e, W8_CB,  90);
             }
             next += period;
             ++step;
         }
-        sc808_render(e, g_buf, BLOCK);
+        w8_render(e, g_buf, BLOCK);
     }
     const double dt = now_seconds() - t0;
-    sc808_destroy(e);
+    w8_destroy(e);
 
     const double rt = SECS / (dt > 0 ? dt : 1e-9);
     printf("%-22s %8.1fx realtime   %6.2f%% of one core\n",
@@ -99,10 +99,10 @@ int main(void)
            SECS, BLOCK);
 
     double worst = 1e30;
-    for(int v = 0; v < SC808_NUM_VOICES; ++v)
+    for(int v = 0; v < W8_NUM_VOICES; ++v)
     {
         char label[32];
-        snprintf(label, sizeof(label), "%s only", sc808_voice_id(v));
+        snprintf(label, sizeof(label), "%s only", w8_voice_id(v));
         const double rt = measure(v, label);
         if(rt < worst) worst = rt;
     }

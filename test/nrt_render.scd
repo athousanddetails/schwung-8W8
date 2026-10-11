@@ -1,16 +1,16 @@
 /*
- * nrt_render.scd — render every sc808 voice offline, as ground truth.
+ * nrt_render.scd — render every Engine A voice offline, as ground truth.
  *
  * This is the reference half of the null test. It loads the preprocessed
- * sc808 SynthDefs (see nulltest.sh — the vendored .scd has unbalanced
+ * Engine A SynthDefs (see nulltest.sh — the vendored .scd has unbalanced
  * top-level parens because it is written to be evaluated block by block in
  * the IDE, so the lone paren lines are stripped first), then renders each
  * voice on its own with scsynth in non-realtime mode.
  *
- * Two settings are load-bearing and must match sc_ugens.h:
+ * Two settings are load-bearing and must match w8_ugens.h:
  *   sampleRate 44100 — the Move's rate
- *   blockSize  64    — every envelope in sc808 is EnvGen.kr, so the control
- *                      block size is audible in the output, and sc_ugens.h
+ *   blockSize  64    — every envelope in Engine A is EnvGen.kr, so the control
+ *                      block size is audible in the output, and w8_ugens.h
  *                      reproduces exactly this blockiness.
  *
  * Output is stereo because every SynthDef ends in Pan2; at pan 0 both
@@ -31,8 +31,8 @@ var voices = [
     "maracas", "cowbell", "closed_hihat", "open_hihat", "cymbal"
 ];
 
-"loading sc808 synthdefs...".postln;
-thisProcess.interpreter.executeFile("/work/sc/sc808_defs.scd");
+"loading Engine A synthdefs...".postln;
+thisProcess.interpreter.executeFile("/work/sc/w8_defs.scd");
 
 fork {
     0.5.wait;                      // let writeDefFile finish flushing

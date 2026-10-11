@@ -1,5 +1,5 @@
 /*
- * sc808_circuit_common.h — the blocks the 808's voice circuits share.
+ * w8_circuit_common.h — the blocks the 808's voice circuits share.
  *
  * The TR-808 does not have eleven different voice designs. It has a handful
  * of blocks wired up in different arrangements: a trigger pulse, a shaper
@@ -14,12 +14,12 @@
  *
  * GPL-3.0.
  */
-#ifndef SC808_CIRCUIT_COMMON_H
-#define SC808_CIRCUIT_COMMON_H
+#ifndef W8_CIRCUIT_COMMON_H
+#define W8_CIRCUIT_COMMON_H
 
 #include <math.h>
 
-namespace sc808 {
+namespace w8 {
 
 static const double kCircPi = 3.14159265358979323846;
 
@@ -185,6 +185,6 @@ static inline double mfbBandpassQ(const double _rin, const double _rf)
     return 0.5 * sqrt(_rf / _rin);
 }
 
-} /* namespace sc808 */
+} /* namespace w8 */
 
-#endif /* SC808_CIRCUIT_COMMON_H */
+#endif /* W8_CIRCUIT_COMMON_H */

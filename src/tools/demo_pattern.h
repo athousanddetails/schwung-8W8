@@ -16,63 +16,63 @@
  *
  * GPL-3.0.
  */
-#ifndef SC808_DEMO_PATTERN_H
-#define SC808_DEMO_PATTERN_H
+#ifndef W8_DEMO_PATTERN_H
+#define W8_DEMO_PATTERN_H
 
-#include "sc808_engine.h"
+#include "w8_engine.h"
 
-typedef struct { int step, voice, vel; } sc808_hit_t;
+typedef struct { int step, voice, vel; } w8_hit_t;
 
 /* 32 sixteenths — two bars at 120 BPM. Velocity is a straight line with no
  * threshold, so these are simply loud hits and quieter ones; 127 is the top
  * of the range. */
-static const sc808_hit_t kDemoHits[] = {
+static const w8_hit_t kDemoHits[] = {
     /* bar 1 */
-    { 0, SC808_BD, 127}, { 4, SC808_SD, 110}, { 6, SC808_BD,  90},
-    { 8, SC808_BD, 100}, {12, SC808_SD, 110}, {14, SC808_CP, 110},
-    { 0, SC808_CH,  90}, { 2, SC808_CH,  80}, { 4, SC808_CH,  90},
-    { 6, SC808_CH,  80}, { 8, SC808_CH,  90}, {10, SC808_CH,  80},
-    {12, SC808_CH,  90}, {14, SC808_OH, 100},
-    { 3, SC808_RS,  90}, {11, SC808_CB,  90}, { 7, SC808_CL,  85},
+    { 0, W8_BD, 127}, { 4, W8_SD, 110}, { 6, W8_BD,  90},
+    { 8, W8_BD, 100}, {12, W8_SD, 110}, {14, W8_CP, 110},
+    { 0, W8_CH,  90}, { 2, W8_CH,  80}, { 4, W8_CH,  90},
+    { 6, W8_CH,  80}, { 8, W8_CH,  90}, {10, W8_CH,  80},
+    {12, W8_CH,  90}, {14, W8_OH, 100},
+    { 3, W8_RS,  90}, {11, W8_CB,  90}, { 7, W8_CL,  85},
     /* bar 2 */
-    {16, SC808_BD, 127}, {20, SC808_SD, 110}, {22, SC808_BD,  90},
-    {24, SC808_BD, 100}, {28, SC808_SD, 110}, {30, SC808_CP, 110},
-    {16, SC808_CH,  90}, {18, SC808_CH,  80}, {20, SC808_CH,  90},
-    {22, SC808_CH,  80}, {24, SC808_CH,  90}, {26, SC808_CH,  80},
-    {28, SC808_CY, 100},
-    {25, SC808_LT,  95}, {26, SC808_MT,  95}, {27, SC808_HT,  95},
-    {29, SC808_LC,  90}, {30, SC808_MC,  90}, {31, SC808_HC,  90},
-    {19, SC808_MA,  85}, {23, SC808_MA,  85},
+    {16, W8_BD, 127}, {20, W8_SD, 110}, {22, W8_BD,  90},
+    {24, W8_BD, 100}, {28, W8_SD, 110}, {30, W8_CP, 110},
+    {16, W8_CH,  90}, {18, W8_CH,  80}, {20, W8_CH,  90},
+    {22, W8_CH,  80}, {24, W8_CH,  90}, {26, W8_CH,  80},
+    {28, W8_CY, 100},
+    {25, W8_LT,  95}, {26, W8_MT,  95}, {27, W8_HT,  95},
+    {29, W8_LC,  90}, {30, W8_MC,  90}, {31, W8_HC,  90},
+    {19, W8_MA,  85}, {23, W8_MA,  85},
 };
 
-#define SC808_DEMO_STEPS 32
-#define SC808_DEMO_BPM   120.0
-#define SC808_DEMO_HITS  ((int)(sizeof(kDemoHits) / sizeof(kDemoHits[0])))
+#define W8_DEMO_STEPS 32
+#define W8_DEMO_BPM   120.0
+#define W8_DEMO_HITS  ((int)(sizeof(kDemoHits) / sizeof(kDemoHits[0])))
 
 /*
  * Render the pattern into `out`, plus `tailSeconds` of ring-out. Returns the
  * number of frames written, or 0 if the buffer is too small.
  */
-static inline int sc808_render_demo(sc808_engine_t *e, float *out,
+static inline int w8_render_demo(w8_engine_t *e, float *out,
                                     const int capacity, const double sampleRate,
                                     const double tailSeconds)
 {
-    const double step = 60.0 / SC808_DEMO_BPM / 4.0;
+    const double step = 60.0 / W8_DEMO_BPM / 4.0;
     const int n = (int)(sampleRate * step);
-    const int total = n * SC808_DEMO_STEPS + (int)(sampleRate * tailSeconds);
+    const int total = n * W8_DEMO_STEPS + (int)(sampleRate * tailSeconds);
     if(total > capacity) return 0;
 
     int done = 0;
-    for(int s = 0; s < SC808_DEMO_STEPS; ++s)
+    for(int s = 0; s < W8_DEMO_STEPS; ++s)
     {
-        for(int k = 0; k < SC808_DEMO_HITS; ++k)
+        for(int k = 0; k < W8_DEMO_HITS; ++k)
             if(kDemoHits[k].step == s)
-                sc808_trigger(e, kDemoHits[k].voice, kDemoHits[k].vel);
-        sc808_render(e, out + done, n);
+                w8_trigger(e, kDemoHits[k].voice, kDemoHits[k].vel);
+        w8_render(e, out + done, n);
         done += n;
     }
-    if(total > done) { sc808_render(e, out + done, total - done); done = total; }
+    if(total > done) { w8_render(e, out + done, total - done); done = total; }
     return done;
 }
 
-#endif /* SC808_DEMO_PATTERN_H */
+#endif /* W8_DEMO_PATTERN_H */

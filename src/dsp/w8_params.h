@@ -6,142 +6,142 @@
  * The pot and enum tables below define storage order for the state blob.
  * Appending is safe; reordering breaks every saved patch.
  */
-#ifndef SC808_PARAMS_H
-#define SC808_PARAMS_H
+#ifndef W8_PARAMS_H
+#define W8_PARAMS_H
 
-typedef enum { SC808_LIN = 0, SC808_EXP = 1 } sc808_curve_t;
+typedef enum { W8_LIN = 0, W8_EXP = 1 } w8_curve_t;
 
 typedef struct {
     const char    *key;
     float          min;
     float          max;
-    sc808_curve_t  curve;
+    w8_curve_t  curve;
     int            def;      /* default POT position, 0..127 */
-} sc808_pot_t;
+} w8_pot_t;
 
 typedef struct {
     const char *key;
     int         count;      /* number of options */
     int         def;
-} sc808_enum_t;
+} w8_enum_t;
 
-#define SC808_NUM_POTS  110
-#define SC808_NUM_ENUMS 20
+#define W8_NUM_POTS  110
+#define W8_NUM_ENUMS 20
 
-static const sc808_pot_t g_sc808_pots[SC808_NUM_POTS] = {
-    { "bd_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "bd_attack",     0.0000f,     1.0000f, SC808_LIN,  24 },
-    { "bd_decay",     0.1000f,     8.0000f, SC808_EXP,  87 },
-    { "bd_tone",     0.0000f,     6.0000f, SC808_LIN,  42 },
-    { "bd_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "bd_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "sd_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "sd_decay",     0.1000f,     8.0000f, SC808_EXP, 108 },
-    { "sd_snappy",     0.0000f,     1.0000f, SC808_LIN,  89 },
-    { "sd_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "sd_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "lt_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
-    { "lt_decay",     0.0600f,     2.0000f, SC808_EXP,  68 },
-    { "lt_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "lt_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "mt_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
-    { "mt_decay",     0.0600f,     2.0000f, SC808_EXP,  56 },
-    { "mt_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "mt_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "ht_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
-    { "ht_decay",     0.0600f,     2.0000f, SC808_EXP,  53 },
-    { "ht_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "ht_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "lc_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
-    { "lc_decay",     0.0600f,     2.0000f, SC808_EXP,  58 },
-    { "lc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "lc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "mc_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
-    { "mc_decay",     0.0600f,     2.0000f, SC808_EXP,  36 },
-    { "mc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "mc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "hc_tune",    -2.0000f,     2.0000f, SC808_LIN,  64 },
-    { "hc_decay",     0.0600f,     2.0000f, SC808_EXP,  34 },
-    { "hc_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "hc_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "rs_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "rs_decay",     0.0050f,     0.2000f, SC808_EXP,  40 },
-    { "rs_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "rs_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "cl_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "cl_decay",     0.0000f,     1.0000f, SC808_LIN,  64 },
-    { "cl_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "cl_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "ma_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "ma_attack",     0.0000f,     1.0000f, SC808_LIN,  32 },
-    { "ma_decay",     0.0100f,     0.3000f, SC808_EXP,  51 },
-    { "ma_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "ma_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "cp_tune",   -12.0000f,    12.0000f, SC808_LIN,  64 },
-    { "cp_decay",     0.3500f,     2.8000f, SC808_EXP,  64 },
-    { "cp_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "cp_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "cb_tune",     0.5000f,     2.0000f, SC808_EXP,  64 },
-    { "cb_decay",     0.1000f,     2.0000f, SC808_EXP,  62 },
-    { "cb_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "cb_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "ch_tune",     0.5000f,     2.0000f, SC808_EXP,  64 },
-    { "ch_decay",     0.0300f,     0.5000f, SC808_EXP,  47 },
-    { "ch_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "ch_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "oh_tune",     0.5000f,     2.0000f, SC808_EXP,  64 },
-    { "oh_decay",     0.0800f,     1.5000f, SC808_EXP,  74 },
-    { "oh_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "oh_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "cy_tune",     0.5000f,     2.0000f, SC808_EXP,  64 },
-    { "cy_decay",     0.4000f,     6.0000f, SC808_EXP,  70 },
-    { "cy_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "cy_level",     0.0000f,     2.0000f, SC808_LIN,  64 },
-    { "master_drive",     0.0000f,    10.0000f, SC808_LIN,   0 },
-    { "comp",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "volume",     0.0000f,     1.0000f, SC808_LIN, 100 },
-    { "vel_depth",     0.0000f,     1.0000f, SC808_LIN, 127 },
-    { "sd_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "sd_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "lt_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "lt_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "mt_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "mt_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "ht_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "ht_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "lc_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "lc_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "mc_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "mc_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "hc_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "hc_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "rs_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "rs_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "cl_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "cl_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "ma_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "ma_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "cp_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "cp_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "cb_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "cb_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "ch_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "ch_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "oh_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "oh_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "cy_rev",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "cy_dly",     0.0000f,     1.0000f, SC808_LIN,   0 },
-    { "rev_decay",     0.2000f,     0.9300f, SC808_LIN,  73 },
-    { "rev_tone",     0.0000f,     1.0000f, SC808_LIN,  57 },
-    { "rev_hpf",    30.0000f,   800.0000f, SC808_EXP,  62 },
-    { "rev_level",     0.0000f,     1.2000f, SC808_LIN,  85 },
-    { "dly_fdbk",     0.0000f,     0.8500f, SC808_LIN,  52 },
-    { "dly_tone",     0.0000f,     1.0000f, SC808_LIN,  51 },
-    { "dly_hpf",    30.0000f,   800.0000f, SC808_EXP,  62 },
-    { "dly_level",     0.0000f,     1.2000f, SC808_LIN,  85 },
+static const w8_pot_t g_w8_pots[W8_NUM_POTS] = {
+    { "bd_tune",   -12.0000f,    12.0000f, W8_LIN,  64 },
+    { "bd_attack",     0.0000f,     1.0000f, W8_LIN,  24 },
+    { "bd_decay",     0.1000f,     8.0000f, W8_EXP,  87 },
+    { "bd_tone",     0.0000f,     6.0000f, W8_LIN,  42 },
+    { "bd_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "bd_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "sd_tune",   -12.0000f,    12.0000f, W8_LIN,  64 },
+    { "sd_decay",     0.1000f,     8.0000f, W8_EXP, 108 },
+    { "sd_snappy",     0.0000f,     1.0000f, W8_LIN,  89 },
+    { "sd_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "sd_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "lt_tune",    -2.0000f,     2.0000f, W8_LIN,  64 },
+    { "lt_decay",     0.0600f,     2.0000f, W8_EXP,  68 },
+    { "lt_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "lt_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "mt_tune",    -2.0000f,     2.0000f, W8_LIN,  64 },
+    { "mt_decay",     0.0600f,     2.0000f, W8_EXP,  56 },
+    { "mt_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "mt_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "ht_tune",    -2.0000f,     2.0000f, W8_LIN,  64 },
+    { "ht_decay",     0.0600f,     2.0000f, W8_EXP,  53 },
+    { "ht_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "ht_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "lc_tune",    -2.0000f,     2.0000f, W8_LIN,  64 },
+    { "lc_decay",     0.0600f,     2.0000f, W8_EXP,  58 },
+    { "lc_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "lc_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "mc_tune",    -2.0000f,     2.0000f, W8_LIN,  64 },
+    { "mc_decay",     0.0600f,     2.0000f, W8_EXP,  36 },
+    { "mc_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "mc_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "hc_tune",    -2.0000f,     2.0000f, W8_LIN,  64 },
+    { "hc_decay",     0.0600f,     2.0000f, W8_EXP,  34 },
+    { "hc_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "hc_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "rs_tune",   -12.0000f,    12.0000f, W8_LIN,  64 },
+    { "rs_decay",     0.0050f,     0.2000f, W8_EXP,  40 },
+    { "rs_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "rs_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "cl_tune",   -12.0000f,    12.0000f, W8_LIN,  64 },
+    { "cl_decay",     0.0000f,     1.0000f, W8_LIN,  64 },
+    { "cl_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "cl_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "ma_tune",   -12.0000f,    12.0000f, W8_LIN,  64 },
+    { "ma_attack",     0.0000f,     1.0000f, W8_LIN,  32 },
+    { "ma_decay",     0.0100f,     0.3000f, W8_EXP,  51 },
+    { "ma_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "ma_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "cp_tune",   -12.0000f,    12.0000f, W8_LIN,  64 },
+    { "cp_decay",     0.3500f,     2.8000f, W8_EXP,  64 },
+    { "cp_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "cp_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "cb_tune",     0.5000f,     2.0000f, W8_EXP,  64 },
+    { "cb_decay",     0.1000f,     2.0000f, W8_EXP,  62 },
+    { "cb_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "cb_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "ch_tune",     0.5000f,     2.0000f, W8_EXP,  64 },
+    { "ch_decay",     0.0300f,     0.5000f, W8_EXP,  47 },
+    { "ch_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "ch_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "oh_tune",     0.5000f,     2.0000f, W8_EXP,  64 },
+    { "oh_decay",     0.0800f,     1.5000f, W8_EXP,  74 },
+    { "oh_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "oh_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "cy_tune",     0.5000f,     2.0000f, W8_EXP,  64 },
+    { "cy_decay",     0.4000f,     6.0000f, W8_EXP,  70 },
+    { "cy_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "cy_level",     0.0000f,     2.0000f, W8_LIN,  64 },
+    { "master_drive",     0.0000f,    10.0000f, W8_LIN,   0 },
+    { "comp",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "volume",     0.0000f,     1.0000f, W8_LIN, 100 },
+    { "vel_depth",     0.0000f,     1.0000f, W8_LIN, 127 },
+    { "sd_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "sd_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "lt_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "lt_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "mt_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "mt_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "ht_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "ht_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "lc_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "lc_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "mc_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "mc_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "hc_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "hc_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "rs_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "rs_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "cl_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "cl_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "ma_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "ma_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "cp_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "cp_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "cb_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "cb_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "ch_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "ch_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "oh_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "oh_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "cy_rev",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "cy_dly",     0.0000f,     1.0000f, W8_LIN,   0 },
+    { "rev_decay",     0.2000f,     0.9300f, W8_LIN,  73 },
+    { "rev_tone",     0.0000f,     1.0000f, W8_LIN,  57 },
+    { "rev_hpf",    30.0000f,   800.0000f, W8_EXP,  62 },
+    { "rev_level",     0.0000f,     1.2000f, W8_LIN,  85 },
+    { "dly_fdbk",     0.0000f,     0.8500f, W8_LIN,  52 },
+    { "dly_tone",     0.0000f,     1.0000f, W8_LIN,  51 },
+    { "dly_hpf",    30.0000f,   800.0000f, W8_EXP,  62 },
+    { "dly_level",     0.0000f,     1.2000f, W8_LIN,  85 },
 };
 
-static const sc808_enum_t g_sc808_enums[SC808_NUM_ENUMS] = {
+static const w8_enum_t g_w8_enums[W8_NUM_ENUMS] = {
     { "bd_dist_type",  7,  0 },
     { "sd_dist_type",  7,  0 },
     { "lt_dist_type",  7,  0 },
@@ -164,8 +164,8 @@ static const sc808_enum_t g_sc808_enums[SC808_NUM_ENUMS] = {
     { "dly_time", 13,  7 },
 };
 
-#define SC808_CHAIN_PARAMS_LEN 11949
-static const char sc808_chain_params_json[] =
+#define W8_CHAIN_PARAMS_LEN 11949
+static const char w8_chain_params_json[] =
     "[{\"key\":\"bd_tune\",\"name\":\"BD Tune\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":64},{\"key\":\"bd_attack\",\""
     "name\":\"BD Attack\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":24,\"viz\":false},{\"key\":\"bd_decay\",\"name\":"
     "\"BD Decay\",\"type\":\"int\",\"min\":0,\"max\":127,\"default\":87},{\"key\":\"bd_tone\",\"name\":\"BD Tone\",\"type\":\"in"
@@ -287,8 +287,8 @@ static const char sc808_chain_params_json[] =
     "ey\":\"ui_focus\",\"name\":\"Focus\",\"type\":\"int\",\"min\":0,\"max\":16,\"default\":0},{\"key\":\"mutes\",\"name\":\"Mute"
     "s\",\"type\":\"int\",\"min\":0,\"max\":65535,\"default\":0}]";
 
-#define SC808_UI_PAGES_LEN 7924
-static const char sc808_ui_pages_json[] =
+#define W8_UI_PAGES_LEN 7924
+static const char w8_ui_pages_json[] =
     "{\"pad_layout\":\"drums\",\"focus_param\":\"ui_focus_level\",\"levels\":{\"bd\":{\"name\":\"Bass Drum\",\"knobs\":[\"bd"
     "_tune\",\"bd_attack\",\"bd_decay\",\"bd_tone\",\"bd_drive\",\"bd_dist_type\",\"bd_level\"],\"params\":[{\"key\":\"bd_t"
     "une\",\"label\":\"Tune\"},{\"key\":\"bd_attack\",\"label\":\"Attack\"},{\"key\":\"bd_decay\",\"label\":\"Decay\"},{\"key\":"
@@ -373,8 +373,8 @@ static const char sc808_ui_pages_json[] =
 /* The same hierarchy carrying the General MIDI note map, for note_map == 1.
  * The map is switchable at runtime, so one static answer would be wrong half
  * the time; get_param picks. */
-#define SC808_UI_PAGES_GM_LEN 7924
-static const char sc808_ui_pages_gm_json[] =
+#define W8_UI_PAGES_GM_LEN 7924
+static const char w8_ui_pages_gm_json[] =
     "{\"pad_layout\":\"drums\",\"focus_param\":\"ui_focus_level\",\"levels\":{\"bd\":{\"name\":\"Bass Drum\",\"knobs\":[\"bd"
     "_tune\",\"bd_attack\",\"bd_decay\",\"bd_tone\",\"bd_drive\",\"bd_dist_type\",\"bd_level\"],\"params\":[{\"key\":\"bd_t"
     "une\",\"label\":\"Tune\"},{\"key\":\"bd_attack\",\"label\":\"Attack\"},{\"key\":\"bd_decay\",\"label\":\"Decay\"},{\"key\":"
@@ -456,4 +456,4 @@ static const char sc808_ui_pages_gm_json[] =
     "Volume\"},{\"key\":\"vel_depth\",\"label\":\"Velocity\"},{\"key\":\"hh_choke\",\"label\":\"Choke\"},{\"key\":\"note_map\""
     ",\"label\":\"Note Map\"}]}}}";
 
-#endif /* SC808_PARAMS_H */
+#endif /* W8_PARAMS_H */

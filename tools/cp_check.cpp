@@ -15,7 +15,7 @@
  *
  * GPL-3.0.
  */
-#include "sc808_cp_circuit.h"
+#include "w8_cp_circuit.h"
 
 #include <cmath>
 #include <cstdio>
@@ -36,7 +36,7 @@ static std::vector<float> hit(const float decay, const float spread,
                               const float room, const double tune = 1.0,
                               const double seconds = 6.0)
 {
-    sc808::ClapCircuit c;
+    w8::ClapCircuit c;
     c.init(SR);
     c.trigger(tune, decay, spread, room);
     std::vector<float> v((size_t)(SR * seconds), 0.0f);
@@ -103,19 +103,19 @@ int main()
 
     /* ---- the derived numbers are what the header says they are --------- */
     {
-        const double f = sc808::mfbBandpassFreq(sc808::kCP_R342, sc808::kCP_R334,
-                                                sc808::kCP_C128);
-        const double q = sc808::mfbBandpassQ(sc808::kCP_R342, sc808::kCP_R334);
+        const double f = w8::mfbBandpassFreq(w8::kCP_R342, w8::kCP_R334,
+                                                w8::kCP_C128);
+        const double q = w8::mfbBandpassQ(w8::kCP_R342, w8::kCP_R334);
         char d[128];
         snprintf(d, sizeof d, "%.1f Hz, Q %.3f", f, q);
         check(fabs(f - 874.4) < 1.0 && fabs(q - 1.291) < 0.01,
               "R342/R334/C128 give the documented bandpass", d);
 
         snprintf(d, sizeof d, "main %.1f ms, floor %.0f ms",
-                 sc808::kCP_MainTau * 1000.0, sc808::kCP_FloorTau * 1000.0);
-        check(fabs(sc808::kCP_MainTau - 0.0385) < 1e-6,
+                 w8::kCP_MainTau * 1000.0, w8::kCP_FloorTau * 1000.0);
+        check(fabs(w8::kCP_MainTau - 0.0385) < 1e-6,
               "the main decay is C144 x R365", d);
-        check(fabs(sc808::kCP_FloorTau - 0.330) < 1e-6,
+        check(fabs(w8::kCP_FloorTau - 0.330) < 1e-6,
               "the floor is C143 x R362", d);
     }
 
@@ -130,7 +130,7 @@ int main()
     {
         static const double REF[24] = { 42,14,42,19,49,42,47,100,79,69,57,45,
                                         36,27,23,20,16,16,10, 9, 7, 6, 8, 6 };
-        sc808::ClapCircuit c;
+        w8::ClapCircuit c;
         c.init(SR);
         c.trigger(1.0, 1.0f, 0.010f, 0.0f);
         std::vector<double> v;
@@ -174,7 +174,7 @@ int main()
     /* ---- the Decay pot scales the note --------------------------------- */
     {
         auto len = [](float dscale){
-            sc808::ClapCircuit c;
+            w8::ClapCircuit c;
             c.init(SR);
             c.trigger(1.0, dscale, 0.010f, 0.0f);
             std::vector<float> v((size_t)(SR * 4), 0.0f);
@@ -191,7 +191,7 @@ int main()
 
     /* ---- the note ends -------------------------------------------------- */
     {
-        sc808::ClapCircuit c;
+        w8::ClapCircuit c;
         c.init(SR);
         c.trigger(1.0, 2.8f, 0.010f, 0.0f);
         int n = 0;

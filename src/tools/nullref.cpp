@@ -1,12 +1,12 @@
 /*
- * nullref.cpp — render every Engine A voice at sc808's OWN defaults.
+ * nullref.cpp — render every Engine A voice at Engine A's OWN defaults.
  *
  * This is the other half of the null test. test/nrt_render.scd renders the
- * SynthDefs in scsynth; this renders the same voices from sc808_voices.h with
+ * SynthDefs in scsynth; this renders the same voices from w8_voices.h with
  * the same arguments the SynthDefs declare, so the two sets of WAVs should
  * agree sample for sample.
  *
- * It deliberately does NOT go through sc808_engine: no pots, no per-voice
+ * It deliberately does NOT go through w8_engine: no pots, no per-voice
  * trim, no drive stage, no accent. Those are 8W8's additions and would make
  * a difference that means nothing. The point here is the transcription only.
  *
@@ -17,11 +17,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sc808_voices.h"
+#include "w8_voices.h"
 
-using namespace sc808;
+using namespace w8;
 
-/* Storage behind the harness-only flag declared in sc_ugens.h. See the note
+/* Storage behind the harness-only flag declared in w8_ugens.h. See the note
  * there: SC constructs a synth per note and runs one sample through the whole
  * graph at construction time. Reproducing that here — and nowhere in the
  * engine — is what lets a persistent voice be compared with a per-note one. */
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
     const int frames = (int)(SR * SECONDS);
     const double sr = SR;
 
-    /* Every argument below is sc808's declared default for that SynthDef.
+    /* Every argument below is Engine A's declared default for that SynthDef.
      * Anything that looks like a magic number is quoted from the .scd. */
 
     { BassDrum v; v.init(sr);
@@ -154,7 +154,7 @@ int main(int argc, char **argv)
       control(ctrl, "rimshot", v, frames); }
 
     { RimClave v; v.init(sr);
-      /* claves are note 99 in sc808; the lane's Tune drives the rim at 92 and
+      /* claves are note 99 in Engine A; the lane's Tune drives the rim at 92 and
        * the +7 semitone offset lives in the voice, so pass the rim's note. */
       v.trigger(1, midicps(92.0f), 0.10f, 0.0, 0.0);
       render(dir, "claves", v, frames); }
@@ -166,7 +166,7 @@ int main(int argc, char **argv)
       control(ctrl, "maracas", v, frames); }
 
     { Cowbell v; v.init(sr);
-      /* sc808's notes resolve to 811.4 / 538.7 Hz, i.e. ratio 1.0 on the
+      /* Engine A's notes resolve to 811.4 / 538.7 Hz, i.e. ratio 1.0 on the
        * metal bank's oscillators 5 and 6. */
       v.trigger(1.0, 9.5f, midicps(59.0f), midicps(109.0f));
       render(dir, "cowbell", v, frames); }

@@ -5,7 +5,7 @@
 #   ./test/all.sh            the fast set
 #   ./test/all.sh --probes   also the per-UGen null probes (slower)
 #
-# What is NOT here, and cannot be: sc808_loadtest and sc808_bench are
+# What is NOT here, and cannot be: w8_loadtest and w8_bench are
 # cross-compiled for aarch64 and run ON the device. scripts/build.sh builds
 # them; deploy and run them there.
 #
@@ -36,11 +36,11 @@ step "generator is in sync with the checked-in header"
 # gen_params.py is the single source of truth for the pot table, chain_params,
 # and the page hierarchy. If someone edits the generated header by hand,
 # everything downstream silently disagrees with it.
-cp src/dsp/sc808_params.h build-native/params.before
+cp src/dsp/w8_params.h build-native/params.before
 python3 scripts/gen_params.py >/dev/null
-if diff -q build-native/params.before src/dsp/sc808_params.h >/dev/null
+if diff -q build-native/params.before src/dsp/w8_params.h >/dev/null
 then verdict 0; else
-  echo "   sc808_params.h differs from what gen_params.py emits"
+  echo "   w8_params.h differs from what gen_params.py emits"
   verdict 1
 fi
 
@@ -82,10 +82,10 @@ fi
 step "loadtest: the shipped .so, dlopened as the chain host does"
 # `verdict $?` after a `tail` reads TAIL's status, which is always 0 — this
 # step reported PASS with the binary missing entirely.
-if [ ! -x build-native/sc808_loadtest ] || [ ! -f build-native/dsp.so ]; then
+if [ ! -x build-native/w8_loadtest ] || [ ! -f build-native/dsp.so ]; then
   skip "not built — needs the build step above"
 else
-  ./build-native/sc808_loadtest ./build-native/dsp.so >build-native/loadtest.log 2>&1
+  ./build-native/w8_loadtest ./build-native/dsp.so >build-native/loadtest.log 2>&1
   l=$?
   tail -1 build-native/loadtest.log
   verdict $l
@@ -97,7 +97,7 @@ step "golden render — every lane still makes the sound it was signed off on"
 # that work; it lives in filter corners and envelope constants. This renders
 # every lane through the real engine and compares the samples bit for bit, so
 # structural work on the engine AROUND the voices cannot quietly move them.
-$CXX $FLAGS -o build-native/golden_check tools/golden_check.cpp src/dsp/sc808_engine.cpp
+$CXX $FLAGS -o build-native/golden_check tools/golden_check.cpp src/dsp/w8_engine.cpp
 ./build-native/golden_check >build-native/golden.log 2>&1
 g=$?
 tail -1 build-native/golden.log
@@ -105,7 +105,7 @@ tail -1 build-native/golden.log
 verdict $g
 
 step "velocity — one line, no threshold, and it only carves down"
-$CXX $FLAGS -o build-native/vel_check tools/vel_check.cpp src/dsp/sc808_engine.cpp
+$CXX $FLAGS -o build-native/vel_check tools/vel_check.cpp src/dsp/w8_engine.cpp
 ./build-native/vel_check >build-native/vel.log 2>&1
 v=$?
 grep -E 'never quieter|no step at 100|ignored' build-native/vel.log
@@ -123,7 +123,7 @@ step "every control reaches the audio"
 # HERE COULD SEE IT: freeze a knob at its exact default and golden_check,
 # kit_check, sd_check and the editor tests all pass clean. Only measuring
 # what a control DOES catches that.
-$CXX $FLAGS -o build-native/knob_check tools/knob_check.cpp src/dsp/sc808_engine.cpp
+$CXX $FLAGS -o build-native/knob_check tools/knob_check.cpp src/dsp/w8_engine.cpp
 ./build-native/knob_check >build-native/knob.log 2>&1
 kn=$?
 tail -2 build-native/knob.log
@@ -131,7 +131,7 @@ tail -2 build-native/knob.log
 verdict $kn
 
 step "kit balance and spectral placement"
-$CXX $FLAGS -o build-native/kit_check tools/kit_check.cpp src/dsp/sc808_engine.cpp
+$CXX $FLAGS -o build-native/kit_check tools/kit_check.cpp src/dsp/w8_engine.cpp
 ./build-native/kit_check >build-native/kit.log 2>&1
 k=$?
 grep -E 'worst lane|lanes land|wrong part|busy:' build-native/kit.log
@@ -152,7 +152,7 @@ tail -1 build-native/cp.log
 verdict $c
 
 step "circuit snare — Decay reaches the whole voice"
-$CXX $FLAGS -o build-native/sd_check tools/sd_check.cpp src/dsp/sc808_engine.cpp
+$CXX $FLAGS -o build-native/sd_check tools/sd_check.cpp src/dsp/w8_engine.cpp
 ./build-native/sd_check >build-native/sd.log 2>&1
 sd=$?
 grep -E 'real range' build-native/sd.log

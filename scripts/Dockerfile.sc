@@ -1,4 +1,4 @@
-# SuperCollider, headless, for NRT reference renders of sc808.
+# SuperCollider, headless, for NRT reference renders of Engine A.
 # ubuntu:22.04 ships SuperCollider 3.11 — sclang to compile the SynthDefs,
 # scsynth to render them offline. No jack, no Qt IDE: NRT writes a file.
 FROM ubuntu:22.04

@@ -1,5 +1,5 @@
 /*
- * sc_ugens.h — the SuperCollider UGens sc808 uses, as C++.
+ * w8_ugens.h — the SuperCollider UGens Engine A uses, as C++.
  *
  * 8W8's Engine A is a transcription of Sonic Pi's sc808.scd. A transcription
  * is only worth anything if it is EXACT, so nothing in this file is written
@@ -21,8 +21,8 @@
  *
  * GPL-3.0.
  */
-#ifndef SC_UGENS_H
-#define SC_UGENS_H
+#ifndef W8_UGENS_H
+#define W8_UGENS_H
 
 #include <math.h>
 #include <stdint.h>
@@ -99,13 +99,13 @@ private:
  * so reproducing this in the engine would be a BUG, not fidelity: it would
  * repeat a sample and jump a phase on every hit. It exists only so the null
  * test compares like with like, and it is compiled out of the module: the
- * flag and its branch live behind SC808_NULLTEST, which only the test tools
+ * flag and its branch live behind W8_NULLTEST, which only the test tools
  * define.
  *
  * The harness raises the flag, renders exactly one sample, lowers it, and
  * discards that sample.
  */
-#ifdef SC808_NULLTEST
+#ifdef W8_NULLTEST
 extern bool g_scPriming;
 #endif
 
@@ -122,7 +122,7 @@ extern bool g_scPriming;
  *     per step:  b1 *= grow;  out = a2 - b1
  *
  * which is level + (endLevel-level)(1 - e^{curve·t})/(1 - e^{curve}), t∈[0,1].
- * |curve| < 0.001 degenerates to linear, exactly as SC does — sc808 never
+ * |curve| < 0.001 degenerates to linear, exactly as SC does — Engine A never
  * relies on that, but a pot sweeping a curve through zero would.
  */
 struct EnvSeg {
@@ -134,11 +134,11 @@ struct EnvSeg {
 #define SC_ENV_MAX_SEGS 4
 
 /*
- * EnvGen.kr, and it really is .kr — every envelope in sc808 is.
+ * EnvGen.kr, and it really is .kr — every envelope in Engine A is.
  *
  * That is not a detail to smooth away. An EnvGen at control rate steps once
  * per 64-sample block, so its "sample rate" is 689 Hz at 44.1k, and a segment
- * of ZERO duration still occupies one whole control period — 1.45 ms. sc808
+ * of ZERO duration still occupies one whole control period — 1.45 ms. Engine A
  * leans on this: every voice's amplitude envelope is
  *
  *     Env.new([click, 1, 0], [0, decay], curve)
@@ -183,7 +183,7 @@ public:
      * boundaries, ramp linearly in between. */
     float next()
     {
-#ifdef SC808_NULLTEST
+#ifdef W8_NULLTEST
         /* During the construction sample an EnvGen reports its initial level
          * and does not step: EnvGen_Ctor's next(unit,1) runs with
          * m_stage == ENVGEN_NOT_STARTED. */
@@ -227,7 +227,7 @@ public:
      */
     float nextHeld()
     {
-#ifdef SC808_NULLTEST
+#ifdef W8_NULLTEST
         if(g_scPriming) return start_;
 #endif
         if(phase_ >= kBlockSize)
@@ -264,7 +264,7 @@ private:
      *     pitch envelope at 334.26 Hz where SC has 332.80, which sounds like
      *     nothing and drifts into a total phase decorrelation over a second.
      *   - a one-period segment is forced to Linear regardless of curve. This
-     *     is what actually renders sc808's zero-duration `click` segments:
+     *     is what actually renders Engine A's zero-duration `click` segments:
      *     one linear control period straight to the node.
      *
      * SAMPLERATE here is the CONTROL rate, because these are all EnvGen.kr.
@@ -335,7 +335,7 @@ private:
 };
 
 /* Env.perc(attack, release, level, curve) — levels [0, level, 0], the same
- * curve on both segments. SC's default curve is -4; sc808 always names one. */
+ * curve on both segments. SC's default curve is -4; Engine A always names one. */
 inline void envPerc(Env &_e, const float _attack, const float _release,
                     const float _level, const float _curve, const double _sr)
 {
@@ -402,7 +402,7 @@ private:
 };
 
 /* BPF's second argument is rq (reciprocal of Q), NOT bandwidth in Hz.
- * sc808 passes 1 or leaves it at the default 1. */
+ * Engine A passes 1 or leaves it at the default 1. */
 class BPF {
 public:
     void set(const double _freq, const double _rq, const double _sr)
@@ -645,7 +645,7 @@ private:
  *     phase += freq/sampleRate;
  *
  * Two things that matter and are easy to get wrong:
- *   1. the output is UNIPOLAR, 0..1. sc808's hi-hats sum six of these, so the
+ *   1. the output is UNIPOLAR, 0..1. Engine A's hi-hats sum six of these, so the
  *      sum carries a large DC term that the filter chain removes. Making it
  *      bipolar "because a square wave is bipolar" changes every hat.
  *   2. the wrap branch forces one sample of the opposite polarity, which is
@@ -672,12 +672,12 @@ private:
  *
  * SC's Limiter is a lookahead limiter over three rotating buffers of
  * `dur` seconds each (default 0.01 s). Two consequences that a naive
- * "just clip it" port would silently lose, and that sc808's bass drum
+ * "just clip it" port would silently lose, and that Engine A's bass drum
  * depends on:
  *
  *   - it delays the signal by TWO buffers, ~20 ms at the default. The
- *     sc808 kick therefore arrives ~20 ms late relative to every other
- *     voice. That is a property of sc808, not a bug in this port; the
+ *     Engine A kick therefore arrives ~20 ms late relative to every other
+ *     voice. That is a property of Engine A, not a bug in this port; the
  *     engine compensates for it explicitly and says so where it does.
  *   - it emits silence until two buffers have filled, so the very start
  *     of the first note is gone.
@@ -748,4 +748,4 @@ private:
 
 } /* namespace sc */
 
-#endif /* SC_UGENS_H */
+#endif /* W8_UGENS_H */
